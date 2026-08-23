@@ -40,10 +40,7 @@ function makeContext(overrides: Partial<CommandContext> = {}) {
 
   const args = (overrides.args ?? []) as string[];
   const command = overrides.commandName ?? 'play';
-  const resolved = mapPositionalOptions(
-    command === 'play' ? playCommand : skipCommand,
-    args,
-  );
+  const resolved = mapPositionalOptions(command === 'play' ? playCommand : skipCommand, args);
 
   const ctx: CommandContext = {
     guildId: 'g1',
@@ -86,9 +83,9 @@ describe('CommandRegistry', () => {
 
   it('rejects duplicate names and aliases', () => {
     expect(() => registry.register(playCommand)).toThrow(/Duplicate/);
-    expect(() =>
-      registry.register({ ...skipCommand, name: 'other', aliases: ['p'] }),
-    ).toThrow(/Duplicate/);
+    expect(() => registry.register({ ...skipCommand, name: 'other', aliases: ['p'] })).toThrow(
+      /Duplicate/,
+    );
   });
 
   it('groups commands by category', () => {

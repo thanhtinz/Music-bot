@@ -2,12 +2,7 @@ import type { CommandContext, PermissionTier } from './context';
 
 /** Grouping used by the help card (spec §5). */
 export type CommandCategory =
-  | 'playback'
-  | 'queue'
-  | 'playlist'
-  | 'filters'
-  | 'settings'
-  | 'general';
+  'playback' | 'queue' | 'playlist' | 'filters' | 'settings' | 'general';
 
 export interface CommandOption {
   name: string;
@@ -65,10 +60,7 @@ export function mapPositionalOptions(
 }
 
 /** Names of required options the invocation did not supply. */
-export function missingOptions(
-  command: Command,
-  resolved: ReadonlyMap<string, string>,
-): string[] {
+export function missingOptions(command: Command, resolved: ReadonlyMap<string, string>): string[] {
   return (command.options ?? [])
     .filter((option) => option.required && !resolved.get(option.name))
     .map((option) => option.name);

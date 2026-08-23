@@ -99,10 +99,7 @@ describe('renderQueueCard', () => {
   });
 
   it('is deterministic for identical input', async () => {
-    const [first, second] = await Promise.all([
-      renderQueueCard(data()),
-      renderQueueCard(data()),
-    ]);
+    const [first, second] = await Promise.all([renderQueueCard(data()), renderQueueCard(data())]);
 
     expect(first.equals(second)).toBe(true);
   });

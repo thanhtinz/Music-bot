@@ -3,10 +3,7 @@ import { totalDurationMs, type Track } from './track';
 export type LoopMode = 'off' | 'song' | 'queue';
 
 export type QueueErrorCode =
-  | 'QUEUE_FULL'
-  | 'QUEUE_EMPTY'
-  | 'POSITION_OUT_OF_RANGE'
-  | 'INVALID_POSITION';
+  'QUEUE_FULL' | 'QUEUE_EMPTY' | 'POSITION_OUT_OF_RANGE' | 'INVALID_POSITION';
 
 /** Domain-level queue failure carrying a code the command layer maps to text. */
 export class QueueError extends Error {

@@ -14,8 +14,8 @@ Every panel the user sees is rendered server-side with [`@napi-rs/canvas`](https
 - Three themes: `midnight`, `sunset`, `forest`
 - Full Unicode text support, including Vietnamese diacritics
 
-| Playing | Paused | Radio / live stream |
-|---|---|---|
+| Playing                              | Paused                              | Radio / live stream                |
+| ------------------------------------ | ----------------------------------- | ---------------------------------- |
 | ![](preview/now-playing-default.png) | ![](preview/now-playing-paused.png) | ![](preview/now-playing-radio.png) |
 
 The queue is rendered the same way — a paginated list card that grows with the page:
@@ -65,16 +65,16 @@ tests/               # unit tests
 
 ## Roadmap
 
-| Phase | Scope | Status |
-|---|---|---|
-| F1 | Project skeleton, config, logger, **canvas UI + Now Playing card** | ✅ done |
-| F2 | Domain: track and queue (loop, shuffle, history, snapshots) + queue card | ✅ done |
-| F3 | Unified command engine (slash + prefix + @mention) + help card | ✅ done |
-| F4 | Lavalink adapter + player manager | ⏳ |
-| F5 | Resolvers: YouTube / Spotify metadata / radio | ⏳ |
-| F6 | Queue / filter / stats cards, DJ permissions, playlists | ⏳ |
-| F7 | PostgreSQL + Redis, 24/7, autoplay, state recovery | ⏳ |
-| F8 | Lavalink cluster, failover, metrics, dashboard | ⏳ |
+| Phase | Scope                                                                    | Status  |
+| ----- | ------------------------------------------------------------------------ | ------- |
+| F1    | Project skeleton, config, logger, **canvas UI + Now Playing card**       | ✅ done |
+| F2    | Domain: track and queue (loop, shuffle, history, snapshots) + queue card | ✅ done |
+| F3    | Unified command engine (slash + prefix + @mention) + help card           | ✅ done |
+| F4    | Lavalink adapter + player manager                                        | ⏳      |
+| F5    | Resolvers: YouTube / Spotify metadata / radio                            | ⏳      |
+| F6    | Queue / filter / stats cards, DJ permissions, playlists                  | ⏳      |
+| F7    | PostgreSQL + Redis, 24/7, autoplay, state recovery                       | ⏳      |
+| F8    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
 
 ## License
 

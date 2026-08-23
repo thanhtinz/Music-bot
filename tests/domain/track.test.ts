@@ -55,7 +55,10 @@ describe('totalDurationMs', () => {
   });
 
   it('counts streams as zero-length', () => {
-    const tracks = [createTrack(input), createTrack({ ...input, identifier: 'live', durationMs: 0 })];
+    const tracks = [
+      createTrack(input),
+      createTrack({ ...input, identifier: 'live', durationMs: 0 }),
+    ];
     expect(totalDurationMs(tracks)).toBe(212_000);
   });
 

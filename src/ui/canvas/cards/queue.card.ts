@@ -146,7 +146,12 @@ function drawHeader(ctx: SKRSContext2D, theme: CanvasTheme, data: QueueCardData)
     ctx,
     { x: PADDING, y: centerY - 12, width: 5, height: 24 },
     2.5,
-    linearGradient(ctx, { x: PADDING, y: centerY - 12, width: 5, height: 24 }, theme.accent, 'vertical'),
+    linearGradient(
+      ctx,
+      { x: PADDING, y: centerY - 12, width: 5, height: 24 },
+      theme.accent,
+      'vertical',
+    ),
   );
 
   ctx.font = font(24, 'bold');
@@ -174,7 +179,12 @@ function drawCurrent(
   artwork: Image | undefined,
   top: number,
 ): void {
-  const panel: Rect = { x: PADDING, y: top, width: WIDTH - PADDING * 2, height: CURRENT_HEIGHT - 14 };
+  const panel: Rect = {
+    x: PADDING,
+    y: top,
+    width: WIDTH - PADDING * 2,
+    height: CURRENT_HEIGHT - 14,
+  };
 
   fillRoundedRect(ctx, panel, 16, theme.surface);
   strokeRoundedRect(ctx, panel, 16, theme.surfaceBorder, 1);
@@ -244,7 +254,11 @@ function drawRows(
     ctx.fillStyle = theme.textMuted;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('The queue is empty — add a track to get started.', WIDTH / 2, top + ROW_HEIGHT / 2);
+    ctx.fillText(
+      'The queue is empty — add a track to get started.',
+      WIDTH / 2,
+      top + ROW_HEIGHT / 2,
+    );
     return;
   }
 
