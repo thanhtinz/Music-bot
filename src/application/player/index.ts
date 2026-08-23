@@ -11,3 +11,6 @@ export {
   queriesFor,
 } from './autoplay';
 export type { AutoplaySelectorOptions } from './autoplay';
+export { progressBar, progressLine, PROGRESS_SEGMENTS } from './progress-line';
+export { lineFor, ProgressTicker, PROGRESS_TICK_MS } from './progress-ticker';
+export type { ProgressTickerOptions } from './progress-ticker';

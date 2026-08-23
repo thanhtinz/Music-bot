@@ -55,6 +55,7 @@ function makeContext(overrides: Partial<CommandContext> = {}) {
     correlationId: 'corr-1',
     reply: async (payload) => {
       replies.push(payload);
+      return undefined;
     },
     defer: async (ephemeral) => {
       deferred.push(Boolean(ephemeral));

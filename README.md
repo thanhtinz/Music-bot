@@ -242,6 +242,27 @@ A pending choice belongs to one person in one guild, so two people searching at 
 
 One thing to know about the failure case: the resolver registry catches a provider's own failure and drops its results so one dead source cannot empty the whole list, which leaves nothing here to tell an outage apart from a query that matches nothing. Both read as **No results**.
 
+## A progress bar that moves
+
+The card is a PNG, so the bar drawn inside it is frozen at the moment it was rendered. The live bar is the line of text above it:
+
+```
+▬▬▬▬▬▬▬▬🔘▬▬▬▬▬▬▬▬▬ `2:00 / 4:05`
+[ the Now Playing card ]
+```
+
+Every five seconds the ticker rewrites **only the message text**. Editing text leaves the attachment alone — discord.js omits `attachments` when no files are passed, and Discord keeps what it already has — so the image is neither re-uploaded nor re-fetched, and the panel does not blink.
+
+The alternative was redrawing the card each tick, and the measurements ruled it out. Encoding is the whole cost of a card: compositing the template takes ~0 ms, encoding the 1536×1024 PNG takes ~660 ms and produces 947 KB. A four-minute song at a five-second cadence is 48 renders — **45 MB and 32 seconds of CPU per song per guild**, before a second guild plays anything. The text line costs one edit of a couple of hundred bytes and no encoding at all.
+
+Details that matter more than they look:
+
+- The knob replaces a block rather than sitting between two, so the bar is the same width at 0:00 and at 4:05 and the line never reflows under the card.
+- A paused player's line says `· paused`, then stops changing — a bar that quietly stopped moving looks identical to one that broke.
+- A live stream gets `🔘 **LIVE**` and no ticker at all: there is no position to follow.
+- An unchanged line is not sent. `setContent` returning `false` — a deleted panel, or an interaction token past its fifteen minutes — stops the ticker rather than retrying.
+- One panel per guild. A second `nowplaying` adopts the new panel and drops the old one, so two tickers never spend two requests saying the same thing.
+
 ## Stepping through a track
 
 `seek` needs a position; `forward`, `rewind` and `replay` need nothing at all. Missing a line is the common case, so `forward` and `rewind` move ten seconds unless told otherwise (`forward 30`, `rewind 1:00`), and `replay` goes back to the top.

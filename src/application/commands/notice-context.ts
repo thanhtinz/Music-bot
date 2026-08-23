@@ -55,7 +55,7 @@ export function withNoticeCards(
           tone: payload.tone ?? (payload.ephemeral ? 'warning' : 'success'),
         });
 
-        await ctx.reply({
+        return await ctx.reply({
           ...rest,
           attachments: [{ name: options.fileName ?? 'notice.png', data: card }],
         });
@@ -63,7 +63,7 @@ export function withNoticeCards(
         // A card that will not draw must not swallow what the bot was trying
         // to say, so the original text goes out instead.
         logger.warn({ err: error }, 'could not render a notice card; replying with text');
-        await ctx.reply(payload);
+        return await ctx.reply(payload);
       }
     },
 

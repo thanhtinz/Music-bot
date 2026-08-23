@@ -22,7 +22,8 @@ import {
   type NowPlayingCardData,
 } from '../../ui/canvas';
 import { satisfiesTier, type CommandContext } from '../commands';
-import type { Player, PlayerManager } from '../player';
+import { lineFor } from '../player';
+import type { Player, PlayerManager, ProgressTicker } from '../player';
 
 const logger = createLogger('music-service');
 
@@ -37,6 +38,13 @@ export interface MusicServiceOptions {
   nowPlayingComponents?: (player: Player) => unknown[];
   /** Builds the button rows attached to a queue panel. */
   queueComponents?: (page: number, totalPages: number) => unknown[];
+  /**
+   * Keeps the progress line above a panel moving.
+   *
+   * Optional, so a service built for a test or the preview harness sends a
+   * panel without starting a timer nothing will ever stop.
+   */
+  progress?: Pick<ProgressTicker, 'watch' | 'stop'>;
   /**
    * The volume a guild's players should start at.
    *
@@ -825,11 +833,17 @@ export class MusicService {
 
     const card = await renderNowPlayingCard(this.toCardData(player, current));
 
-    await ctx.reply({
+    const handle = await ctx.reply({
+      // The bar lives in the message text, above the card. That is what lets it
+      // move without the image being redrawn: an edit that changes only the
+      // text leaves the attachment alone, so the panel does not blink.
+      content: lineFor(player),
       attachments: [{ name: 'now-playing.png', data: card }],
       components: this.options.nowPlayingComponents?.(player),
       edit: true,
     });
+
+    this.options.progress?.watch(player, handle);
   }
 
   private toCardData(player: Player, current: Track): NowPlayingCardData {

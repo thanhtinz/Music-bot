@@ -434,12 +434,27 @@ function createButtonContext(
       try {
         if (payload.ephemeral) {
           await interaction.followUp({ ...options, ephemeral: true });
-          return;
+          return undefined;
         }
 
         await interaction.editReply(options);
+
+        // The panel a button sits on can go on being updated: rewriting its
+        // text leaves the card in place, so a moving progress line does not
+        // make the image blink.
+        return {
+          async setContent(content: string) {
+            try {
+              await interaction.editReply({ content });
+              return true;
+            } catch {
+              return false;
+            }
+          },
+        };
       } catch (error) {
         logger.warn({ err: error, action: interaction.customId }, 'button reply failed');
+        return undefined;
       }
     },
   };

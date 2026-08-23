@@ -11,6 +11,7 @@ import {
   type Command,
   type CommandContext,
   type PermissionTier,
+  type ReplyHandle,
   type ReplyPayload,
 } from '../../application/commands';
 import { createLogger } from '../../telemetry/logger';
@@ -94,10 +95,58 @@ export function createInteractionContext(
           await interaction.reply(options);
         }
         replied = true;
+
+        // An ephemeral reply is nobody's panel, and editing one later has no
+        // audience to keep up to date.
+        return payload.ephemeral ? undefined : editContentOf(interaction);
       } catch (error) {
         // A reply can fail because the interaction token expired (3s to ack,
         // 15 minutes to edit); losing the reply must not fail the command.
         logger.warn({ err: error, commandName: interaction.commandName }, 'reply failed');
+        return undefined;
+      }
+    },
+  };
+}
+
+/**
+ * A handle that rewrites an interaction reply's text and nothing else.
+ *
+ * `editReply` with only `content` leaves the attachment where it is, so the
+ * card is not re-uploaded and a viewer's client does not re-fetch it — which is
+ * what keeps a moving progress line from making the panel blink.
+ */
+function editContentOf(interaction: ChatInputCommandInteraction): ReplyHandle {
+  return {
+    async setContent(content: string) {
+      try {
+        await interaction.editReply({ content });
+        return true;
+      } catch (error) {
+        // The token lasts fifteen minutes; a longer song outlives it, and the
+        // caller is expected to stop rather than retry.
+        logger.debug({ err: error }, 'could not edit an interaction reply');
+        return false;
+      }
+    },
+  };
+}
+
+/**
+ * The same for a plain message the bot sent itself.
+ *
+ * A message the bot authored has no token behind it, so this one keeps working
+ * for as long as the message exists.
+ */
+function editContentOfMessage(sent: Message): ReplyHandle {
+  return {
+    async setContent(content: string) {
+      try {
+        await sent.edit({ content });
+        return true;
+      } catch (error) {
+        logger.debug({ err: error }, 'could not edit a sent message');
+        return false;
       }
     },
   };
@@ -148,13 +197,15 @@ export function createMessageContext(
       try {
         if (payload.edit && sent) {
           await sent.edit(options);
-          return;
+          return editContentOfMessage(sent);
         }
 
         // Prefix commands have no ephemeral mode; the reply is just a message.
         sent = await message.reply(options);
+        return editContentOfMessage(sent);
       } catch (error) {
         logger.warn({ err: error, commandName: parsed.name }, 'reply failed');
+        return undefined;
       }
     },
   };

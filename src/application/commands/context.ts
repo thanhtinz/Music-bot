@@ -44,6 +44,24 @@ export interface ReplyPayload {
 }
 
 /**
+ * A reply that can still be changed after it was sent.
+ *
+ * Only the line of text above a card is editable through this, on purpose:
+ * changing the text leaves the attachment alone, so a viewer's client updates
+ * the words without re-fetching the image — the panel does not blink.
+ */
+export interface ReplyHandle {
+  /**
+   * Replaces the text above the card.
+   *
+   * Returns `false` once the message can no longer be edited — deleted, or an
+   * interaction token past its fifteen minutes — which is the signal to whoever
+   * is updating it to stop.
+   */
+  setContent(content: string): Promise<boolean>;
+}
+
+/**
  * Everything a command needs to know about its invocation.
  *
  * Slash, prefix, and mention all produce this same object, which is what lets
@@ -65,7 +83,15 @@ export interface CommandContext {
   /** Correlation id threaded through logs and metrics (spec §23.2). */
   readonly correlationId: string;
 
-  reply(payload: ReplyPayload): Promise<void>;
+  /**
+   * Sends the reply, handing back a way to keep editing it.
+   *
+   * The handle is what makes a live panel possible: whatever sent the message
+   * — an interaction, a plain message, a button press — knows how to edit it,
+   * and nothing else has to learn. Callers that only want to answer and be
+   * done can ignore the return value.
+   */
+  reply(payload: ReplyPayload): Promise<ReplyHandle | undefined>;
   /** Acknowledges early when resolving may take a while (spec §35). */
   defer(ephemeral?: boolean): Promise<void>;
   /** Named option value; slash options and positional args resolve the same way. */

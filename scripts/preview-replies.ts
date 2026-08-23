@@ -99,6 +99,10 @@ function save(capture: Capture, file: string): void {
   const buttons = describeComponents(reply?.components);
   const size = `${(card.data.byteLength / 1024).toFixed(1)} KB`;
   console.log(`rendered ${file} (${size})${buttons ? ` + buttons: ${buttons}` : ''}`);
+
+  // The line above the card is text, not part of the image, so it is printed
+  // for review the same way the buttons are.
+  if (reply?.content) console.log(`   line: ${reply.content}`);
 }
 
 /** The actions behind a reply's components, as the ids encode them. */

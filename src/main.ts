@@ -2,7 +2,13 @@ import { Events, type Client } from 'discord.js';
 import { Connectors, Shoukaku } from 'shoukaku';
 
 import { CommandRegistry } from './application/commands';
-import { AutoplaySelector, IdleMonitor, PlayerManager, type Player } from './application/player';
+import {
+  AutoplaySelector,
+  IdleMonitor,
+  PlayerManager,
+  ProgressTicker,
+  type Player,
+} from './application/player';
 import { InMemorySessionRepository, restoreSessions, SessionRecorder } from './application/session';
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { InMemorySettingsRepository, SettingsService } from './application/settings';
@@ -120,9 +126,18 @@ async function main(): Promise<void> {
     : new InMemoryStatsRepository();
   const statsRecorder = new StatsRecorder(statsStore);
 
+  // The moving line above a Now Playing panel. Only the message text is
+  // rewritten, so the card is never re-encoded and never re-fetched.
+  const progress = new ProgressTicker();
+
   players.onPlayerCreated = (player) => {
     sessions.watch(player);
     statsRecorder.watch(player);
+
+    // A panel belongs to the track it was sent for: when that track ends there
+    // is nothing left to follow, and the next one sends a panel of its own.
+    player.on('trackEnd', ({ guildId }) => progress.stop(guildId));
+    player.on('queueEnd', ({ guildId }) => progress.stop(guildId));
   };
 
   const service = new MusicService(players, resolvers, {
@@ -140,6 +155,7 @@ async function main(): Promise<void> {
         muted: player.muted,
       }),
     queueComponents: (page, totalPages) => buildQueuePagination(page, totalPages),
+    progress,
     startingVolumeFor: async (guildId) => (await settings.forGuild(guildId)).defaultVolume,
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
     guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
@@ -353,6 +369,7 @@ async function main(): Promise<void> {
       log.warn({ err: error }, 'could not save sessions on the way out');
     });
     sessions.stop();
+    progress.stopAll();
 
     await players.destroyAll().catch(() => undefined);
     await health?.stop().catch(() => undefined);
