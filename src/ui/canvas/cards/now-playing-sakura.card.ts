@@ -69,13 +69,166 @@ const ACCENT: readonly [string, string] = ['#f78fb3', '#f2668f'];
 const BUTTON_PINK = '#f984a7';
 const PILL_BORDER = '#f0d6de';
 
-/** Badge colors so a source reads at a glance even without its logo. */
+/** Brand colour per source, used as the badge mark's fill. */
 const SOURCE_COLORS: Record<string, string> = {
   youtube: '#ff0033',
   spotify: '#1db954',
   soundcloud: '#ff5500',
   radio: '#f2668f',
   http: '#8b8b8b',
+};
+
+/**
+ * Draws a source's mark inside a box of `size` height at `(x, y)`.
+ *
+ * Each source gets its own silhouette — a play tile only means YouTube, so
+ * reusing it everywhere mislabels the others. Returns the width consumed.
+ */
+type SourceMark = (ctx: SKRSContext2D, x: number, y: number, size: number, color: string) => number;
+
+const drawYouTubeMark: SourceMark = (ctx, x, y, size, color) => {
+  const width = size * 1.42;
+  const height = size;
+  fillRoundedRect(ctx, { x, y, width, height }, height * 0.28, color);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(x + width * 0.4, y + height * 0.27);
+  ctx.lineTo(x + width * 0.66, y + height / 2);
+  ctx.lineTo(x + width * 0.4, y + height * 0.73);
+  ctx.closePath();
+  ctx.fill();
+
+  return width;
+};
+
+const drawSpotifyMark: SourceMark = (ctx, x, y, size, color) => {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Three bars bowing upward, widest at the top — drawn as quadratic curves so
+  // their spacing stays even instead of bunching up the way concentric arcs do.
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineCap = 'round';
+
+  const bars = [
+    { apexY: cy - r * 0.4, halfWidth: r * 0.6, dip: r * 0.2, lineWidth: r * 0.2 },
+    { apexY: cy + r * 0.02, halfWidth: r * 0.48, dip: r * 0.16, lineWidth: r * 0.17 },
+    { apexY: cy + r * 0.4, halfWidth: r * 0.36, dip: r * 0.12, lineWidth: r * 0.14 },
+  ];
+
+  for (const bar of bars) {
+    ctx.beginPath();
+    ctx.lineWidth = bar.lineWidth;
+    ctx.moveTo(cx - bar.halfWidth, bar.apexY + bar.dip);
+    ctx.quadraticCurveTo(cx, bar.apexY - bar.dip, cx + bar.halfWidth, bar.apexY + bar.dip);
+    ctx.stroke();
+  }
+
+  return size;
+};
+
+const drawSoundCloudMark: SourceMark = (ctx, x, y, size, color) => {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Waveform bars, the shape SoundCloud is recognised by.
+  const heights = [0.34, 0.58, 0.78, 0.58, 0.4];
+  const barWidth = size * 0.09;
+  const gap = size * 0.055;
+  const totalWidth = heights.length * barWidth + (heights.length - 1) * gap;
+  let barX = cx - totalWidth / 2;
+
+  for (const height of heights) {
+    const barHeight = size * height * 0.62;
+    fillRoundedRect(
+      ctx,
+      { x: barX, y: cy + size * 0.2 - barHeight, width: barWidth, height: barHeight },
+      barWidth / 2,
+      '#ffffff',
+    );
+    barX += barWidth + gap;
+  }
+
+  return size;
+};
+
+const drawRadioMark: SourceMark = (ctx, x, y, size, color) => {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  // Broadcast waves either side of the emitter dot.
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineCap = 'round';
+  for (const radius of [r * 0.46, r * 0.72]) {
+    ctx.lineWidth = r * 0.14;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, Math.PI * 0.75, Math.PI * 1.25);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, -Math.PI * 0.25, Math.PI * 0.25);
+    ctx.stroke();
+  }
+
+  return size;
+};
+
+const drawGenericMark: SourceMark = (ctx, x, y, size, color) => {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // A single note: head, stem, flag.
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.22, cy + r * 0.34, r * 0.28, r * 0.22, -0.35, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillRect(cx + r * 0.02, cy - r * 0.55, r * 0.14, r * 0.95);
+
+  ctx.beginPath();
+  ctx.moveTo(cx + r * 0.16, cy - r * 0.55);
+  ctx.quadraticCurveTo(cx + r * 0.62, cy - r * 0.42, cx + r * 0.42, cy - r * 0.02);
+  ctx.quadraticCurveTo(cx + r * 0.5, cy - r * 0.34, cx + r * 0.16, cy - r * 0.3);
+  ctx.closePath();
+  ctx.fill();
+
+  return size;
+};
+
+const SOURCE_MARKS: Record<string, SourceMark> = {
+  youtube: drawYouTubeMark,
+  spotify: drawSpotifyMark,
+  soundcloud: drawSoundCloudMark,
+  radio: drawRadioMark,
 };
 
 let templateCache: Image | undefined;
@@ -210,10 +363,14 @@ function drawSourceBadge(ctx: SKRSContext2D, data: NowPlayingCardData): void {
   const source = (data.source ?? 'unknown').toLowerCase();
   const label = source.toUpperCase();
 
+  const markSize = 34;
+  const drawMark = SOURCE_MARKS[source] ?? drawGenericMark;
+  // YouTube's mark is a wide tile; the rest are circles.
+  const markWidth = source === 'youtube' ? markSize * 1.42 : markSize;
+
   ctx.font = font(26, 'bold');
   const textWidth = ctx.measureText(label).width;
-  const glyphWidth = 40;
-  const width = Math.max(pill.width, glyphWidth + textWidth + 62);
+  const width = Math.max(pill.width, markWidth + textWidth + 62);
 
   coverWithBackground(
     ctx,
@@ -225,28 +382,15 @@ function drawSourceBadge(ctx: SKRSContext2D, data: NowPlayingCardData): void {
   fillRoundedRect(ctx, rect, pill.height / 2, '#ffffff');
   strokeRoundedRect(ctx, rect, pill.height / 2, PILL_BORDER, 2);
 
-  // Rounded tile + white play triangle, standing in for each source's mark.
-  const glyph: Rect = {
-    x: rect.x + 22,
-    y: rect.y + (rect.height - 28) / 2,
-    width: glyphWidth,
-    height: 28,
-  };
-  fillRoundedRect(ctx, glyph, 8, SOURCE_COLORS[source] ?? '#8b8b8b');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.moveTo(glyph.x + 16, glyph.y + 8);
-  ctx.lineTo(glyph.x + 26, glyph.y + glyph.height / 2);
-  ctx.lineTo(glyph.x + 16, glyph.y + glyph.height - 8);
-  ctx.closePath();
-  ctx.fill();
+  const markX = rect.x + 20;
+  const markY = rect.y + (rect.height - markSize) / 2;
+  const drawnWidth = drawMark(ctx, markX, markY, markSize, SOURCE_COLORS[source] ?? '#8b8b8b');
 
   ctx.font = font(26, 'bold');
   ctx.fillStyle = INK;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, glyph.x + glyph.width + 14, rect.y + rect.height / 2 + 1);
+  ctx.fillText(label, markX + drawnWidth + 14, rect.y + rect.height / 2 + 1);
 }
 
 function progressRatio(data: NowPlayingCardData): number {

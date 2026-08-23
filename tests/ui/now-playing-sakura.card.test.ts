@@ -65,13 +65,33 @@ describe('renderSakuraNowPlayingCard', () => {
     expect(playing.equals(paused)).toBe(false);
   });
 
-  it('badges each source differently', async () => {
-    const [youtube, spotify] = await Promise.all([
-      renderSakuraNowPlayingCard({ ...BASE, source: 'youtube' }),
-      renderSakuraNowPlayingCard({ ...BASE, source: 'spotify' }),
+  it('draws a distinct mark for every known source', async () => {
+    // Each source owns its silhouette: a play tile means YouTube and nothing
+    // else, so no two badges may render identically.
+    const sources = ['youtube', 'spotify', 'soundcloud', 'radio', 'http'];
+    const rendered = await Promise.all(
+      sources.map((source) => renderSakuraNowPlayingCard({ ...BASE, source })),
+    );
+
+    for (let i = 0; i < rendered.length; i += 1) {
+      for (let j = i + 1; j < rendered.length; j += 1) {
+        expect(
+          rendered[i]!.equals(rendered[j]!),
+          `${sources[i]} and ${sources[j]} render the same badge`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('falls back to the generic mark for an unknown source', async () => {
+    const [unknown, http] = await Promise.all([
+      renderSakuraNowPlayingCard({ ...BASE, source: 'bandcamp' }),
+      renderSakuraNowPlayingCard({ ...BASE, source: 'http' }),
     ]);
 
-    expect(youtube.equals(spotify)).toBe(false);
+    // Same mark, different label — so the images differ but neither throws.
+    expect(unknown.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expect(unknown.equals(http)).toBe(false);
   });
 
   it('renders live streams without a knob', async () => {
