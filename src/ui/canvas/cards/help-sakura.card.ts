@@ -5,6 +5,7 @@ import { createCanvas, loadImage, type Image, type SKRSContext2D } from '@napi-r
 
 import { font, registerFonts } from '../fonts';
 import { drawGlyph, glyphFor } from '../glyphs';
+import { drawMascot } from '../mascot';
 import { fillRoundedRect, truncateText, type Rect } from '../primitives';
 
 /**
@@ -129,6 +130,11 @@ export async function renderSakuraHelpCard(data: HelpSakuraCardData): Promise<Bu
   const ctx = canvas.getContext('2d');
 
   ctx.drawImage(template, 0, 0, HELP_SAKURA_TEMPLATE_SIZE.width, HELP_SAKURA_TEMPLATE_SIZE.height);
+
+  // The blob mascot baked here sits across the list panel's rounded corner, so
+  // a flat patch would leave a visible rectangle. The brand mascot is drawn
+  // over it at a size that covers it instead.
+  await drawMascot(ctx, { centerX: 1410, bottomY: 1002, height: 154 });
 
   drawPrefix(ctx, data);
   drawSidebar(ctx, data);

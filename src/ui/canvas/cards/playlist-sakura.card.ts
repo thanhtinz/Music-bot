@@ -12,12 +12,12 @@ import {
   withRoundedClip,
   type Rect,
 } from '../primitives';
+import { BOT_NAME, drawMascot } from '../mascot';
 import {
   drawBow,
   drawHeartSwirl,
   drawMusicNote,
   drawSparkle,
-  drawSproutMascot,
   drawStar,
   SAKURA_STICKER_COLORS,
 } from '../stickers';
@@ -106,6 +106,7 @@ export async function renderSakuraPlaylistCard(data: PlaylistCardData): Promise<
 
   drawBackground(ctx);
   drawStickers(ctx);
+  await drawMascot(ctx, { centerX: 1374, bottomY: 964, height: 150 });
   drawHeader(ctx, data);
 
   const entries = data.entries.slice(0, PLAYLIST_SAKURA_PAGE_SIZE);
@@ -140,11 +141,9 @@ function drawStickers(ctx: SKRSContext2D): void {
   drawSparkle(ctx, 1348, 158, 14, colors.yellow);
 
   drawHeartSwirl(ctx, 112, 906, 76, colors.pinkSoft);
-  drawSproutMascot(ctx, 1362, 926, 150, colors);
-  drawMusicNote(ctx, 1236, 906, 40, colors.pink);
-  drawStar(ctx, 1180, 962, 26, colors.yellow, '#eab54f');
-  drawSparkle(ctx, 1290, 972, 16, colors.pinkSoft);
-  drawSparkle(ctx, 1462, 862, 14, colors.pinkSoft);
+  drawMusicNote(ctx, 1218, 902, 40, colors.pink);
+  drawStar(ctx, 1162, 958, 26, colors.yellow, '#eab54f');
+  drawSparkle(ctx, 1272, 968, 16, colors.pinkSoft);
 }
 
 function drawHeader(ctx: SKRSContext2D, data: PlaylistCardData): void {
@@ -177,7 +176,7 @@ function drawHeader(ctx: SKRSContext2D, data: PlaylistCardData): void {
   ctx.font = font(22);
   ctx.fillStyle = COLORS.inkSoft;
   ctx.fillText(
-    truncateText(ctx, `Saved by ${data.ownerName}`, 520),
+    truncateText(ctx, `${BOT_NAME}  ·  saved by ${data.ownerName}`, 520),
     iconBox.x + iconBox.width + 22,
     HEADER_BASELINE + 24,
   );

@@ -5,6 +5,7 @@ import { createCanvas, loadImage, type Image, type SKRSContext2D } from '@napi-r
 
 import { loadArtwork } from '../artwork';
 import { font, registerFonts } from '../fonts';
+import { drawMascot } from '../mascot';
 import {
   clamp,
   drawImageCover,
@@ -59,6 +60,14 @@ const REGION = {
   times: { left: 605, right: 1208, baseline: 669, size: 30 },
 
   playButton: { cx: 759, cy: 813, radius: 60 },
+
+  /**
+   * The potted plant baked into the artwork.
+   *
+   * It has a face, so next to the brand mascot it reads as a second character;
+   * the card paints it out and lets the cat be the only one.
+   */
+  bakedPlant: { x: 1232, y: 344, width: 240, height: 312 },
 } as const;
 
 const INK = '#2c2724';
@@ -265,6 +274,10 @@ export async function renderSakuraNowPlayingCard(data: NowPlayingCardData): Prom
   ctx.drawImage(template, 0, 0, SAKURA_TEMPLATE_SIZE.width, SAKURA_TEMPLATE_SIZE.height);
 
   const artwork = await loadArtwork(data.artworkUrl, `${data.title} ${data.author}`);
+
+  coverWithBackground(ctx, REGION.bakedPlant, { x: 1500, y: 300 });
+  // The bottom-left corner is the only empty stretch of this layout.
+  await drawMascot(ctx, { centerX: 158, bottomY: 978, height: 140 });
 
   drawArtwork(ctx, artwork);
   drawStatusLabel(ctx, data);

@@ -5,6 +5,7 @@ import { createCanvas, loadImage, type Image, type SKRSContext2D } from '@napi-r
 
 import { loadArtwork } from '../artwork';
 import { font, registerFonts } from '../fonts';
+import { drawMascot } from '../mascot';
 import {
   drawImageCover,
   formatDuration,
@@ -166,6 +167,23 @@ const DURATION_INK_CURRENT = '#ec5f80';
 const INDEX_INK = '#8f5f66';
 const COUNT_INK = '#ef6f93';
 
+/**
+ * The blob mascot baked into the artwork, which the brand mascot replaces.
+ *
+ * Measured generously enough to take its sprout and outline with it, while
+ * staying clear of the sticker cluster to its left.
+ */
+const BAKED_MASCOT = { x: 706, y: 826, width: 152, height: 148 } as const;
+
+/**
+ * A column of the same rows that holds nothing but background.
+ *
+ * The blob sits on the panel's bottom border, so a flat fill cannot hide it —
+ * it would erase the border along with the blob. Copying a clean column across
+ * at the same height brings the border with it.
+ */
+const BAKED_MASCOT_DONOR_X = 380;
+
 /** Points known to be plain background, used to sample patch colours. */
 const SAMPLE = {
   currentRow: { x: 1200, y: 300 },
@@ -219,6 +237,21 @@ export async function renderSakuraQueueCard(data: QueueCardData): Promise<Buffer
   );
 
   const rows = buildRows(data);
+
+  ctx.drawImage(
+    template,
+    BAKED_MASCOT_DONOR_X,
+    BAKED_MASCOT.y,
+    BAKED_MASCOT.width,
+    BAKED_MASCOT.height,
+    BAKED_MASCOT.x,
+    BAKED_MASCOT.y,
+    BAKED_MASCOT.width,
+    BAKED_MASCOT.height,
+  );
+  // Feet stop above the panel's bottom border: any lower and the border line
+  // runs straight through the paws.
+  await drawMascot(ctx, { centerX: 786, bottomY: 944, height: 148 });
 
   drawHeaderCount(ctx, data, rows.length);
   clearUnusedRows(ctx, rows.length);
