@@ -242,6 +242,18 @@ A pending choice belongs to one person in one guild, so two people searching at 
 
 One thing to know about the failure case: the resolver registry catches a provider's own failure and drops its results so one dead source cannot empty the whole list, which leaves nothing here to tell an outage apart from a query that matches nothing. Both read as **No results**.
 
+## Stepping through a track
+
+`seek` needs a position; `forward`, `rewind` and `replay` need nothing at all. Missing a line is the common case, so `forward` and `rewind` move ten seconds unless told otherwise (`forward 30`, `rewind 1:00`), and `replay` goes back to the top.
+
+![](preview/reply-forward.png)
+
+Each one redraws the panel, because the panel is the answer — the progress bar is where the jump landed. The distance is relative on purpose: somebody who wants the last ten seconds again should not have to read the clock, do the subtraction and type the result. Jumping past either end lands on that end rather than off it.
+
+A live stream has no position to jump to. The player quietly ignores the attempt, so all three say so instead of redrawing an unchanged panel:
+
+![](preview/reply-forward-stream.png)
+
 ## Voting to skip
 
 `skip` (also `voteskip`, `vs`) is open to everyone now, and gated by a vote:

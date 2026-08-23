@@ -397,10 +397,64 @@ export class MusicService {
 
   async seek(ctx: CommandContext, positionMs: number): Promise<void> {
     const player = this.require(ctx);
-    if (!player) return;
+    if (!player || !(await this.refuseUnseekable(ctx, player))) return;
 
     await this.players.withLock(ctx.guildId, () => player.seek(positionMs));
     await this.sendNowPlaying(ctx, player);
+  }
+
+  /**
+   * Jumps forward or back from wherever the track is now.
+   *
+   * Relative rather than absolute, because that is the ask: somebody who wants
+   * to hear the last ten seconds again should not have to read the clock, do
+   * the subtraction and type the answer.
+   */
+  async nudge(ctx: CommandContext, deltaMs: number): Promise<void> {
+    const player = this.require(ctx);
+    if (!player || !(await this.refuseUnseekable(ctx, player))) return;
+
+    // Clamped by the player against the track's own length, so jumping ten
+    // seconds past the end lands on the end rather than off it.
+    await this.players.withLock(ctx.guildId, () => player.seek(player.positionMs + deltaMs));
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  /** Starts the current track again from the top. */
+  async replay(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player || !(await this.refuseUnseekable(ctx, player))) return;
+
+    await this.players.withLock(ctx.guildId, () => player.seek(0));
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  /**
+   * Whether the current track can be seeked, saying why when it cannot.
+   *
+   * A live stream has no position to jump to, and the player quietly ignores
+   * the attempt — so without this the panel would be redrawn unchanged and
+   * whoever asked would be left guessing.
+   */
+  private async refuseUnseekable(ctx: CommandContext, player: Player): Promise<boolean> {
+    const current = player.queue.current;
+
+    if (!current) {
+      await ctx.reply({ content: 'Nothing is playing right now.', ephemeral: true });
+      return false;
+    }
+
+    if (current.isStream) {
+      await ctx.reply({
+        content: 'This is a live stream — there is no position to jump to.',
+        title: 'Seek',
+        icon: 'clock',
+        ephemeral: true,
+      });
+      return false;
+    }
+
+    return true;
   }
 
   async setVolume(ctx: CommandContext, volume: number): Promise<void> {

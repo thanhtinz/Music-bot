@@ -1,4 +1,4 @@
-import { prefixFor, type Command } from '../application/commands';
+import { prefixFor, type Command, type CommandContext } from '../application/commands';
 import type { PlaylistService } from '../application/playlist';
 import type { LyricsService } from '../application/services/lyrics.service';
 import type { SettingsService } from '../application/settings';
@@ -107,6 +107,9 @@ export function parsePlaylistRequest(
   return { action, name: tokens.join(' ').trim() };
 }
 
+/** How far `forward` and `rewind` go when nobody says. */
+const DEFAULT_NUDGE_SECONDS = 10;
+
 /** Human-facing names for the catalog's category keys. */
 const CATEGORY_TITLES: Record<string, string> = {
   playback: 'Player',
@@ -124,6 +127,29 @@ const CATEGORY_TITLES: Record<string, string> = {
  * command's metadata cannot drift from its behaviour.
  */
 export function buildCommands(service: MusicService, options: HandlerOptions): Command[] {
+  /**
+   * `forward` and `rewind`, which differ only in which way they go.
+   *
+   * Ten seconds by default: the common case is having missed a line, and
+   * somebody who wants a specific distance can still name one.
+   */
+  const nudge = async (ctx: CommandContext, direction: 1 | -1): Promise<void> => {
+    const raw = ctx.option('seconds') ?? ctx.rest.trim();
+    const seconds = raw === '' ? DEFAULT_NUDGE_SECONDS : parseTimeToSeconds(raw);
+
+    if (seconds <= 0) {
+      await ctx.reply({
+        content: 'Give me a distance like `30`, `1:00` or `1m30s`.',
+        title: direction === 1 ? 'Forward' : 'Rewind',
+        icon: 'clock',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await service.nudge(ctx, direction * seconds * 1000);
+  };
+
   const executors: Record<string, Command['execute']> = {
     play: async (ctx) => service.play(ctx, ctx.option('query') ?? ctx.rest),
     playnext: async (ctx) => service.playNext(ctx, ctx.option('query') ?? ctx.rest),
@@ -154,6 +180,10 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
       await service.seek(ctx, seconds * 1000);
     },
+
+    replay: async (ctx) => service.replay(ctx),
+    forward: async (ctx) => nudge(ctx, 1),
+    rewind: async (ctx) => nudge(ctx, -1),
 
     volume: async (ctx) => {
       const raw = ctx.option('level');

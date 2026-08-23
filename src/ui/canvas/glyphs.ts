@@ -66,6 +66,15 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
   volume: 'volume',
   vol: 'volume',
   seek: 'clock',
+  // Stepping through a track is a seek by another name; going back to the top
+  // is the loop the `loop` command draws.
+  forward: 'clock',
+  ff: 'clock',
+  fwd: 'clock',
+  rewind: 'clock',
+  rw: 'clock',
+  replay: 'loop',
+  restart: 'loop',
   prefix: 'list',
   djrole: 'gear',
   idletimeout: 'clock',

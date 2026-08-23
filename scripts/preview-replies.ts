@@ -227,6 +227,39 @@ async function main(): Promise<void> {
   await music.setVolume(volume.ctx, 85);
   save(volume, 'reply-volume.png');
 
+  // Stepping through a track: the panel is the answer, with the progress bar
+  // where the jump left it.
+  await player?.seek(120_000);
+
+  const forwarded = context({ commandName: 'forward' });
+  await music.nudge(forwarded.ctx, 30_000);
+  save(forwarded, 'reply-forward.png');
+
+  const replayed = context({ commandName: 'replay' });
+  await music.replay(replayed.ctx);
+  save(replayed, 'reply-replay.png');
+
+  // A radio stream has no position, so the refusal is what gets rendered.
+  const radioPlayer = await players.getOrCreate({
+    guildId: 'radio-guild',
+    voiceChannelId: 'voice-a',
+  });
+  await radioPlayer.enqueue(
+    createTrack({
+      source: 'youtube',
+      identifier: 'lofi-radio',
+      title: 'lofi hip hop radio',
+      author: 'Lofi Girl',
+      durationMs: 0,
+      isStream: true,
+      requesterId: 'owner',
+    }),
+  );
+
+  const streamStep = context({ commandName: 'forward', guildId: 'radio-guild' });
+  await music.nudge(streamStep.ctx, 30_000);
+  save(streamStep, 'reply-forward-stream.png');
+
   const shuffled = context({ commandName: 'shuffle' });
   await music.shuffle(shuffled.ctx);
   save(shuffled, 'reply-shuffle.png');
