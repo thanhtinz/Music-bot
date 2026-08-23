@@ -2,6 +2,8 @@ import {
   appendTrack,
   assertValidPlaylistName,
   createPlaylist,
+  FAVORITES_NAME,
+  indexOfTrack,
   MAX_PLAYLISTS_PER_OWNER,
   playlistDurationMs,
   PlaylistError,
@@ -158,6 +160,61 @@ export class PlaylistService {
       });
     } catch (error) {
       await this.replyWithError(ctx, error, 'add');
+    }
+  }
+
+  /**
+   * Adds the current track to Favorites, or takes it out if it is already in.
+   *
+   * A toggle rather than an add, because that is what a heart button means —
+   * and the same method backs the button and the command, so the two cannot
+   * disagree about what pressing it does.
+   */
+  async toggleFavorite(ctx: CommandContext): Promise<void> {
+    try {
+      const current = this.music.currentTrack(ctx.guildId);
+
+      if (!current) {
+        await ctx.reply({
+          content: 'Nothing is playing to save.',
+          title: 'Nothing playing',
+          icon: 'note',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const saved = toSavedTrack(current);
+      const existing = await this.repository.findByName(ctx.guildId, ctx.userId, FAVORITES_NAME);
+      const at = existing ? indexOfTrack(existing, saved) : -1;
+
+      if (existing && at >= 0) {
+        const { playlist } = removeTrackAt(existing, at + 1);
+        await this.repository.save(playlist);
+
+        await ctx.reply({
+          content: `Took **${current.title}** out of your favorites — ${playlist.tracks.length} left.`,
+          title: 'Unfavorited',
+          icon: 'heart',
+          tone: 'info',
+        });
+        return;
+      }
+
+      const playlist = appendTrack(
+        existing ??
+          createPlaylist({ guildId: ctx.guildId, ownerId: ctx.userId, name: FAVORITES_NAME }),
+        saved,
+      );
+      await this.repository.save(playlist);
+
+      await ctx.reply({
+        content: `Saved **${current.title}** to your favorites — ${playlist.tracks.length} track(s).`,
+        title: 'Favorited',
+        icon: 'heart',
+      });
+    } catch (error) {
+      await this.replyWithError(ctx, error, 'favorite');
     }
   }
 

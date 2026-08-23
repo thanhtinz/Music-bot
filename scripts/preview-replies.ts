@@ -130,6 +130,14 @@ async function main(): Promise<void> {
   await playlists.play(missing.ctx, 'Nope');
   save(missing, 'reply-playlist-missing.png');
 
+  const favorited = context({ commandName: 'favorite' });
+  await playlists.toggleFavorite(favorited.ctx);
+  save(favorited, 'reply-favorite.png');
+
+  const unfavorited = context({ commandName: 'favorite' });
+  await playlists.toggleFavorite(unfavorited.ctx);
+  save(unfavorited, 'reply-favorite-removed.png');
+
   const left = context({ commandName: 'leave' });
   await music.leave(left.ctx);
   save(left, 'reply-leave.png');

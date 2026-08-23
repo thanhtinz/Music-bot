@@ -4,7 +4,7 @@ import type { CommandContext, ReplyPayload } from '../../src/application/command
 import { InMemoryPlaylistRepository, PlaylistService } from '../../src/application/playlist';
 import type { MusicService } from '../../src/application/services/music.service';
 import { createTrack, type Track } from '../../src/domain/music';
-import { MAX_PLAYLISTS_PER_OWNER } from '../../src/domain/playlist';
+import { FAVORITES_NAME, MAX_PLAYLISTS_PER_OWNER } from '../../src/domain/playlist';
 
 interface Harness {
   ctx: CommandContext;
@@ -279,6 +279,87 @@ describe('PlaylistService', () => {
       await service.list(ctx, 99);
 
       expect(replies[0]?.components).toEqual([{ page: 1, totalPages: 1 }]);
+    });
+  });
+
+  describe('toggleFavorite', () => {
+    it('saves the current track the first time', async () => {
+      const service = new PlaylistService(repository, music(track('Chăm Hoa')));
+      const { ctx, replies } = harness();
+
+      await service.toggleFavorite(ctx);
+
+      const favorites = await repository.findByName('guild', 'owner', FAVORITES_NAME);
+      expect(favorites?.tracks).toHaveLength(1);
+      expect(replies[0]?.title).toBe('Favorited');
+    });
+
+    it('takes it out again on a second press', async () => {
+      const service = new PlaylistService(repository, music(track('Chăm Hoa')));
+
+      await service.toggleFavorite(harness().ctx);
+      const { ctx, replies } = harness();
+      await service.toggleFavorite(ctx);
+
+      const favorites = await repository.findByName('guild', 'owner', FAVORITES_NAME);
+      expect(favorites?.tracks).toHaveLength(0);
+      expect(replies[0]?.title).toBe('Unfavorited');
+    });
+
+    it('matches the same song rather than the same queue entry', async () => {
+      // Two enqueues of one song get different track ids; favoriting must not
+      // end up holding it twice.
+      const service = new PlaylistService(repository, music(track('Chăm Hoa')));
+      await service.toggleFavorite(harness().ctx);
+
+      const again = new PlaylistService(repository, music(track('Chăm Hoa')));
+      await again.toggleFavorite(harness().ctx);
+
+      const favorites = await repository.findByName('guild', 'owner', FAVORITES_NAME);
+      expect(favorites?.tracks).toHaveLength(0);
+    });
+
+    it('keeps different songs apart', async () => {
+      const first = new PlaylistService(repository, music(track('Chăm Hoa')));
+      await first.toggleFavorite(harness().ctx);
+
+      const second = new PlaylistService(repository, music(track('Lạc Trôi')));
+      await second.toggleFavorite(harness().ctx);
+
+      const favorites = await repository.findByName('guild', 'owner', FAVORITES_NAME);
+      expect(favorites?.tracks.map((entry) => entry.title)).toEqual(['Chăm Hoa', 'Lạc Trôi']);
+    });
+
+    it('says so when nothing is playing', async () => {
+      const service = new PlaylistService(repository, music(undefined));
+      const { ctx, replies } = harness();
+
+      await service.toggleFavorite(ctx);
+
+      expect(replies[0]?.content).toContain('Nothing is playing');
+      expect(await repository.listByOwner('guild', 'owner')).toHaveLength(0);
+    });
+
+    it('keeps one person’s favorites out of another’s', async () => {
+      const service = new PlaylistService(repository, music(track('Chăm Hoa')));
+
+      await service.toggleFavorite(harness().ctx);
+      await service.toggleFavorite(harness({ userId: 'someone-else' }).ctx);
+
+      expect((await repository.findByName('guild', 'owner', FAVORITES_NAME))?.tracks).toHaveLength(
+        1,
+      );
+      expect(
+        (await repository.findByName('guild', 'someone-else', FAVORITES_NAME))?.tracks,
+      ).toHaveLength(1);
+    });
+
+    it('shows favorites in the library like any other playlist', async () => {
+      const service = new PlaylistService(repository, music(track('Chăm Hoa')));
+      await service.toggleFavorite(harness().ctx);
+
+      const listed = await repository.listByOwner('guild', 'owner');
+      expect(listed.map((entry) => entry.name)).toEqual([FAVORITES_NAME]);
     });
   });
 

@@ -5,6 +5,7 @@ import {
   appendTrack,
   assertValidPlaylistName,
   createPlaylist,
+  indexOfTrack,
   isVisibleTo,
   MAX_PLAYLIST_NAME_LENGTH,
   MAX_TRACKS_PER_PLAYLIST,
@@ -172,6 +173,32 @@ describe('visibility', () => {
 
     expect(isVisibleTo(hidden, 'someone-else')).toBe(false);
     expect(isVisibleTo(hidden, 'owner')).toBe(true);
+  });
+});
+
+describe('indexOfTrack', () => {
+  const playlist = createPlaylist({
+    guildId: 'g',
+    ownerId: 'u',
+    name: 'Chill',
+    tracks: [saved({ identifier: 'one' }), saved({ identifier: 'two' })],
+  });
+
+  it('finds the same song', () => {
+    expect(indexOfTrack(playlist, saved({ identifier: 'two' }))).toBe(1);
+  });
+
+  it('ignores everything but source and identifier', () => {
+    // The same video with a different title is still the same video.
+    expect(indexOfTrack(playlist, saved({ identifier: 'one', title: 'Renamed' }))).toBe(0);
+  });
+
+  it('tells apart the same identifier on another source', () => {
+    expect(indexOfTrack(playlist, saved({ identifier: 'one', source: 'spotify' }))).toBe(-1);
+  });
+
+  it('returns -1 for a song that is not there', () => {
+    expect(indexOfTrack(playlist, saved({ identifier: 'three' }))).toBe(-1);
   });
 });
 

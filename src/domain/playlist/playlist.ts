@@ -194,6 +194,26 @@ export function setVisibility(
   return { ...playlist, visibility, updatedAt: now };
 }
 
+/**
+ * The name of the playlist `favorite` writes to.
+ *
+ * Favorites are a playlist rather than a second store: they behave the same
+ * way, they belong in the same library, and one implementation cannot drift
+ * from the other.
+ */
+export const FAVORITES_NAME = 'Favorites';
+
+/** Identity of a saved track, matching {@link trackKey} for live ones. */
+export function savedTrackKey(track: SavedTrack): string {
+  return `${track.source}:${track.identifier}`;
+}
+
+/** Position of a track in a playlist, or -1 — the same song, not the same row. */
+export function indexOfTrack(playlist: Playlist, track: SavedTrack): number {
+  const wanted = savedTrackKey(track);
+  return playlist.tracks.findIndex((saved) => savedTrackKey(saved) === wanted);
+}
+
 /** Total playtime; streams have no meaningful duration and count as zero. */
 export function playlistDurationMs(playlist: Playlist): number {
   return playlist.tracks.reduce((sum, track) => sum + (track.isStream ? 0 : track.durationMs), 0);

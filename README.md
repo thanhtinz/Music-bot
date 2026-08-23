@@ -187,6 +187,8 @@ The conversion happens once, in `withNoticeCards`, which wraps the command conte
 | `playlist delete <name>`          | Deletes the playlist                                 |
 | `playlist public\|private <name>` | Changes who can see it                               |
 
+`favorite` (or the heart on the Now Playing panel) toggles the current track in a playlist called **Favorites** — pressing it again takes the song back out. Favorites are a playlist rather than a second store, so they show up in the library and behave like any other one, and there is only one implementation to keep right. A song is matched by source and identifier, not by queue entry, so favoriting the same track twice cannot leave two copies.
+
 Names are matched case- and whitespace-insensitively, so `chill vibes` finds `Chill  Vibes`. Limits are 25 playlists per person per guild and 500 tracks each.
 
 A playlist stores what it takes to rebuild a track, not the track object — the per-enqueue id and the original requester do not survive being saved, so a replayed track is attributed to whoever played it.
@@ -209,7 +211,7 @@ Storage is behind a port (`PlaylistRepository`), so it can move to PostgreSQL in
 | F4    | Player, player manager, audio-backend seam, node balancing               | ✅ done |
 | F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker      | ✅ done |
 | F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
-| F7    | **Saved playlists**; favorites, lyrics, vote-skip                        | 🚧      |
+| F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                    | 🚧      |
 | F8    | PostgreSQL + Redis, 24/7, state recovery                                 | ⏳      |
 | F9    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
 

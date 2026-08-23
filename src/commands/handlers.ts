@@ -166,7 +166,12 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       await service.setFilter(ctx, preset);
     },
 
-    ...(options.playlists ? { playlist: playlistExecutor(options.playlists) } : {}),
+    ...(options.playlists
+      ? {
+          playlist: playlistExecutor(options.playlists),
+          favorite: async (ctx) => options.playlists!.toggleFavorite(ctx),
+        }
+      : {}),
 
     help: async (ctx) => {
       const grouped = [...catalogByCategory()];

@@ -242,13 +242,7 @@ async function handleButton(
       await options.playlists?.list(context, Number(id.arg) || 1);
       return;
     case 'favorite':
-      await context.reply({
-        content: 'Favorites are coming in a later phase.',
-        title: 'Not yet',
-        icon: 'heart',
-        tone: 'info',
-        ephemeral: true,
-      });
+      await options.playlists?.toggleFavorite(context);
       return;
     default:
       return;
