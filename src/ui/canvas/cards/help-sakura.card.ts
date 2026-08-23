@@ -6,7 +6,7 @@ import { createCanvas, loadImage, type Image, type SKRSContext2D } from '@napi-r
 import { font, registerFonts } from '../fonts';
 import { drawGlyph, glyphFor } from '../glyphs';
 import { drawMascot } from '../mascot';
-import { fillRoundedRect, roundedRectPath, truncateText, type Rect } from '../primitives';
+import { fillRoundedRect, truncateText, type Rect } from '../primitives';
 
 /**
  * Illustrated command-list artwork this card composites onto.
@@ -17,15 +17,6 @@ import { fillRoundedRect, roundedRectPath, truncateText, type Rect } from '../pr
 const TEMPLATE_PATH = resolve(__dirname, '../../../../assets/templates/help-sakura.png');
 
 export const HELP_SAKURA_TEMPLATE_SIZE = { width: 1536, height: 1024 } as const;
-
-/**
- * The card frame drawn in the artwork, measured off its border pixels.
- *
- * Only the bottom-right corner is used — to keep the mascot from spilling past
- * the frame — so the top edge is a safe estimate rather than a measurement.
- */
-const CARD_FRAME: Rect = { x: 19, y: 8, width: 1497, height: 997 };
-const CARD_FRAME_RADIUS = 47;
 
 /** Sidebar slots and command rows the template provides. */
 export const HELP_SAKURA_CATEGORY_SLOTS = 9;
@@ -145,16 +136,11 @@ export async function renderSakuraHelpCard(data: HelpSakuraCardData): Promise<Bu
   drawRows(ctx, data);
   drawFooter(ctx, data);
 
-  // The blob mascot baked here sits in the card's rounded corner, so a flat
-  // patch would leave a visible rectangle. Instead the brand mascot is drawn
-  // over it, oversized so it covers the blob outright and clipped to the same
-  // frame, which is what cut the blob off in the artwork. Drawn last, because
-  // the final command row reaches into this corner and would clip its ears.
-  ctx.save();
-  roundedRectPath(ctx, CARD_FRAME, CARD_FRAME_RADIUS);
-  ctx.clip();
-  await drawMascot(ctx, { centerX: 1424, bottomY: 1012, height: 146 });
-  ctx.restore();
+  // Bottom-right, in the footer band beside the hint. The artwork's own
+  // character used to sit here and has been removed from the template, so the
+  // mascot simply takes the space rather than covering anything. Drawn last, as
+  // on every card, because the final command row reaches into this corner.
+  await drawMascot(ctx, { centerX: 1402, bottomY: 994, height: 132 });
 
   return canvas.toBuffer('image/png');
 }
