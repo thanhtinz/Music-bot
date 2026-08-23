@@ -17,6 +17,7 @@ import {
   QUEUE_PAGE_SIZE,
   renderHelpCard,
   renderNowPlayingCard,
+  renderSakuraHelpCard,
   renderQueueCard,
   type NowPlayingCardData,
 } from '../src/ui/canvas';
@@ -253,6 +254,31 @@ async function renderSakuraQueuePreview(): Promise<Buffer> {
   });
 }
 
+/**
+ * Illustrated command list, driven by the real catalog so the sidebar counts
+ * and the rows stay in step with what the bot actually registers.
+ */
+async function renderSakuraHelpPreview(): Promise<Buffer> {
+  const grouped = [...catalogByCategory()];
+  const active = grouped.findIndex(([category]) => category === 'playback');
+
+  return renderSakuraHelpCard({
+    prefix: '/',
+    activeCategory: Math.max(0, active),
+    categories: grouped.map(([category, commands]) => ({
+      // The sidebar column is narrow, so it takes the short category names.
+      title: SIDEBAR_TITLES[category] ?? category,
+      count: commands.length,
+      icon: category,
+    })),
+    commands: (grouped[Math.max(0, active)]?.[1] ?? []).map((meta) => ({
+      name: meta.name,
+      args: meta.options?.[0]?.required ? `<${meta.options[0].name}>` : undefined,
+      description: meta.description,
+    })),
+  });
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
 
@@ -320,12 +346,25 @@ async function main(): Promise<void> {
     `rendered now-playing-sakura-paused.png (${(sakuraPaused.byteLength / 1024).toFixed(1)} KB)`,
   );
 
+  const sakuraHelp = await renderSakuraHelpPreview();
+  writeFileSync(resolve(OUT_DIR, 'help-sakura.png'), sakuraHelp);
+  console.log(`rendered help-sakura.png (${(sakuraHelp.byteLength / 1024).toFixed(1)} KB)`);
+
   const playerCard = await renderPlayerPreview();
   writeFileSync(resolve(OUT_DIR, 'now-playing-live-player.png'), playerCard);
   console.log(
     `rendered now-playing-live-player.png (${(playerCard.byteLength / 1024).toFixed(1)} KB)`,
   );
 }
+
+const SIDEBAR_TITLES: Record<string, string> = {
+  playback: 'Player',
+  queue: 'Queue',
+  playlist: 'Playlist',
+  filters: 'Filters',
+  settings: 'Settings',
+  general: 'General',
+};
 
 const CATEGORY_TITLES: Record<string, string> = {
   playback: 'Playback',

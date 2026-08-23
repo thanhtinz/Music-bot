@@ -38,6 +38,19 @@ export { QUEUE_SAKURA_PAGE_SIZE, QUEUE_SAKURA_TEMPLATE_SIZE } from './cards/queu
 export type { QueueCardData, QueueCardTrack } from './cards/queue.card';
 export { renderHelpCard, HELP_CARD_WIDTH } from './cards/help.card';
 export type { HelpCardData, HelpCardGroup, HelpCardCommand } from './cards/help.card';
+export {
+  renderSakuraHelpCard,
+  HELP_SAKURA_TEMPLATE_SIZE,
+  HELP_SAKURA_PAGE_SIZE,
+  HELP_SAKURA_CATEGORY_SLOTS,
+} from './cards/help-sakura.card';
+export type {
+  HelpSakuraCardData,
+  HelpSakuraCategory,
+  HelpSakuraCommand,
+} from './cards/help-sakura.card';
+export { drawGlyph, glyphFor } from './glyphs';
+export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';
 export type { CanvasTheme, ThemeName } from './theme';
 export { registerFonts, font, UI_FONT } from './fonts';
