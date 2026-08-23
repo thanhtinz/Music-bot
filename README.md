@@ -252,6 +252,10 @@ Encoding is the whole cost of a card. Compositing the template and drawing the l
 | WebP q90 (default)                   | ~140 ms | **56 KB** |
 | WebP q100 (lossless in this encoder) | ~380 ms | 826 KB    |
 
+The same region of the same card, zoomed 3× — PNG on top, WebP q90 below:
+
+![](preview/webp-vs-png-zoom.png)
+
 Quality 90 rather than the 70 that also looks fine: the difference is 26 KB against a 947 KB baseline, which is not worth saving on a card somebody might zoom into. Compared side by side at 2× zoom — title, Vietnamese diacritics, the source badge, the timestamps — q90 and the PNG are the same picture. Lossless WebP saves only 13% over PNG and takes three times as long, so it earns nothing.
 
 `CARD_FORMAT=png` puts it back if a client ever refuses WebP, and attachment names follow the format (`now-playing.webp`), because Discord reads the extension to decide whether a file is an image worth showing inline. The committed preview images stay PNG so GitHub can draw them.
