@@ -4,7 +4,21 @@ A production-grade Discord music bot — TypeScript + discord.js + Lavalink 4 �
 
 > Status: built phase by phase. See the [Roadmap](#roadmap).
 
-## What makes it different: a canvas-rendered UI
+## Two card styles
+
+The `sakura` variant composites live player state onto an illustrated pastel template — only the cover, title, artist, source badge, progress, timestamps and the transport glyph are repainted, so the artwork keeps its hand-made look:
+
+| Playing                             | Paused                                     |
+| ----------------------------------- | ------------------------------------------ |
+| ![](preview/now-playing-sakura.png) | ![](preview/now-playing-sakura-paused.png) |
+
+```ts
+await renderNowPlayingCard({ ...playerState, variant: 'sakura' });
+```
+
+Swapping the template means re-measuring the region coordinates in `src/ui/canvas/cards/now-playing-sakura.card.ts`; they are pixel measurements of that specific image.
+
+## The classic variant: a canvas-rendered UI
 
 Every panel the user sees is rendered server-side with [`@napi-rs/canvas`](https://github.com/Brooooooklyn/canvas) and sent to Discord as a PNG:
 

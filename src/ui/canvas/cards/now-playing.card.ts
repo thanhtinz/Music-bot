@@ -39,6 +39,11 @@ export interface NowPlayingCardData {
   source?: string;
   /** Theme name; unknown values fall back to the default theme. */
   theme?: string;
+  /**
+   * Card style. `classic` is the themeable dark panel; `sakura` composites onto
+   * the illustrated pastel template.
+   */
+  variant?: 'classic' | 'sakura';
 }
 
 const WIDTH = 1000;

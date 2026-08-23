@@ -238,6 +238,39 @@ async function main(): Promise<void> {
   writeFileSync(resolve(OUT_DIR, 'help.png'), helpCard);
   console.log(`rendered help.png (${(helpCard.byteLength / 1024).toFixed(1)} KB)`);
 
+  const sakura = await renderNowPlayingCard({
+    title: 'Chăm Hoa',
+    author: 'MONO',
+    durationMs: 3 * 60_000 + 31_000,
+    positionMs: 1 * 60_000 + 24_000,
+    requesterName: 'thanhtinz',
+    volume: 70,
+    loop: 'off',
+    queueLength: 8,
+    source: 'youtube',
+    variant: 'sakura',
+  });
+  writeFileSync(resolve(OUT_DIR, 'now-playing-sakura.png'), sakura);
+  console.log(`rendered now-playing-sakura.png (${(sakura.byteLength / 1024).toFixed(1)} KB)`);
+
+  const sakuraPaused = await renderNowPlayingCard({
+    title: 'Waiting For Love',
+    author: 'Avicii',
+    durationMs: 3 * 60_000 + 50_000,
+    positionMs: 3 * 60_000 + 12_000,
+    paused: true,
+    requesterName: 'linh',
+    volume: 55,
+    loop: 'queue',
+    queueLength: 3,
+    source: 'spotify',
+    variant: 'sakura',
+  });
+  writeFileSync(resolve(OUT_DIR, 'now-playing-sakura-paused.png'), sakuraPaused);
+  console.log(
+    `rendered now-playing-sakura-paused.png (${(sakuraPaused.byteLength / 1024).toFixed(1)} KB)`,
+  );
+
   const playerCard = await renderPlayerPreview();
   writeFileSync(resolve(OUT_DIR, 'now-playing-live-player.png'), playerCard);
   console.log(

@@ -6,6 +6,13 @@
  */
 export interface CanvasTheme {
   readonly name: string;
+  /**
+   * Whether the card paints dark chrome on a light ground or the reverse.
+   *
+   * Renderers read this instead of guessing from the background color, so a
+   * light theme does not end up with a dark scrim over its artwork.
+   */
+  readonly mode: 'dark' | 'light';
   /** Card background, painted underneath the blurred artwork. */
   readonly background: string;
   /** Slightly lifted surface used for chips and inner panels. */
@@ -27,6 +34,7 @@ export interface CanvasTheme {
 export const THEMES = {
   midnight: {
     name: 'midnight',
+    mode: 'dark',
     background: '#0d1017',
     surface: 'rgba(255, 255, 255, 0.07)',
     surfaceBorder: 'rgba(255, 255, 255, 0.10)',
@@ -41,6 +49,7 @@ export const THEMES = {
   },
   sunset: {
     name: 'sunset',
+    mode: 'dark',
     background: '#170f14',
     surface: 'rgba(255, 255, 255, 0.08)',
     surfaceBorder: 'rgba(255, 255, 255, 0.12)',
@@ -53,8 +62,30 @@ export const THEMES = {
     success: '#facc15',
     artworkBleed: 0.42,
   },
+  /**
+   * Light pastel theme built for the `cute` card variant.
+   *
+   * Its artwork bleed is zero: the layout puts the cover in a framed tile on a
+   * flat pink ground, so a blurred wash behind it would only muddy the pastel.
+   */
+  sakura: {
+    name: 'sakura',
+    mode: 'light',
+    background: '#fdeaf1',
+    surface: '#ffffff',
+    surfaceBorder: '#f3c6d8',
+    textPrimary: '#2c2724',
+    textSecondary: '#6f6663',
+    textMuted: '#a2938f',
+    accent: ['#f78fb3', '#f56a9b'],
+    accentTrack: '#e6dcdf',
+    danger: '#e05c72',
+    success: '#7cc9a0',
+    artworkBleed: 0,
+  },
   forest: {
     name: 'forest',
+    mode: 'dark',
     background: '#0b1410',
     surface: 'rgba(255, 255, 255, 0.06)',
     surfaceBorder: 'rgba(255, 255, 255, 0.10)',

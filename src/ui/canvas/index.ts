@@ -1,4 +1,24 @@
-export { renderNowPlayingCard, NOW_PLAYING_CARD_SIZE } from './cards/now-playing.card';
+import {
+  renderNowPlayingCard as renderClassicNowPlayingCard,
+  type NowPlayingCardData,
+} from './cards/now-playing.card';
+import { renderSakuraNowPlayingCard } from './cards/now-playing-sakura.card';
+
+/**
+ * Renders the Now Playing panel in the style the caller asked for.
+ *
+ * Callers hand over player state and a variant name; which card module runs is
+ * an implementation detail they do not need to know about.
+ */
+export async function renderNowPlayingCard(data: NowPlayingCardData): Promise<Buffer> {
+  return data.variant === 'sakura'
+    ? renderSakuraNowPlayingCard(data)
+    : renderClassicNowPlayingCard(data);
+}
+
+export { renderClassicNowPlayingCard, renderSakuraNowPlayingCard };
+export { NOW_PLAYING_CARD_SIZE } from './cards/now-playing.card';
+export { SAKURA_TEMPLATE_SIZE } from './cards/now-playing-sakura.card';
 export type { NowPlayingCardData, LoopMode } from './cards/now-playing.card';
 export {
   renderQueueCard,
