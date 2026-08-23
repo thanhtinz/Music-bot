@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CommandRegistry, usage } from '../../src/application/commands';
 import { catalogByCategory, COMMAND_CATALOG } from '../../src/commands/catalog';
+import { positionOf } from '../../src/commands/handlers';
 
 describe('command catalog', () => {
   it('declares no duplicate names or aliases', () => {
@@ -83,5 +84,21 @@ describe('command catalog', () => {
 
     expect(total).toBe(COMMAND_CATALOG.length);
     expect(grouped.get('playback')?.length).toBeGreaterThan(0);
+  });
+});
+
+describe('positionOf', () => {
+  it('reads a number', () => {
+    expect(positionOf('3')).toBe(3);
+    expect(positionOf(' 12 ')).toBe(12);
+  });
+
+  it('is not a number when nothing was given', () => {
+    // NaN rather than a default: a mistyped position must be refused by the
+    // range check, not quietly applied to track 1.
+    expect(positionOf(undefined)).toBeNaN();
+    expect(positionOf('')).toBeNaN();
+    expect(positionOf('   ')).toBeNaN();
+    expect(positionOf('first')).toBeNaN();
   });
 });

@@ -129,6 +129,33 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     options: [{ name: 'action', description: 'add | remove | page number' }],
   },
   {
+    name: 'remove',
+    description: 'Take one track out of the queue',
+    category: 'queue',
+    aliases: ['rm', 'delete'],
+    options: [{ name: 'position', description: 'Queue position', required: true }],
+  },
+  {
+    name: 'move',
+    description: 'Move a queued track to another position',
+    category: 'queue',
+    aliases: ['mv'],
+    options: [
+      { name: 'from', description: 'Queue position', required: true },
+      { name: 'to', description: 'Where it should go', required: true },
+    ],
+    tier: 'dj',
+  },
+  {
+    name: 'jump',
+    description: 'Play a queued track now, skipping past the rest',
+    category: 'queue',
+    aliases: ['skipto', 'jumpto'],
+    options: [{ name: 'position', description: 'Queue position', required: true }],
+    tier: 'dj',
+    requiresVoice: true,
+  },
+  {
     name: 'shuffle',
     description: 'Shuffle the upcoming tracks',
     category: 'queue',

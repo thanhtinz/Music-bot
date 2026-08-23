@@ -28,6 +28,16 @@ export interface HandlerOptions {
   search?: SearchService;
 }
 
+/**
+ * Reads a queue position from an argument.
+ *
+ * `NaN` rather than a default, because a mistyped position must be refused by
+ * the service's range check instead of silently editing track 1.
+ */
+export function positionOf(value: string | undefined): number {
+  return Number(value?.trim() === '' ? NaN : value);
+}
+
 /** What `playlist` was asked to do, however it was invoked. */
 export interface PlaylistRequest {
   action: string;
@@ -155,6 +165,11 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     },
 
     autoplay: async (ctx) => service.setAutoplay(ctx),
+
+    remove: async (ctx) => service.remove(ctx, positionOf(ctx.option('position'))),
+    move: async (ctx) =>
+      service.move(ctx, positionOf(ctx.option('from')), positionOf(ctx.option('to'))),
+    jump: async (ctx) => service.jump(ctx, positionOf(ctx.option('position'))),
 
     queue: async (ctx) => {
       const action = ctx.option('action');

@@ -295,6 +295,30 @@ async function main(): Promise<void> {
   await stats.show(memberStats.ctx);
   save(memberStats, 'reply-stats-member.png');
 
+  // Queue editing, on a queue with a couple of other people's tracks in it.
+  const editing = players.get('guild');
+  await editing?.enqueue([
+    song('Faded', 'Alan Walker'),
+    song('Nevada', 'Vicetone'),
+    song('Bones', 'Imagine Dragons'),
+  ]);
+
+  const removed = context({ commandName: 'remove' });
+  await music.remove(removed.ctx, 1);
+  save(removed, 'reply-remove.png');
+
+  const notYours = context({ commandName: 'remove', userId: 'listener', tier: 'everyone' });
+  await music.remove(notYours.ctx, 1);
+  save(notYours, 'reply-remove-not-yours.png');
+
+  const badPosition = context({ commandName: 'remove' });
+  await music.remove(badPosition.ctx, 99);
+  save(badPosition, 'reply-remove-out-of-range.png');
+
+  const movedTrack = context({ commandName: 'move' });
+  await music.move(movedTrack.ctx, 1, 2);
+  save(movedTrack, 'reply-move.png');
+
   const searchRegistry = new ResolverRegistry();
   searchRegistry.register(fakeSearchResolver);
   const search = new SearchService(searchRegistry, music);

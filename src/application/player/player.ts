@@ -300,6 +300,18 @@ export class Player extends EventEmitter<PlayerEvents> {
     return previous;
   }
 
+  /**
+   * Plays the track at a 1-based queue position, right now.
+   *
+   * What it jumps over goes into the history rather than being dropped, so
+   * `previous` can still reach a track somebody skipped past.
+   */
+  async jumpTo(position: number): Promise<Track> {
+    const track = this.queue.jump(position);
+    await this.start(track);
+    return track;
+  }
+
   /** Stops playback, clears the queue, and leaves the channel. */
   async stop(): Promise<void> {
     this.queue.reset();

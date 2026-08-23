@@ -138,6 +138,26 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Editing the queue
+
+| Command            | What it does                                      | Who       |
+| ------------------ | ------------------------------------------------- | --------- |
+| `remove <n>`       | Takes one track out                               | See below |
+| `move <from> <to>` | Moves a track, shifting the rest along            | DJ        |
+| `jump <n>`         | Plays that track now, skipping past what is ahead | DJ        |
+
+![](preview/reply-remove.png)
+
+`remove` is the one with a split rule: **anyone may take out a track they queued themselves**, because withdrawing your own request is not a moderation act, while taking out somebody else's is a DJ's call.
+
+![](preview/reply-remove-not-yours.png)
+
+Positions count from 1 and mean the **upcoming** queue — position 1 is the next track up, never the one playing. A position that is not a whole number in range is refused with the range named, and refused before anything moves:
+
+![](preview/reply-remove-out-of-range.png)
+
+A missing argument reads as `NaN` rather than defaulting to 1, so a mistyped position is refused instead of quietly editing the first track. What `jump` skips over goes into the history rather than being dropped, so `previous` can still reach a track somebody jumped past.
+
 ## Search, then pick
 
 `play` takes the first result, which is right when you know what you want and wrong when the first hit is a cover, an hour-long mix, or the wrong language. `search` (also `find`, `sr`) shows what was found and lets the asker choose:

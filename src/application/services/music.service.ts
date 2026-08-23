@@ -453,6 +453,112 @@ export class MusicService {
     });
   }
 
+  /**
+   * Removes one upcoming track.
+   *
+   * Anyone may take out what they queued themselves — withdrawing your own
+   * request is not a moderation act — but taking out somebody else's is a DJ's
+   * to make.
+   */
+  async remove(ctx: CommandContext, position: number): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const track = await this.trackAt(ctx, player, position);
+    if (!track) return;
+
+    if (track.requesterId !== ctx.userId && !satisfiesTier(ctx.tier, 'dj')) {
+      await ctx.reply({
+        content: `**${track.title}** was queued by someone else. Ask a DJ, or remove your own tracks.`,
+        title: 'Not yours to remove',
+        icon: 'warning',
+        tone: 'warning',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await this.players.withLock(ctx.guildId, () => player.queue.remove(position));
+    await ctx.reply({
+      content: `Removed **${track.title}** from the queue.`,
+      title: 'Removed',
+      icon: 'stop',
+    });
+  }
+
+  /** Moves an upcoming track to another position, shifting the rest along. */
+  async move(ctx: CommandContext, from: number, to: number): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const track = await this.trackAt(ctx, player, from);
+    if (!track) return;
+    if (!(await this.trackAt(ctx, player, to))) return;
+
+    if (from === to) {
+      await ctx.reply({
+        content: `**${track.title}** is already at **${to}**.`,
+        title: 'Nothing to do',
+        icon: 'info',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await this.players.withLock(ctx.guildId, () => player.queue.move(from, to));
+    await ctx.reply({
+      content: `Moved **${track.title}** to **${to}**.`,
+      title: 'Moved',
+      icon: 'queue',
+    });
+  }
+
+  /**
+   * Plays an upcoming track now, skipping what is in front of it.
+   *
+   * What it jumps over goes to the history rather than being dropped, so
+   * `previous` can still reach it.
+   */
+  async jump(ctx: CommandContext, position: number): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    if (!(await this.trackAt(ctx, player, position))) return;
+
+    const track = await this.players.withLock(ctx.guildId, () => player.jumpTo(position));
+    logger.info({ guildId: ctx.guildId, position, track: track.title }, 'jumped in the queue');
+
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  /**
+   * The upcoming track at a 1-based position, or a complaint about the number.
+   *
+   * Every queue-editing command needs the same range check, and answering it
+   * once here keeps them from disagreeing about what position 0 means.
+   */
+  private async trackAt(
+    ctx: CommandContext,
+    player: Player,
+    position: number,
+  ): Promise<Track | undefined> {
+    const size = player.queue.size;
+
+    if (!Number.isInteger(position) || position < 1 || position > size) {
+      await ctx.reply({
+        content: size
+          ? `Pick a queue position from **1** to **${size}**.`
+          : 'Nothing is queued behind the current track.',
+        title: 'No such track',
+        icon: 'queue',
+        ephemeral: true,
+      });
+      return undefined;
+    }
+
+    return player.queue.at(position);
+  }
+
   /** Renders the Now Playing panel on demand. */
   async nowPlaying(ctx: CommandContext): Promise<void> {
     const player = this.require(ctx);
