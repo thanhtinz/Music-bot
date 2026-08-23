@@ -285,9 +285,10 @@ export async function renderSakuraNowPlayingCard(data: NowPlayingCardData): Prom
   drawTimes(ctx, data);
   drawPlayButton(ctx, data);
 
-  // The bottom-left corner, beside the transport row, is the only stretch this
-  // layout leaves empty. Drawn last, as on every card, so nothing clips it.
-  await drawMascot(ctx, { centerX: 158, bottomY: 978, height: 140 });
+  // Standing where the artwork's potted plant did, which is the spot this
+  // layout reserves for a character. Drawn last, as on every card, so nothing
+  // clips it.
+  await drawMascot(ctx, { centerX: 1356, bottomY: 626, height: 252 });
 
   return canvas.toBuffer('image/png');
 }
