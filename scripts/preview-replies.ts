@@ -23,6 +23,10 @@ import {
   type TrackCandidate,
 } from '../src/resolvers';
 import { renderSakuraNoticeCard } from '../src/ui/canvas';
+import {
+  buildNowPlayingControls,
+  buildQueuePagination,
+} from '../src/infrastructure/discord/components';
 import { FakeAudioBackend } from '../tests/helpers/fake-audio-backend';
 
 /**
@@ -75,16 +79,38 @@ function song(title: string, author: string) {
   });
 }
 
-/** Writes the first card a capture collected. */
+/**
+ * Writes the first card a capture collected.
+ *
+ * The buttons are logged rather than drawn: they are Discord components sitting
+ * under the image, not part of it, and a picture of them would be a picture of
+ * something that does not exist.
+ */
 function save(capture: Capture, file: string): void {
-  const card = capture.saved.at(-1)?.attachments?.[0];
+  const reply = capture.saved.at(-1);
+  const card = reply?.attachments?.[0];
 
   if (!card) {
     throw new Error(`${file}: the command replied with no card`);
   }
 
   writeFileSync(resolve(OUT_DIR, file), card.data);
-  console.log(`rendered ${file} (${(card.data.byteLength / 1024).toFixed(1)} KB)`);
+
+  const buttons = describeComponents(reply?.components);
+  const size = `${(card.data.byteLength / 1024).toFixed(1)} KB`;
+  console.log(`rendered ${file} (${size})${buttons ? ` + buttons: ${buttons}` : ''}`);
+}
+
+/** The actions behind a reply's buttons, as the ids encode them. */
+function describeComponents(components: unknown[] | undefined): string {
+  const rows = (components ?? []) as Array<{
+    components?: Array<{ data?: { custom_id?: string } }>;
+  }>;
+
+  return rows
+    .flatMap((row) => row.components ?? [])
+    .map((button) => button.data?.custom_id ?? '?')
+    .join(' ');
 }
 
 /** Stands in for the Discord channel cache. */
@@ -136,16 +162,36 @@ const fakeSearchResolver: SourceResolver = {
   resolveTrack: async () => SEARCH_RESULTS[0]!,
 };
 
+/**
+ * What the live bot passes its music service.
+ *
+ * Shared by every service the preview builds, so one of them cannot quietly
+ * render a card without the buttons the real reply carries.
+ */
+const MUSIC_OPTIONS = {
+  // The same variant the bot defaults to, so a preview shows the cards a user
+  // would actually be sent rather than the classic fallback.
+  variant: 'sakura' as const,
+  defaultVolume: 70,
+  channelName: (channelId: string) => CHANNEL_NAMES[channelId],
+  nowPlayingComponents: (player: {
+    status: string;
+    queue: { history: readonly unknown[]; size: number };
+    loop: 'off' | 'song' | 'queue';
+  }) =>
+    buildNowPlayingControls({
+      paused: player.status === 'paused',
+      hasPrevious: player.queue.history.length > 0,
+      hasQueue: player.queue.size > 0,
+      loop: player.loop,
+    }),
+  queueComponents: (page: number, totalPages: number) => buildQueuePagination(page, totalPages),
+};
+
 async function main(): Promise<void> {
   const backend = new FakeAudioBackend();
   const players = new PlayerManager(backend, { defaultVolume: 70, maxQueueSize: 100 });
-  const music = new MusicService(players, new ResolverRegistry(), {
-    // The same variant the bot defaults to, so a preview shows the cards a
-    // user would actually be sent rather than the classic fallback.
-    variant: 'sakura',
-    defaultVolume: 70,
-    channelName: (channelId) => CHANNEL_NAMES[channelId],
-  });
+  const music = new MusicService(players, new ResolverRegistry(), MUSIC_OPTIONS);
   const playlists = new PlaylistService(new InMemoryPlaylistRepository(), music, { prefix: '/' });
   const settings = new SettingsService(new InMemorySettingsRepository(), {
     defaults: { prefix: '!', defaultVolume: 70, idleTimeoutMs: 300_000 },
@@ -229,10 +275,8 @@ async function main(): Promise<void> {
 
   // A room of four, so an ordinary listener has to ask rather than just skip.
   const voting = new MusicService(players, new ResolverRegistry(), {
-    variant: 'sakura',
-    defaultVolume: 70,
+    ...MUSIC_OPTIONS,
     listenerCount: () => 4,
-    channelName: (channelId) => CHANNEL_NAMES[channelId],
   });
 
   const voteSkip = context({ commandName: 'skip', tier: 'everyone', userId: 'listener' });
@@ -372,11 +416,7 @@ async function main(): Promise<void> {
     }),
   );
 
-  const spotifyMusic = new MusicService(players, spotifyRegistry, {
-    variant: 'sakura',
-    defaultVolume: 70,
-    channelName: (channelId) => CHANNEL_NAMES[channelId],
-  });
+  const spotifyMusic = new MusicService(players, spotifyRegistry, MUSIC_OPTIONS);
 
   const spotifyLink = context({ commandName: 'play', guildId: 'spotify-guild' });
   await spotifyMusic.play(spotifyLink.ctx, 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT');
@@ -390,7 +430,7 @@ async function main(): Promise<void> {
       registry.register(new LavaSrcResolver({ search: async () => [], loadUrl: async () => [] }));
       return registry;
     })(),
-    { variant: 'sakura', defaultVolume: 70 },
+    MUSIC_OPTIONS,
   );
 
   const spotifyOff = context({ commandName: 'play', guildId: 'spotify-off' });
@@ -415,8 +455,7 @@ async function main(): Promise<void> {
   }
 
   const historyMusic = new MusicService(players, new ResolverRegistry(), {
-    variant: 'sakura',
-    defaultVolume: 70,
+    ...MUSIC_OPTIONS,
     guildName: () => 'Melody Test Server',
     displayName: (userId) => (userId === 'owner' ? 'thanhtinz' : undefined),
   });
