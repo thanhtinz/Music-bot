@@ -138,6 +138,18 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Lyrics
+
+`lyrics` looks up the current track, or whatever you name. Long songs page with buttons:
+
+![](preview/reply-lyrics.png)
+
+Words come from [LRCLIB](https://lrclib.net), chosen because it needs no key and no account — running this bot stays a matter of a token and a Lavalink node. The provider is behind a port, so a second source is a new implementation rather than a change to the command.
+
+It gets the same treatment as the track resolvers: a 6-second timeout and a circuit breaker, because a lyrics service having a bad day must not hold a command open until Discord expires the interaction. Video-title decorations (`(Official MV)`, `[Lyrics]`, `| Official Audio`) are stripped before searching, and only the primary artist is sent — the difference between a hit and nothing at all.
+
+The lookup is remembered per guild so a page button turns the page instead of spending another request.
+
 ## Guild settings
 
 `settings` with no arguments renders the sheet; with a name and value it changes one:

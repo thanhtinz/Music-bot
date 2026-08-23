@@ -73,6 +73,13 @@ export {
   SETTINGS_SAKURA_SIZE,
 } from './cards/settings-sakura.card';
 export type { SettingsCardData, SettingsCardRow } from './cards/settings-sakura.card';
+export {
+  LYRICS_SAKURA_PAGE_SIZE,
+  LYRICS_SAKURA_SIZE,
+  paginateLyrics,
+  renderSakuraLyricsCard,
+} from './cards/lyrics-sakura.card';
+export type { LyricsCardData } from './cards/lyrics-sakura.card';
 export { drawGlyph, glyphFor } from './glyphs';
 export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';

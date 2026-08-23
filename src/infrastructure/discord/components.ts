@@ -11,7 +11,8 @@ export type ComponentAction =
   | 'favorite'
   | 'stop'
   | 'page'
-  | 'plpage';
+  | 'plpage'
+  | 'lypage';
 
 export interface ComponentId {
   action: ComponentAction;
@@ -63,6 +64,7 @@ const ACTIONS: readonly ComponentAction[] = [
   'stop',
   'page',
   'plpage',
+  'lypage',
 ];
 
 function isComponentAction(value: string): value is ComponentAction {
@@ -156,6 +158,14 @@ export function buildPlaylistPagination(
   totalPages: number,
 ): ActionRowBuilder<ButtonBuilder>[] {
   return buildPagination('plpage', page, totalPages);
+}
+
+/** Pagination row for a page of lyrics, with its own action. */
+export function buildLyricsPagination(
+  page: number,
+  totalPages: number,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return buildPagination('lypage', page, totalPages);
 }
 
 function buildPagination(

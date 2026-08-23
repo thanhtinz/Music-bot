@@ -19,6 +19,7 @@ import {
 } from '../../application/commands';
 import { withNoticeCards, type NoticeRenderer } from '../../application/commands';
 import type { PlaylistService } from '../../application/playlist';
+import type { LyricsService } from '../../application/services/lyrics.service';
 import type { MusicService } from '../../application/services/music.service';
 import type { PlayerManager } from '../../application/player';
 import { createLogger } from '../../telemetry/logger';
@@ -39,6 +40,8 @@ export interface BotOptions {
   permissions: GuildPermissionSettings;
   /** Saved playlists; without it the library's page buttons say so. */
   playlists?: PlaylistService;
+  /** Lyrics, for the page buttons on a lyrics card. */
+  lyrics?: LyricsService;
   /**
    * Draws text replies as notice panels.
    *
@@ -264,6 +267,9 @@ async function handleButton(
       return;
     case 'plpage':
       await options.playlists?.list(context, Number(id.arg) || 1);
+      return;
+    case 'lypage':
+      await options.lyrics?.page(context, Number(id.arg) || 1);
       return;
     case 'favorite':
       await options.playlists?.toggleFavorite(context);

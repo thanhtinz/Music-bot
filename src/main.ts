@@ -5,11 +5,13 @@ import { CommandRegistry } from './application/commands';
 import { IdleMonitor, PlayerManager, type Player } from './application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { InMemorySettingsRepository, SettingsService } from './application/settings';
+import { LyricsService } from './application/services/lyrics.service';
 import { MusicService } from './application/services/music.service';
 import { buildCommands } from './commands/handlers';
 import { loadEnv } from './config/env';
 import { attachHandlers, createClient } from './infrastructure/discord/bot';
 import {
+  buildLyricsPagination,
   buildNowPlayingControls,
   buildPlaylistPagination,
   buildQueuePagination,
@@ -18,6 +20,7 @@ import { registerSlashCommands } from './infrastructure/discord/register-command
 import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
 import { JsonPlaylistRepository } from './infrastructure/storage/json-playlist-repository';
 import { JsonSettingsRepository } from './infrastructure/storage/json-settings-repository';
+import { LrclibProvider } from './lyrics';
 import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
 import { renderSakuraNoticeCard } from './ui/canvas';
 import { createLogger, logger } from './telemetry/logger';
@@ -134,6 +137,10 @@ async function main(): Promise<void> {
     return { stayConnected: guild.stayConnected, idleTimeoutMs: guild.idleTimeoutMs };
   };
 
+  const lyrics = new LyricsService(new LrclibProvider(), service, {
+    pageComponents: (page, totalPages) => buildLyricsPagination(page, totalPages),
+  });
+
   const registry = new CommandRegistry();
   registry.registerAll(
     buildCommands(service, {
@@ -141,12 +148,14 @@ async function main(): Promise<void> {
       botName: 'MusicBot',
       playlists,
       settings,
+      lyrics,
     }),
   );
 
   attachHandlers(client, registry, service, players, {
     prefix: env.DEFAULT_PREFIX,
     playlists,
+    lyrics,
     // Every text reply comes back as a panel in the same style as the Now
     // Playing and queue cards, rather than as a bare line of chat.
     ...(env.CARD_VARIANT === 'sakura' ? { notices: renderSakuraNoticeCard } : {}),

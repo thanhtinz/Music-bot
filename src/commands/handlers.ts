@@ -1,5 +1,6 @@
 import type { Command } from '../application/commands';
 import type { PlaylistService } from '../application/playlist';
+import type { LyricsService } from '../application/services/lyrics.service';
 import type { SettingsService } from '../application/settings';
 import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
@@ -17,6 +18,8 @@ export interface HandlerOptions {
   playlists?: PlaylistService;
   /** Guild settings; without it `settings` and `247` stay unregistered. */
   settings?: SettingsService;
+  /** Lyrics lookup; without it `lyrics` stays unregistered. */
+  lyrics?: LyricsService;
 }
 
 /** What `playlist` was asked to do, however it was invoked. */
@@ -168,6 +171,10 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
       await service.setFilter(ctx, preset);
     },
+
+    ...(options.lyrics
+      ? { lyrics: async (ctx) => options.lyrics!.show(ctx, ctx.option('query') ?? ctx.rest) }
+      : {}),
 
     ...(options.settings
       ? {
@@ -324,4 +331,5 @@ const FAKE_OPTIONS: HandlerOptions = {
   botName: 'bot',
   playlists: {} as PlaylistService,
   settings: {} as SettingsService,
+  lyrics: {} as LyricsService,
 };

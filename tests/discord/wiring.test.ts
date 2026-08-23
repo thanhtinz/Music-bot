@@ -42,8 +42,9 @@ describe('command wiring', () => {
   it('reports which catalog commands still have no implementation', () => {
     const pending = unimplementedCommands().map((meta) => meta.name);
 
-    // These are honestly not built yet; the list exists so that stays visible.
-    expect(pending).toEqual(['lyrics']);
+    // The list exists so anything unbuilt stays visible; everything in the
+    // catalog is now wired.
+    expect(pending).toEqual([]);
   });
 });
 

@@ -9,6 +9,7 @@ import {
 import { PlayerManager } from '../src/application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from '../src/application/playlist';
 import { InMemorySettingsRepository, SettingsService } from '../src/application/settings';
+import { LyricsService } from '../src/application/services/lyrics.service';
 import { MusicService } from '../src/application/services/music.service';
 import { createTrack } from '../src/domain/music';
 import { ResolverRegistry } from '../src/resolvers';
@@ -142,6 +143,38 @@ async function main(): Promise<void> {
   const unfavorited = context({ commandName: 'favorite' });
   await playlists.toggleFavorite(unfavorited.ctx);
   save(unfavorited, 'reply-favorite-removed.png');
+
+  // A canned provider: the preview must not depend on a live lyrics service.
+  const lyrics = new LyricsService(
+    {
+      name: 'LRCLIB',
+      find: async () => ({
+        title: 'Chăm Hoa',
+        artist: 'MONO',
+        provider: 'LRCLIB',
+        text: [
+          'Nhặt một bông hoa rơi bên hiên nhà',
+          'Nhẹ nhàng đặt lên trang giấy đã ngả màu',
+          '',
+          'Chăm một bông hoa như chăm một người',
+          'Tưới đều mỗi sáng, chờ đến lúc hoa cười',
+          'Rồi một ngày kia hoa nở thật tươi',
+          'Mà người thì đã đi xa mất rồi',
+          '',
+          'Ở lại đây với những mùa hoa cũ',
+          'Ở lại đây đếm từng cánh rụng rơi',
+          'Người có nghe chăng lời của gió',
+          'Kể chuyện một người vẫn đứng đợi ngoài hiên',
+        ].join('\n'),
+      }),
+    },
+    music,
+    { pageComponents: () => [] },
+  );
+
+  const lyricsCard = context({ commandName: 'lyrics' });
+  await lyrics.show(lyricsCard.ctx, 'Chăm Hoa');
+  save(lyricsCard, 'reply-lyrics.png');
 
   const settingsSheet = context({ commandName: 'settings' });
   await settings.show(settingsSheet.ctx);
