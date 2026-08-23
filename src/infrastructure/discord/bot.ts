@@ -180,7 +180,7 @@ async function handleInteraction(
   options: BotOptions,
 ): Promise<void> {
   if (interaction.isButton()) {
-    await handleButton(interaction, service, options);
+    await handleButton(interaction, service, options, router);
     return;
   }
 
@@ -258,6 +258,7 @@ async function handleButton(
   interaction: ButtonInteraction,
   service: MusicService,
   options: BotOptions,
+  router: CommandRouter,
 ): Promise<void> {
   const id = decodeComponentId(interaction.customId);
   if (!id || !interaction.inGuild()) return;
@@ -312,6 +313,11 @@ async function handleButton(
       return;
     case 'pick':
       await options.search?.pick(context, Number(id.arg) || 0);
+      return;
+    case 'help':
+      // Dispatched rather than called directly, so a button press goes through
+      // the same permissions, prefix lookup and rendering a typed `help` does.
+      await router.dispatch({ ...context, commandName: 'help', args: [id.arg ?? '1'] });
       return;
     default:
       return;

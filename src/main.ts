@@ -15,6 +15,7 @@ import { loadEnv } from './config/env';
 import { dedupeNodes, parseNodes } from './config/nodes';
 import { attachHandlers, createClient } from './infrastructure/discord/bot';
 import {
+  buildHelpCategories,
   buildLyricsPagination,
   buildNowPlayingControls,
   buildPlaylistPagination,
@@ -210,6 +211,7 @@ async function main(): Promise<void> {
       lyrics,
       stats,
       search,
+      helpComponents: (categories, active) => buildHelpCategories(categories, active),
     }),
   );
 

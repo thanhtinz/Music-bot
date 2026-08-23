@@ -72,6 +72,21 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
   '247': 'clock',
   nowplaying: 'note',
   np: 'note',
+  // Queue editing: taking a track out is a stop, rearranging is a list.
+  remove: 'stop',
+  removemine: 'stop',
+  cleanup: 'stop',
+  move: 'list',
+  jump: 'skip',
+  skipto: 'skip',
+  join: 'play',
+  summon: 'play',
+  connect: 'play',
+  leave: 'stop',
+  disconnect: 'stop',
+  stats: 'list',
+  activity: 'list',
+  top: 'list',
 };
 
 /** Resolves a command or category name to a glyph, falling back to a question mark. */

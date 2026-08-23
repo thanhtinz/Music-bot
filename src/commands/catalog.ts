@@ -1,3 +1,4 @@
+import { FILTER_PRESETS } from '../infrastructure/lavalink/filters';
 import type { CommandCategory, CommandOption } from '../application/commands';
 import type { PermissionTier } from '../application/commands';
 
@@ -133,10 +134,12 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
 
   {
     name: 'queue',
-    description: 'Show the queue, or add and remove tracks',
+    description: 'Show the queue',
     category: 'queue',
     aliases: ['q'],
-    options: [{ name: 'action', description: 'add | remove | page number' }],
+    // Adding and removing is what `play` and `remove` are for; a second way to
+    // do the same thing is worse than one.
+    options: [{ name: 'page', description: 'Page number' }],
   },
   {
     name: 'remove',
@@ -231,7 +234,8 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     name: 'filter',
     description: 'Apply an audio filter preset',
     category: 'filters',
-    options: [{ name: 'preset', description: 'bass | nightcore | vaporwave | chill | party' }],
+    // Built from the presets themselves, so the two cannot drift apart.
+    options: [{ name: 'preset', description: FILTER_PRESETS.join(' | ') }],
     tier: 'dj',
     requiresVoice: true,
   },
@@ -268,6 +272,7 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     description: 'Show every command',
     category: 'general',
     aliases: ['h', 'commands'],
+    options: [{ name: 'category', description: 'Which group to show' }],
   },
 ];
 

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { CommandRegistry, usage } from '../../src/application/commands';
 import { catalogByCategory, COMMAND_CATALOG } from '../../src/commands/catalog';
-import { positionOf } from '../../src/commands/handlers';
+import { categoryIndex, positionOf } from '../../src/commands/handlers';
+import { FILTER_PRESETS } from '../../src/infrastructure/lavalink/filters';
 
 describe('command catalog', () => {
   it('declares no duplicate names or aliases', () => {
@@ -100,5 +101,54 @@ describe('positionOf', () => {
     expect(positionOf('')).toBeNaN();
     expect(positionOf('   ')).toBeNaN();
     expect(positionOf('first')).toBeNaN();
+  });
+});
+
+describe('categoryIndex', () => {
+  const grouped = [
+    ['playback', []],
+    ['queue', []],
+    ['filters', []],
+  ] as ReadonlyArray<readonly [string, unknown]>;
+
+  it('takes a category by its catalog name', () => {
+    expect(categoryIndex(grouped, 'queue')).toBe(1);
+  });
+
+  it('takes the title shown on the card', () => {
+    // The sidebar says "Player", not "playback".
+    expect(categoryIndex(grouped, 'Player')).toBe(0);
+    expect(categoryIndex(grouped, 'filters')).toBe(2);
+  });
+
+  it('takes a number, counting from 1 as the card does', () => {
+    expect(categoryIndex(grouped, '2')).toBe(1);
+  });
+
+  it('falls back to the first for anything it cannot place', () => {
+    expect(categoryIndex(grouped, undefined)).toBe(0);
+    expect(categoryIndex(grouped, '')).toBe(0);
+    expect(categoryIndex(grouped, 'nonsense')).toBe(0);
+    expect(categoryIndex(grouped, '99')).toBe(0);
+    expect(categoryIndex(grouped, '0')).toBe(0);
+  });
+});
+
+describe('option descriptions', () => {
+  it('lists every filter preset, so none stays hidden', () => {
+    const filter = COMMAND_CATALOG.find((meta) => meta.name === 'filter');
+
+    for (const preset of FILTER_PRESETS) {
+      expect(filter?.options?.[0]?.description).toContain(preset);
+    }
+  });
+
+  it('does not promise queue actions that live in other commands', () => {
+    const queue = COMMAND_CATALOG.find((meta) => meta.name === 'queue');
+
+    // `queue add | remove` was advertised and never implemented; adding and
+    // removing are what `play` and `remove` do.
+    expect(queue?.options?.[0]?.name).toBe('page');
+    expect(JSON.stringify(queue)).not.toContain('add |');
   });
 });

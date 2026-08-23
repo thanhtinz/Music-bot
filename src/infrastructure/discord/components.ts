@@ -13,7 +13,8 @@ export type ComponentAction =
   | 'page'
   | 'plpage'
   | 'lypage'
-  | 'pick';
+  | 'pick'
+  | 'help';
 
 export interface ComponentId {
   action: ComponentAction;
@@ -67,6 +68,7 @@ const ACTIONS: readonly ComponentAction[] = [
   'plpage',
   'lypage',
   'pick',
+  'help',
 ];
 
 function isComponentAction(value: string): value is ComponentAction {
@@ -160,6 +162,47 @@ export function buildPlaylistPagination(
   totalPages: number,
 ): ActionRowBuilder<ButtonBuilder>[] {
   return buildPagination('plpage', page, totalPages);
+}
+
+/**
+ * Category buttons under a help card.
+ *
+ * The card's sidebar lists every category; without these the only one anybody
+ * could reach would be the first. The active one is disabled rather than
+ * hidden, so the row keeps its shape as pages change (spec §35).
+ */
+export function buildHelpCategories(
+  categories: string[],
+  active: number,
+): ActionRowBuilder<ButtonBuilder>[] {
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+
+  // Discord allows five buttons a row, and the catalog has more categories
+  // than that.
+  for (let start = 0; start < categories.length; start += 5) {
+    const slice = categories.slice(start, start + 5);
+
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        ...slice.map((category, offset) =>
+          new ButtonBuilder()
+            // 1-based, so a button press and somebody typing `help 3` mean
+            // the same thing.
+            .setCustomId(encodeComponentId({ action: 'help', arg: String(start + offset + 1) }))
+            .setLabel(label(category))
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(start + offset === active),
+        ),
+      ),
+    );
+  }
+
+  return rows;
+}
+
+/** Discord button labels are capped at 80 characters; a category never is. */
+function label(category: string): string {
+  return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
 /**

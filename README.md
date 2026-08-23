@@ -70,7 +70,15 @@ Cards render straight from a live `player.snapshot()`, so what you see is real p
 
 ![](preview/now-playing-live-player.png)
 
-Help is generated straight from the command catalog:
+Help is generated straight from the command catalog, and every category is reachable — `help filters`, `help 2`, or the buttons under the card:
+
+![](preview/reply-help-queue.png)
+
+The card has always taken an `activeCategory`; the handler pinned it to 0, so the sidebar listed six groups and could show one. A button press is dispatched back through the router as a `help` command rather than calling the renderer directly, so it goes through the same permission checks and prefix lookup a typed one does.
+
+Two things the picture caught: `<position>` ran straight into the description after it, because the hint was drawn from the end of the name while the description starts at a fixed column — it is clamped now. And `remove`, `move`, `jump` and `removemine` all drew a question mark, having never been given glyphs.
+
+Below, the classic help card:
 
 ![](preview/help.png)
 

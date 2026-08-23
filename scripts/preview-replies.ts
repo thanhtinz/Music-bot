@@ -440,6 +440,15 @@ async function main(): Promise<void> {
   await helpCommand?.execute(helpAfterPrefix.ctx);
   save(helpAfterPrefix, 'reply-help-guild-prefix.png');
 
+  // A category the card could never show before: help was pinned to the first.
+  const helpFilters = context({ commandName: 'help', sourceType: 'prefix', args: ['filters'] });
+  await helpCommand?.execute(helpFilters.ctx);
+  save(helpFilters, 'reply-help-filters.png');
+
+  const helpQueue = context({ commandName: 'help', sourceType: 'prefix', args: ['2'] });
+  await helpCommand?.execute(helpQueue.ctx);
+  save(helpQueue, 'reply-help-queue.png');
+
   const settingRejected = context({ commandName: 'settings' });
   await settings.set(settingRejected.ctx, 'volume', 'loud');
   save(settingRejected, 'reply-settings-invalid.png');

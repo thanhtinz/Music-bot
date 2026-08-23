@@ -26,6 +26,34 @@ export interface HandlerOptions {
   stats?: StatsService;
   /** Search-then-pick; without it `search` stays unregistered. */
   search?: SearchService;
+  /** Builds the category buttons under a help card. */
+  helpComponents?: (categories: string[], active: number) => unknown[];
+}
+
+/**
+ * Which help category was asked for, by name or by number.
+ *
+ * The sidebar lists every category, so a card that can only ever show the
+ * first one is a menu with five items nobody can order.
+ */
+export function categoryIndex(
+  grouped: ReadonlyArray<readonly [string, unknown]>,
+  asked: string | undefined,
+): number {
+  const wanted = asked?.trim().toLowerCase();
+  if (!wanted) return 0;
+
+  const byNumber = Number(wanted);
+  if (Number.isInteger(byNumber) && byNumber >= 1 && byNumber <= grouped.length) {
+    return byNumber - 1;
+  }
+
+  const byName = grouped.findIndex(
+    ([category]) =>
+      category === wanted || (CATEGORY_TITLES[category] ?? category).toLowerCase() === wanted,
+  );
+
+  return byName < 0 ? 0 : byName;
 }
 
 /**
@@ -174,8 +202,7 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     jump: async (ctx) => service.jump(ctx, positionOf(ctx.option('position'))),
 
     queue: async (ctx) => {
-      const action = ctx.option('action');
-      const page = Number(action);
+      const page = positionOf(ctx.option('page') ?? ctx.args[0]);
       await service.queue(ctx, Number.isFinite(page) && page > 0 ? page : 1);
     },
 
@@ -229,6 +256,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
     help: async (ctx) => {
       const grouped = [...catalogByCategory()];
+      const active = categoryIndex(grouped, ctx.option('category') ?? ctx.args[0]);
+
       const card = await renderSakuraHelpCard({
         // The guild's own prefix, not the environment's: a help card that
         // tells people to type `!play` on a server using `?` is wrong twice.
@@ -236,16 +265,26 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
           ctx.sourceType === 'slash'
             ? '/'
             : ((await options.settings?.forGuild(ctx.guildId))?.prefix ?? options.prefix),
-        activeCategory: 0,
+        activeCategory: active,
         categories: grouped.map(([category, commands]) => ({
           title: CATEGORY_TITLES[category] ?? category,
           count: commands.length,
           icon: category,
         })),
-        commands: (grouped[0]?.[1] ?? []).map(toHelpRow),
+        commands: (grouped[active]?.[1] ?? []).map(toHelpRow),
       });
 
-      await ctx.reply({ attachments: [{ name: 'help.png', data: card }] });
+      await ctx.reply({
+        attachments: [{ name: 'help.png', data: card }],
+        ...(options.helpComponents
+          ? {
+              components: options.helpComponents(
+                grouped.map(([category]) => category),
+                active,
+              ),
+            }
+          : {}),
+      });
     },
   };
 

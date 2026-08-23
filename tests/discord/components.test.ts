@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNowPlayingControls,
   buildQueuePagination,
+  buildHelpCategories,
   buildSearchPicks,
   decodeComponentId,
   encodeComponentId,
@@ -144,5 +145,38 @@ describe('buildSearchPicks', () => {
 
   it('stops at five, which is what fits on a row', () => {
     expect(ids(buildSearchPicks(9))).toHaveLength(5);
+  });
+});
+
+describe('buildHelpCategories', () => {
+  const CATEGORIES = ['playback', 'queue', 'playlist', 'filters', 'settings', 'general'];
+
+  it('breaks the categories into rows Discord will take', () => {
+    const rows = toJSON(buildHelpCategories(CATEGORIES, 0));
+
+    // Five buttons a row is Discord's limit, and the catalog has six.
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.components).toHaveLength(5);
+    expect(rows[1]?.components).toHaveLength(1);
+  });
+
+  it('numbers from 1, so a press and a typed `help 3` agree', () => {
+    const first = toJSON(buildHelpCategories(CATEGORIES, 0))[0]?.components?.[2];
+
+    expect((first as { custom_id?: string }).custom_id).toBe('mb:help:3');
+  });
+
+  it('disables the category already on screen', () => {
+    const rows = toJSON(buildHelpCategories(CATEGORIES, 1));
+    const buttons = rows[0]?.components ?? [];
+
+    expect((buttons[1] as { disabled?: boolean }).disabled).toBe(true);
+    expect((buttons[0] as { disabled?: boolean }).disabled).not.toBe(true);
+  });
+
+  it('labels the buttons as the sidebar does', () => {
+    const first = toJSON(buildHelpCategories(CATEGORIES, 0))[0]?.components?.[0];
+
+    expect((first as { label?: string }).label).toBe('Playback');
   });
 });
