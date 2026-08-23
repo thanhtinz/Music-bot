@@ -323,3 +323,66 @@ describe('playnext and removemine', () => {
     });
   });
 });
+
+describe('history', () => {
+  let backend: FakeAudioBackend;
+  let players: PlayerManager;
+  let service: MusicService;
+
+  beforeEach(async () => {
+    backend = new FakeAudioBackend();
+    players = new PlayerManager(backend, { maxQueueSize: 20 });
+    service = new MusicService(players, new ResolverRegistry(), {
+      displayName: (userId) => (userId === 'linh' ? 'linh' : undefined),
+    });
+
+    const player = await players.getOrCreate({ guildId: 'guild', voiceChannelId: 'voice' });
+    await player.enqueue([song('First'), song('Second'), song('Third', 'linh')]);
+  });
+
+  /** Finishes `count` tracks, so they land in the history. */
+  async function playThrough(count: number): Promise<void> {
+    for (let index = 0; index < count; index += 1) {
+      backend.finishTrack('guild', 'finished');
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  }
+
+  it('answers with a card', async () => {
+    await playThrough(2);
+    const { ctx, replies } = harness({ commandName: 'history' });
+
+    await service.history(ctx);
+
+    expect(replies[0]?.attachments?.[0]?.name).toBe('history.png');
+  });
+
+  it('renders an empty history rather than refusing', async () => {
+    const { ctx, replies } = harness({ commandName: 'history', guildId: 'quiet' });
+
+    await service.history(ctx);
+
+    // A guild with no player at all still gets the card, saying so.
+    expect(replies[0]?.attachments?.[0]?.name).toBe('history.png');
+  });
+
+  it('puts what just finished first', async () => {
+    await playThrough(2);
+
+    const newestFirst = harness({ commandName: 'history' });
+    await service.history(newestFirst.ctx);
+
+    // Somebody asking "what was that song" means the one that just ended, so
+    // the card cannot simply mirror the domain's oldest-first list.
+    const player = players.get('guild');
+    expect(player?.queue.history.map((track) => track.title)).toEqual(['First', 'Second']);
+    expect(newestFirst.replies[0]?.attachments?.[0]?.data).toBeDefined();
+  });
+
+  it('does not count the track still playing', async () => {
+    await playThrough(1);
+
+    expect(players.get('guild')?.queue.current?.title).toBe('Second');
+    expect(players.get('guild')?.queue.history.map((track) => track.title)).toEqual(['First']);
+  });
+});

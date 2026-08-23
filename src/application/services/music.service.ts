@@ -14,9 +14,11 @@ import {
 } from '../../resolvers';
 import { createLogger } from '../../telemetry/logger';
 import {
+  HISTORY_SAKURA_ROWS,
   paginateSakuraQueue,
   renderNowPlayingCard,
   renderQueueCard,
+  renderSakuraHistoryCard,
   type NowPlayingCardData,
 } from '../../ui/canvas';
 import { satisfiesTier, type CommandContext } from '../commands';
@@ -44,6 +46,8 @@ export interface MusicServiceOptions {
   startingVolumeFor?: (guildId: string) => Promise<number | undefined>;
   /** Resolves a display name for a requester id. */
   displayName?: (userId: string) => string | undefined;
+  /** Resolves a guild's name, for a card header. */
+  guildName?: (guildId: string) => string | undefined;
   /**
    * How many people are listening in the guild's voice channel.
    *
@@ -633,6 +637,34 @@ export class MusicService {
     }
 
     return player.queue.at(position);
+  }
+
+  /**
+   * What the room has already heard, newest first.
+   *
+   * The history is kept so `previous` can walk back through it; this is the
+   * same list, shown rather than stepped through — usually because somebody
+   * wants the name of a song that has already ended.
+   */
+  async history(ctx: CommandContext): Promise<void> {
+    const player = this.players.get(ctx.guildId);
+    const played = player ? [...player.queue.history].reverse() : [];
+
+    const card = await renderSakuraHistoryCard({
+      entries: played.slice(0, HISTORY_SAKURA_ROWS).map((track) => ({
+        title: track.title,
+        author: track.author,
+        durationMs: track.durationMs,
+        requesterName: this.nameFor(track.requesterId),
+        ...(track.isStream ? { isStream: true } : {}),
+      })),
+      totalCount: played.length,
+      ...(this.options.guildName?.(ctx.guildId) === undefined
+        ? {}
+        : { guildName: this.options.guildName(ctx.guildId) }),
+    });
+
+    await ctx.reply({ attachments: [{ name: 'history.png', data: card }] });
   }
 
   /** Renders the Now Playing panel on demand. */

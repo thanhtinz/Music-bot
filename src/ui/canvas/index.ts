@@ -93,6 +93,12 @@ export {
   SEARCH_SAKURA_SIZE,
 } from './cards/search-sakura.card';
 export type { SearchCardData, SearchCardResult } from './cards/search-sakura.card';
+export {
+  renderSakuraHistoryCard,
+  HISTORY_SAKURA_ROWS,
+  HISTORY_SAKURA_SIZE,
+} from './cards/history-sakura.card';
+export type { HistoryCardData, HistoryCardEntry } from './cards/history-sakura.card';
 export { drawGlyph, glyphFor } from './glyphs';
 export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';

@@ -207,6 +207,16 @@ Credentials go to the node, in `docker/lavalink/application.yml`, supplied from 
 
 That message matters more than it looks. The load comes back empty whether a track was deleted or the plugin was never installed, and the second is an operator's problem; answering "that track is unavailable" would send whoever reads it looking at the wrong thing. A resolver can now mark a message as already fit for the user, and that one is.
 
+## What already played
+
+`history` (also `played`, `recent`) shows what the room has been through, newest first:
+
+![](preview/reply-history.png)
+
+Row 1 is what just finished, because that is what somebody asking "what was that song" means — the domain keeps the list oldest-first for `previous` to walk back through, and the card reverses it. It shows who queued each track, so an autoplayed one reads as **Autoplay** rather than as somebody's request.
+
+The card is as tall as the history is long. A fixed height left a room that had played two songs staring at four empty rows, and the first attempt at shrinking it put the mascot on top of the last row's duration — there is a band under the final row now that the footer and the mascot share.
+
 ## Search, then pick
 
 `play` takes the first result, which is right when you know what you want and wrong when the first hit is a cover, an hour-long mix, or the wrong language. `search` (also `find`, `sr`) shows what was found and lets the asker choose:

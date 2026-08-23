@@ -397,6 +397,37 @@ async function main(): Promise<void> {
   await noPlugin.play(spotifyOff.ctx, 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT');
   save(spotifyOff, 'reply-play-spotify-disabled.png');
 
+  // History: play a few tracks through so there is something to look back on.
+  const historyGuild = context({ commandName: 'history', guildId: 'history-guild' });
+  const historyPlayer = await players.getOrCreate({
+    guildId: 'history-guild',
+    voiceChannelId: 'voice-a',
+  });
+  await historyPlayer.enqueue([
+    song('Chăm Hoa', 'MONO'),
+    song('Lạc Trôi', 'Sơn Tùng M-TP'),
+    song('Faded', 'Alan Walker'),
+    song('Nevada', 'Vicetone'),
+  ]);
+  for (let index = 0; index < 3; index += 1) {
+    backend.finishTrack('history-guild', 'finished');
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  const historyMusic = new MusicService(players, new ResolverRegistry(), {
+    variant: 'sakura',
+    defaultVolume: 70,
+    guildName: () => 'Melody Test Server',
+    displayName: (userId) => (userId === 'owner' ? 'thanhtinz' : undefined),
+  });
+
+  await historyMusic.history(historyGuild.ctx);
+  save(historyGuild, 'reply-history.png');
+
+  const historyEmpty = context({ commandName: 'history', guildId: 'quiet-guild' });
+  await historyMusic.history(historyEmpty.ctx);
+  save(historyEmpty, 'reply-history-empty.png');
+
   const searchRegistry = new ResolverRegistry();
   searchRegistry.register(fakeSearchResolver);
   const search = new SearchService(searchRegistry, music);

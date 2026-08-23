@@ -197,6 +197,7 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
     remove: async (ctx) => service.remove(ctx, positionOf(ctx.option('position'))),
     removemine: async (ctx) => service.removeMine(ctx),
+    history: async (ctx) => service.history(ctx),
     move: async (ctx) =>
       service.move(ctx, positionOf(ctx.option('from')), positionOf(ctx.option('to'))),
     jump: async (ctx) => service.jump(ctx, positionOf(ctx.option('position'))),

@@ -189,6 +189,12 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     tier: 'dj',
   },
   {
+    name: 'history',
+    description: 'Show what has already played',
+    category: 'queue',
+    aliases: ['played', 'recent'],
+  },
+  {
     name: 'removemine',
     description: 'Drop every track you queued',
     category: 'queue',
