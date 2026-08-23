@@ -91,6 +91,7 @@ src/
 ├── commands/        # command catalog — the matrix all three interfaces share
 ├── config/          # environment loading and validation (zod)
 ├── domain/music/    # Track and Queue — no Discord or Lavalink types
+├── resolvers/       # URL parsing, source resolvers, circuit breaker, registry
 ├── infrastructure/
 │   ├── audio/       # AudioBackend seam — the audio engine behind an interface
 │   └── lavalink/    # node pool, load-balancing score, reconnect backoff
@@ -119,7 +120,7 @@ tests/               # unit tests
 | F2    | Domain: track and queue (loop, shuffle, history, snapshots) + queue card | ✅ done |
 | F3    | Unified command engine (slash + prefix + @mention) + help card           | ✅ done |
 | F4    | Player, player manager, audio-backend seam, node balancing               | ✅ done |
-| F5    | Resolvers: YouTube / Spotify metadata / radio                            | ⏳      |
+| F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker      | ✅ done |
 | F6    | Queue / filter / stats cards, DJ permissions, playlists                  | ⏳      |
 | F7    | PostgreSQL + Redis, 24/7, autoplay, state recovery                       | ⏳      |
 | F8    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
