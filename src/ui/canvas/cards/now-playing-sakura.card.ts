@@ -276,8 +276,6 @@ export async function renderSakuraNowPlayingCard(data: NowPlayingCardData): Prom
   const artwork = await loadArtwork(data.artworkUrl, `${data.title} ${data.author}`);
 
   coverWithBackground(ctx, REGION.bakedPlant, { x: 1500, y: 300 });
-  // The bottom-left corner is the only empty stretch of this layout.
-  await drawMascot(ctx, { centerX: 158, bottomY: 978, height: 140 });
 
   drawArtwork(ctx, artwork);
   drawStatusLabel(ctx, data);
@@ -286,6 +284,10 @@ export async function renderSakuraNowPlayingCard(data: NowPlayingCardData): Prom
   drawProgress(ctx, data);
   drawTimes(ctx, data);
   drawPlayButton(ctx, data);
+
+  // The bottom-left corner, beside the transport row, is the only stretch this
+  // layout leaves empty. Drawn last, as on every card, so nothing clips it.
+  await drawMascot(ctx, { centerX: 158, bottomY: 978, height: 140 });
 
   return canvas.toBuffer('image/png');
 }

@@ -249,10 +249,6 @@ export async function renderSakuraQueueCard(data: QueueCardData): Promise<Buffer
     BAKED_MASCOT.width,
     BAKED_MASCOT.height,
   );
-  // Feet stop above the panel's bottom border: any lower and the border line
-  // runs straight through the paws.
-  await drawMascot(ctx, { centerX: 786, bottomY: 944, height: 148 });
-
   drawHeaderCount(ctx, data, rows.length);
   clearUnusedRows(ctx, rows.length);
 
@@ -261,6 +257,11 @@ export async function renderSakuraQueueCard(data: QueueCardData): Promise<Buffer
     if (!geometry) break;
     await drawRow(ctx, geometry, row, index === 0);
   }
+
+  // Sized and placed to fit the strip of background the layout leaves free:
+  // below the last row's artist line, above the panel's bottom border. Drawn
+  // last so that clearing an unused row cannot cut its ears off.
+  await drawMascot(ctx, { centerX: 786, bottomY: 946, height: 112 });
 
   return canvas.toBuffer('image/png');
 }

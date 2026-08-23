@@ -106,7 +106,6 @@ export async function renderSakuraPlaylistCard(data: PlaylistCardData): Promise<
 
   drawBackground(ctx);
   drawStickers(ctx);
-  await drawMascot(ctx, { centerX: 1374, bottomY: 964, height: 150 });
   drawHeader(ctx, data);
 
   const entries = data.entries.slice(0, PLAYLIST_SAKURA_PAGE_SIZE);
@@ -118,6 +117,10 @@ export async function renderSakuraPlaylistCard(data: PlaylistCardData): Promise<
     entries.forEach((entry, index) => drawEntry(ctx, entry, index));
     drawFooter(ctx, data);
   }
+
+  // Bottom-right, past the end of the footer hint. Drawn last, as on every
+  // card, so neither the grid nor the empty state can clip it.
+  await drawMascot(ctx, { centerX: 1374, bottomY: 964, height: 150 });
 
   return canvas.toBuffer('image/png');
 }
