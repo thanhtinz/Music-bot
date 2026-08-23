@@ -1,4 +1,4 @@
-import type { Command } from '../application/commands';
+import { prefixFor, type Command } from '../application/commands';
 import type { PlaylistService } from '../application/playlist';
 import type { LyricsService } from '../application/services/lyrics.service';
 import type { SettingsService } from '../application/settings';
@@ -249,7 +249,7 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
     ...(options.playlists
       ? {
-          playlist: playlistExecutor(options.playlists),
+          playlist: playlistExecutor(options.playlists, options),
           favorite: async (ctx) => options.playlists!.toggleFavorite(ctx),
         }
       : {}),
@@ -259,12 +259,12 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       const active = categoryIndex(grouped, ctx.option('category') ?? ctx.args[0]);
 
       const card = await renderSakuraHelpCard({
-        // The guild's own prefix, not the environment's: a help card that
-        // tells people to type `!play` on a server using `?` is wrong twice.
-        prefix:
-          ctx.sourceType === 'slash'
-            ? '/'
-            : ((await options.settings?.forGuild(ctx.guildId))?.prefix ?? options.prefix),
+        // Written the way this person reached the bot, with the guild's own
+        // prefix rather than the environment's.
+        prefix: prefixFor(ctx, {
+          prefix: (await options.settings?.forGuild(ctx.guildId))?.prefix ?? options.prefix,
+          botName: options.botName,
+        }),
         activeCategory: active,
         categories: grouped.map(([category, commands]) => ({
           title: CATEGORY_TITLES[category] ?? category,
@@ -301,7 +301,7 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
  * rather than repeated — and an unknown action says what the options are
  * instead of failing silently.
  */
-function playlistExecutor(playlists: PlaylistService): Command['execute'] {
+function playlistExecutor(playlists: PlaylistService, options: HandlerOptions): Command['execute'] {
   return async (ctx) => {
     const request = parsePlaylistRequest(ctx.args, (name) => ctx.option(name));
 
@@ -313,7 +313,10 @@ function playlistExecutor(playlists: PlaylistService): Command['execute'] {
 
     if (!request.name) {
       await ctx.reply({
-        content: `Which playlist? Try \`${ctx.sourceType === 'slash' ? '/' : ''}playlist ${request.action} <name>\`.`,
+        content: `Which playlist? Try \`${prefixFor(ctx, {
+          prefix: options.prefix,
+          botName: options.botName,
+        })}playlist ${request.action} <name>\`.`,
         title: 'Playlist',
         icon: 'playlist',
         ephemeral: true,

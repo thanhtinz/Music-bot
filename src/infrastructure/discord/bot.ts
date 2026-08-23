@@ -12,6 +12,7 @@ import {
 
 import {
   CommandRouter,
+  invocationPrefix,
   parseMessage,
   type CommandContext,
   type CommandRegistry,
@@ -112,8 +113,13 @@ export function attachHandlers(
   const prefixes = new Map<string, string>();
 
   const router = new CommandRouter(registry, {
+    // Usage hints are spelled the way the command arrived: `/play`, `?play`
+    // or `@Bot play`.
     prefixFor: (ctx) =>
-      ctx.sourceType === 'slash' ? '/' : (prefixes.get(ctx.guildId) ?? options.prefix),
+      invocationPrefix(ctx.sourceType, {
+        prefix: prefixes.get(ctx.guildId) ?? options.prefix,
+        ...(client.user?.username === undefined ? {} : { botName: client.user.username }),
+      }),
     ...(options.onDispatched ? { onDispatched: options.onDispatched } : {}),
   });
 

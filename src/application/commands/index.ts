@@ -8,5 +8,7 @@ export { CommandRegistry } from './registry';
 export { CooldownTracker } from './cooldown';
 export { withNoticeCards } from './notice-context';
 export type { NoticeRenderer, NoticeContextOptions } from './notice-context';
+export { invocationPrefix, prefixFor } from './invocation';
+export type { InvocationOptions } from './invocation';
 export { CommandRouter } from './router';
 export type { DispatchResult, DispatchStatus, RouterOptions } from './router';

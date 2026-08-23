@@ -189,7 +189,7 @@ describe('PlaylistService', () => {
 
     it('points at the library when the name is unknown', async () => {
       const service = new PlaylistService(repository, music(), { prefix: '!' });
-      const { ctx, replies } = harness();
+      const { ctx, replies } = harness({ sourceType: 'prefix' });
 
       await service.play(ctx, 'Nope');
 
@@ -377,32 +377,60 @@ describe('PlaylistService', () => {
 });
 
 describe('prefix hints', () => {
-  it('uses the guild’s own prefix, not the configured default', async () => {
-    const repository = new InMemoryPlaylistRepository();
-    const service = new PlaylistService(repository, {} as MusicService, {
+  function serviceWith(prefixFor?: () => Promise<string | undefined>): PlaylistService {
+    return new PlaylistService(new InMemoryPlaylistRepository(), {} as MusicService, {
       prefix: '!',
-      prefixFor: async () => '?',
+      botName: 'Melody',
+      ...(prefixFor ? { prefixFor } : {}),
     });
+  }
 
-    const { ctx, replies } = harness();
+  /** The hint text from a failed lookup, however the command was invoked. */
+  async function hint(
+    service: PlaylistService,
+    sourceType: CommandContext['sourceType'],
+  ): Promise<string> {
+    const { ctx, replies } = harness({ sourceType });
     await service.play(ctx, 'Nope');
 
+    return replies[0]?.content ?? '';
+  }
+
+  it('uses the guild’s own prefix for a typed command', async () => {
     // A hint telling people to type `!playlist` on a server using `?` is
     // wrong twice.
-    expect(replies[0]?.content).toContain('?playlist list');
+    expect(
+      await hint(
+        serviceWith(async () => '?'),
+        'prefix',
+      ),
+    ).toContain('?playlist list');
+  });
+
+  it('uses a slash for a slash command, whatever the guild prefix is', async () => {
+    expect(
+      await hint(
+        serviceWith(async () => '?'),
+        'slash',
+      ),
+    ).toContain('/playlist list');
+  });
+
+  it('uses the bot’s name for a mention', async () => {
+    // Somebody who typed `@Melody playlist` has no prefix in their head.
+    expect(
+      await hint(
+        serviceWith(async () => '?'),
+        'mention',
+      ),
+    ).toContain('@Melody playlist list');
   });
 
   it('falls back to the configured prefix when the lookup fails', async () => {
-    const service = new PlaylistService(new InMemoryPlaylistRepository(), {} as MusicService, {
-      prefix: '!',
-      prefixFor: async () => {
-        throw new Error('settings are down');
-      },
+    const broken = serviceWith(async () => {
+      throw new Error('settings are down');
     });
 
-    const { ctx, replies } = harness();
-    await service.play(ctx, 'Nope');
-
-    expect(replies[0]?.content).toContain('!playlist list');
+    expect(await hint(broken, 'prefix')).toContain('!playlist list');
   });
 });

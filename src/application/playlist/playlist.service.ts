@@ -20,7 +20,7 @@ import {
   renderSakuraPlaylistCard,
   type PlaylistCardEntry,
 } from '../../ui/canvas';
-import type { CommandContext } from '../commands';
+import { invocationPrefix, type CommandContext } from '../commands';
 import type { MusicService } from '../services/music.service';
 
 import type { PlaylistRepository } from './playlist-repository';
@@ -37,6 +37,8 @@ export interface PlaylistServiceOptions {
    * twice, so the card asks rather than assuming the environment's.
    */
   prefixFor?: (guildId: string) => Promise<string | undefined>;
+  /** The bot's display name, for a card answering an `@Bot` invocation. */
+  botName?: string;
   /** Resolves a display name for a user id. */
   displayName?: (userId: string) => string | undefined;
   /** Builds the button rows attached to a library card. */
@@ -79,7 +81,7 @@ export class PlaylistService {
       page: current,
       totalPages,
       totalCount: playlists.length,
-      prefix: await this.prefixFor(ctx.guildId),
+      prefix: await this.prefixFor(ctx),
     });
 
     await ctx.reply({
@@ -296,17 +298,26 @@ export class PlaylistService {
     if (!playlist) {
       throw new PlaylistError(
         'not-found',
-        `You have no playlist called **${cleaned}**. See them with \`${await this.prefixFor(ctx.guildId)}playlist list\`.`,
+        `You have no playlist called **${cleaned}**. See them with \`${await this.prefixFor(ctx)}playlist list\`.`,
       );
     }
 
     return playlist;
   }
 
-  /** The guild's prefix, falling back to the configured one. */
-  private async prefixFor(guildId: string): Promise<string> {
-    const guild = await this.options.prefixFor?.(guildId).catch(() => undefined);
-    return guild ?? this.options.prefix ?? '/';
+  /**
+   * How to spell a command back to whoever ran it.
+   *
+   * The guild's own prefix when they typed one, `/` for a slash command, and
+   * `@Bot ` for a mention: a hint they cannot type is not a hint.
+   */
+  private async prefixFor(ctx: CommandContext): Promise<string> {
+    const guild = await this.options.prefixFor?.(ctx.guildId).catch(() => undefined);
+
+    return invocationPrefix(ctx.sourceType, {
+      prefix: guild ?? this.options.prefix ?? '!',
+      ...(this.options.botName === undefined ? {} : { botName: this.options.botName }),
+    });
   }
 
   private nameFor(userId: string): string {

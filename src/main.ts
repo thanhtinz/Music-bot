@@ -163,6 +163,9 @@ async function main(): Promise<void> {
     {
       prefix: env.DEFAULT_PREFIX,
       prefixFor: async (guildId) => (await settings.forGuild(guildId)).prefix,
+      get botName() {
+        return client.user?.username ?? 'MusicBot';
+      },
       displayName: (userId) => client.users.cache.get(userId)?.displayName,
       libraryComponents: (page, totalPages) => buildPlaylistPagination(page, totalPages),
     },
@@ -180,6 +183,10 @@ async function main(): Promise<void> {
         idleTimeoutMs: env.IDLE_TIMEOUT_MS,
       },
       guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
+      get botName() {
+        // Read late: the client has no user until it is logged in.
+        return client.user?.username ?? 'MusicBot';
+      },
     },
   );
 
@@ -205,7 +212,11 @@ async function main(): Promise<void> {
   registry.registerAll(
     buildCommands(service, {
       prefix: env.DEFAULT_PREFIX,
-      botName: 'MusicBot',
+      // A getter, not a value: the commands are built before the client logs
+      // in, so reading it now would freeze the fallback into every card.
+      get botName() {
+        return client.user?.username ?? 'MusicBot';
+      },
       playlists,
       settings,
       lyrics,

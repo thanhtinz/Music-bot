@@ -293,10 +293,14 @@ function drawRow(
 
     // The description starts at a fixed column, so the hint has to stop before
     // it — otherwise `<position>` runs straight into the sentence after it.
+    // Dropped rather than truncated when it does not fit: `<…` tells nobody
+    // anything, and a long prefix like `@Bot ` leaves little room.
     const argsX = ROW.nameX + nameWidth + 14;
     const room = ROW.descriptionX - argsX - 12;
 
-    if (room > 20) ctx.fillText(truncateText(ctx, command.args, room), argsX, baseline);
+    if (ctx.measureText(command.args).width <= room) {
+      ctx.fillText(command.args, argsX, baseline);
+    }
   }
 
   // The usage pill is sized first: the description gets whatever space is left,

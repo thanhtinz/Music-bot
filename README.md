@@ -74,6 +74,14 @@ Help is generated straight from the command catalog, and every category is reach
 
 ![](preview/reply-help-queue.png)
 
+Every card names commands the way the person reached the bot: `/play` for a slash command, `?play` for a typed one, `@Melody play` for a mention. A card is an image, so each command it mentions has to be spelled out — and somebody who typed `@Melody help` has no prefix in their head, while a slash user may not know the guild has one at all.
+
+| Slash                             | Mention                             |
+| --------------------------------- | ----------------------------------- |
+| ![](preview/reply-help-slash.png) | ![](preview/reply-help-mention.png) |
+
+One rule (`invocationPrefix`) decides it for the help card, the settings sheet, the playlist card and the router's usage hints, so they cannot disagree. The bot's name is read late, at reply time — the commands are built before the client logs in, so reading it any earlier freezes the fallback into every card.
+
 The card has always taken an `activeCategory`; the handler pinned it to 0, so the sidebar listed six groups and could show one. A button press is dispatched back through the router as a `help` command rather than calling the renderer directly, so it goes through the same permission checks and prefix lookup a typed one does.
 
 Two things the picture caught: `<position>` ran straight into the description after it, because the hint was drawn from the end of the name while the description starts at a fixed column — it is clamped now. And `remove`, `move`, `jump` and `removemine` all drew a question mark, having never been given glyphs.

@@ -434,11 +434,21 @@ async function main(): Promise<void> {
   const helpAfterPrefix = context({ commandName: 'help', sourceType: 'prefix' });
   const helpCommand = buildCommands(music, {
     prefix: '!',
-    botName: 'MusicBot',
+    botName: 'Melody',
     settings,
   }).find((command) => command.name === 'help');
   await helpCommand?.execute(helpAfterPrefix.ctx);
   save(helpAfterPrefix, 'reply-help-guild-prefix.png');
+
+  // The same command reached three ways: the card spells it back the way the
+  // person actually typed it.
+  const helpSlash = context({ commandName: 'help', sourceType: 'slash' });
+  await helpCommand?.execute(helpSlash.ctx);
+  save(helpSlash, 'reply-help-slash.png');
+
+  const helpMention = context({ commandName: 'help', sourceType: 'mention' });
+  await helpCommand?.execute(helpMention.ctx);
+  save(helpMention, 'reply-help-mention.png');
 
   // A category the card could never show before: help was pinned to the first.
   const helpFilters = context({ commandName: 'help', sourceType: 'prefix', args: ['filters'] });

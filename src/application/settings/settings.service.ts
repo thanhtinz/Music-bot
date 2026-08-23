@@ -8,7 +8,7 @@ import {
 } from '../../domain/settings';
 import { createLogger } from '../../telemetry/logger';
 import { renderSakuraSettingsCard, type SettingsCardRow } from '../../ui/canvas';
-import type { CommandContext } from '../commands';
+import { prefixFor, type CommandContext } from '../commands';
 
 import type { SettingsRepository } from './settings-repository';
 
@@ -19,6 +19,8 @@ export interface SettingsServiceOptions {
   defaults: SettingsDefaults;
   /** Resolves a guild's name for the card header. */
   guildName?: (guildId: string) => string | undefined;
+  /** The bot's display name, for a card answering an `@Bot` invocation. */
+  botName?: string;
 }
 
 /**
@@ -54,7 +56,12 @@ export class SettingsService {
     const card = await renderSakuraSettingsCard({
       rows,
       guildName: this.options.guildName?.(ctx.guildId),
-      prefix: ctx.sourceType === 'slash' ? '/' : settings.prefix,
+      // Spelled the way this person reached the bot, so the hint on the card
+      // is one they can actually type.
+      prefix: prefixFor(ctx, {
+        prefix: settings.prefix,
+        ...(this.options.botName === undefined ? {} : { botName: this.options.botName }),
+      }),
     });
 
     await ctx.reply({ attachments: [{ name: 'settings.png', data: card }] });
