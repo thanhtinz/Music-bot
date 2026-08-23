@@ -12,6 +12,19 @@ The `sakura` variant composites live player state onto an illustrated pastel tem
 | ----------------------------------- | ------------------------------------------ |
 | ![](preview/now-playing-sakura.png) | ![](preview/now-playing-sakura-paused.png) |
 
+### The controls under a Now Playing panel
+
+Four buttons and a dropdown, and nothing else: **previous**, **play/pause**, **skip**, **mute**, and a volume picker.
+
+| Component    | What it does                                                                            |
+| ------------ | --------------------------------------------------------------------------------------- |
+| ⏮️ / ⏭️      | Steps through history and queue; disabled when there is nothing either way              |
+| ⏸️ / ▶️      | Pauses or resumes, and swaps its own glyph                                              |
+| 🔊 / 🔇      | Mutes, and brings the volume back to the level it left rather than to a default         |
+| `Volume: n%` | Sets one of 10 / 25 / 50 / 75 / 100 / 150 / 200 — finer levels are what `volume` is for |
+
+Everything else — shuffle, loop, autoplay, stop, favourite — stays a command, so the panel keeps one row of controls instead of two rows of buttons nobody presses. Both a mute and a pick redraw the panel: the level lives in the picker's placeholder, so leaving it stale would have the menu claim a volume the player is no longer at.
+
 The queue has a template too. Its five rows are filled from the live queue — cover art, titles, real positions, and durations — and any rows the page does not fill are cleared:
 
 ![](preview/queue-sakura.png)

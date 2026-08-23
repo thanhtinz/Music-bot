@@ -415,6 +415,22 @@ export class MusicService {
     });
   }
 
+  /**
+   * The volume picker under the Now Playing panel.
+   *
+   * Redraws the panel rather than answering with a notice: the picker's
+   * placeholder is where the level is shown, so leaving it stale would have the
+   * menu claim a volume the player is no longer at — and a room of six should
+   * not get six "volume changed" cards while one person finds their level.
+   */
+  async pickVolume(ctx: CommandContext, volume: number): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.withLock(ctx.guildId, () => player.setVolume(volume));
+    await this.sendNowPlaying(ctx, player);
+  }
+
   async setFilter(ctx: CommandContext, preset: string | undefined): Promise<void> {
     const player = this.require(ctx);
     if (!player) return;
@@ -637,6 +653,24 @@ export class MusicService {
     }
 
     return player.queue.at(position);
+  }
+
+  /**
+   * Silences the player, or puts it back where it was.
+   *
+   * A mute remembers the level rather than assuming one: a room that had it at
+   * 30 should not come back at 100 because a button was pressed twice.
+   */
+  async toggleMute(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.withLock(ctx.guildId, () => player.toggleMute());
+
+    // The panel is where a mute is visible — the speaker button and the
+    // picker's placeholder both change — so it is redrawn rather than answered
+    // with a notice that would cover it.
+    await this.sendNowPlaying(ctx, player);
   }
 
   /**

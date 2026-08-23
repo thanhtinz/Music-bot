@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 
 /** Actions a component can carry back to the bot. */
 export type ComponentAction =
@@ -14,7 +14,9 @@ export type ComponentAction =
   | 'plpage'
   | 'lypage'
   | 'pick'
-  | 'help';
+  | 'help'
+  | 'mute'
+  | 'volume';
 
 export interface ComponentId {
   action: ComponentAction;
@@ -69,6 +71,8 @@ const ACTIONS: readonly ComponentAction[] = [
   'lypage',
   'pick',
   'help',
+  'mute',
+  'volume',
 ];
 
 function isComponentAction(value: string): value is ComponentAction {
@@ -79,10 +83,22 @@ export interface NowPlayingControlsState {
   paused: boolean;
   /** Disables previous when there is no history to go back to. */
   hasPrevious: boolean;
-  /** Disables skip and shuffle when nothing is queued behind the current track. */
+  /** Disables skip when nothing is queued behind the current track. */
   hasQueue: boolean;
   loop: 'off' | 'song' | 'queue';
+  /** Current volume, shown on the picker. */
+  volume?: number;
+  /** Whether the player is muted rather than turned down. */
+  muted?: boolean;
 }
+
+/**
+ * The levels the volume picker offers.
+ *
+ * A short list of round numbers: anything finer is what the `volume` command
+ * is for, and a menu of two hundred entries is not a control.
+ */
+export const VOLUME_STEPS = [10, 25, 50, 75, 100, 150, 200] as const;
 
 /**
  * Transport row for the Now Playing panel (spec §4.4).
@@ -90,9 +106,7 @@ export interface NowPlayingControlsState {
  * Buttons that cannot do anything are disabled rather than hidden, so the row
  * keeps its shape as playback state changes (spec §35).
  */
-export function buildNowPlayingControls(
-  state: NowPlayingControlsState,
-): ActionRowBuilder<ButtonBuilder>[] {
+export function buildNowPlayingControls(state: NowPlayingControlsState): ComponentRow[] {
   const transport = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(encodeComponentId({ action: 'previous' }))
@@ -109,33 +123,38 @@ export function buildNowPlayingControls(
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(!state.hasQueue),
     new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'shuffle' }))
-      .setEmoji('🔀')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(!state.hasQueue),
-    new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'loop' }))
-      .setEmoji('🔁')
-      // A lit style is the only way to show loop is on without a text label.
-      .setStyle(state.loop === 'off' ? ButtonStyle.Secondary : ButtonStyle.Success),
+      .setCustomId(encodeComponentId({ action: 'mute' }))
+      .setEmoji(state.muted ? '🔇' : '🔊')
+      .setStyle(state.muted ? ButtonStyle.Danger : ButtonStyle.Secondary),
   );
 
-  const secondary = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'queue' }))
-      .setEmoji('📜')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'favorite' }))
-      .setEmoji('❤️')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'stop' }))
-      .setEmoji('⏹️')
-      .setStyle(ButtonStyle.Danger),
-  );
+  return [transport, buildVolumePicker(state.volume ?? 100, state.muted ?? false)];
+}
 
-  return [transport, secondary];
+/**
+ * The volume dropdown under the transport row.
+ *
+ * A picker rather than a pair of up/down buttons: setting a level takes one
+ * press instead of six, and the placeholder can say where it is now — which a
+ * button cannot.
+ */
+export function buildVolumePicker(
+  volume: number,
+  muted = false,
+): ActionRowBuilder<StringSelectMenuBuilder> {
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(encodeComponentId({ action: 'volume' }))
+    .setPlaceholder(muted ? 'Volume: muted' : `Volume: ${Math.round(volume)}%`)
+    .addOptions(
+      VOLUME_STEPS.map((step) => ({
+        label: `${step}%`,
+        value: String(step),
+        // Marking the current one keeps the menu honest when it reopens.
+        default: !muted && step === Math.round(volume),
+      })),
+    );
+
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
 }
 
 /**
@@ -274,7 +293,11 @@ function buildPagination(
   return [row];
 }
 
+/** A row of either kind, since the Now Playing panel now carries both. */
+export type ComponentRow =
+  ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>;
+
 /** Serialised rows, for tests and for the dashboard's message previews. */
-export function toJSON(rows: ActionRowBuilder<ButtonBuilder>[]) {
+export function toJSON(rows: ComponentRow[]) {
   return rows.map((row) => row.toJSON());
 }

@@ -101,15 +101,21 @@ function save(capture: Capture, file: string): void {
   console.log(`rendered ${file} (${size})${buttons ? ` + buttons: ${buttons}` : ''}`);
 }
 
-/** The actions behind a reply's buttons, as the ids encode them. */
+/** The actions behind a reply's components, as the ids encode them. */
 function describeComponents(components: unknown[] | undefined): string {
   const rows = (components ?? []) as Array<{
-    components?: Array<{ data?: { custom_id?: string } }>;
+    components?: Array<{ data?: { custom_id?: string; placeholder?: string } }>;
   }>;
 
   return rows
     .flatMap((row) => row.components ?? [])
-    .map((button) => button.data?.custom_id ?? '?')
+    .map((component) => {
+      const id = component.data?.custom_id ?? '?';
+      // A menu's placeholder is the state it shows, so a stale one is visible
+      // in the log rather than only in the picture.
+      const placeholder = component.data?.placeholder;
+      return placeholder ? `${id}(${placeholder})` : id;
+    })
     .join(' ');
 }
 
@@ -178,12 +184,16 @@ const MUSIC_OPTIONS = {
     status: string;
     queue: { history: readonly unknown[]; size: number };
     loop: 'off' | 'song' | 'queue';
+    volume: number;
+    muted: boolean;
   }) =>
     buildNowPlayingControls({
       paused: player.status === 'paused',
       hasPrevious: player.queue.history.length > 0,
       hasQueue: player.queue.size > 0,
       loop: player.loop,
+      volume: player.volume,
+      muted: player.muted,
     }),
   queueComponents: (page: number, totalPages: number) => buildQueuePagination(page, totalPages),
 };
@@ -421,6 +431,16 @@ async function main(): Promise<void> {
   const spotifyLink = context({ commandName: 'play', guildId: 'spotify-guild' });
   await spotifyMusic.play(spotifyLink.ctx, 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT');
   save(spotifyLink, 'reply-play-spotify.png');
+
+  // The same panel with the speaker turned off: the mute button and the
+  // picker's placeholder both have to say so.
+  const muted = context({ commandName: 'button', guildId: 'spotify-guild' });
+  await spotifyMusic.toggleMute(muted.ctx);
+  save(muted, 'reply-now-playing-muted.png');
+
+  const picked = context({ commandName: 'button', guildId: 'spotify-guild' });
+  await spotifyMusic.pickVolume(picked.ctx, 25);
+  save(picked, 'reply-now-playing-volume.png');
 
   // The same link on a node with no LavaSrc plugin.
   const noPlugin = new MusicService(

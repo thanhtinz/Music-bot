@@ -136,6 +136,8 @@ async function main(): Promise<void> {
         hasPrevious: player.queue.history.length > 0,
         hasQueue: player.queue.size > 0,
         loop: player.loop,
+        volume: player.volume,
+        muted: player.muted,
       }),
     queueComponents: (page, totalPages) => buildQueuePagination(page, totalPages),
     startingVolumeFor: async (guildId) => (await settings.forGuild(guildId)).defaultVolume,

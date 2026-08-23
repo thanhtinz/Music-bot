@@ -63,6 +63,8 @@ export class Player extends EventEmitter<PlayerEvents> {
   textChannelId: string | undefined;
 
   private state: PlayerStatus = 'idle';
+  /** The level to come back to when a mute is lifted. */
+  private volumeBeforeMute?: number;
   private currentVolume: number;
   private filterPreset: string | undefined;
   private autoplayEnabled = false;
@@ -356,9 +358,45 @@ export class Player extends EventEmitter<PlayerEvents> {
 
   async setVolume(volume: number): Promise<number> {
     this.currentVolume = clampVolume(volume);
+
+    // Setting the volume by hand ends a mute: the level asked for is the level
+    // wanted, and coming back to a remembered one afterwards would undo it.
+    this.volumeBeforeMute = undefined;
+
     await this.backend.setVolume(this.guildId, this.currentVolume);
     this.emitState();
     return this.currentVolume;
+  }
+
+  /** Whether the player has been muted rather than turned down to zero. */
+  get muted(): boolean {
+    return this.volumeBeforeMute !== undefined;
+  }
+
+  /**
+   * Silences the player, or puts it back where it was.
+   *
+   * The level is remembered rather than assumed: coming back from a mute at
+   * some default would be a surprise for a room that had it at 30.
+   */
+  async toggleMute(): Promise<boolean> {
+    if (this.volumeBeforeMute !== undefined) {
+      const restore = this.volumeBeforeMute;
+      this.volumeBeforeMute = undefined;
+
+      this.currentVolume = clampVolume(restore);
+      await this.backend.setVolume(this.guildId, this.currentVolume);
+      this.emitState();
+
+      return false;
+    }
+
+    this.volumeBeforeMute = this.currentVolume;
+    this.currentVolume = 0;
+    await this.backend.setVolume(this.guildId, 0);
+    this.emitState();
+
+    return true;
   }
 
   async setFilter(preset: string | undefined): Promise<void> {

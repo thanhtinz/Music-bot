@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNowPlayingControls,
   buildQueuePagination,
+  buildVolumePicker,
+  VOLUME_STEPS,
   buildHelpCategories,
   buildSearchPicks,
   decodeComponentId,
@@ -38,27 +40,34 @@ describe('component ids', () => {
   });
 });
 
+/** The actions a serialised row carries, in the order they are shown. */
+function actionsOf(row: { components: unknown[] } | undefined): (string | undefined)[] {
+  return (row?.components ?? []).map(
+    (component) => decodeComponentId((component as { custom_id: string }).custom_id)?.action,
+  );
+}
+
 describe('buildNowPlayingControls', () => {
   const state = { paused: false, hasPrevious: true, hasQueue: true, loop: 'off' as const };
 
-  it('builds two rows of buttons', () => {
+  it('builds a transport row and a volume picker', () => {
     const rows = toJSON(buildNowPlayingControls(state));
 
     expect(rows).toHaveLength(2);
-    expect(rows[0]?.components).toHaveLength(5);
-    expect(rows[1]?.components).toHaveLength(3);
+    expect(actionsOf(rows[0])).toEqual(['previous', 'playpause', 'skip', 'mute']);
+    expect(actionsOf(rows[1])).toEqual(['volume']);
   });
 
   it('disables what cannot be done right now', () => {
     const rows = toJSON(buildNowPlayingControls({ ...state, hasPrevious: false, hasQueue: false }));
     const transport = rows[0]?.components ?? [];
 
-    // previous, skip and shuffle all need something to act on.
+    // previous and skip both need something to act on.
     expect(transport[0]).toMatchObject({ disabled: true });
     expect(transport[2]).toMatchObject({ disabled: true });
-    expect(transport[3]).toMatchObject({ disabled: true });
-    // Play/pause always works while a track is loaded.
+    // Play/pause and mute always work while a track is loaded.
     expect((transport[1] as { disabled?: boolean }).disabled).not.toBe(true);
+    expect((transport[3] as { disabled?: boolean }).disabled).not.toBe(true);
   });
 
   it('shows play while paused and pause while playing', () => {
@@ -68,14 +77,14 @@ describe('buildNowPlayingControls', () => {
     expect(playing).not.toEqual(paused);
   });
 
-  it('lights the loop button when loop is on', () => {
-    const off = toJSON(buildNowPlayingControls(state))[0]?.components?.[4];
-    const on = toJSON(buildNowPlayingControls({ ...state, loop: 'queue' }))[0]?.components?.[4];
+  it('marks the mute button while the player is silenced', () => {
+    const loud = toJSON(buildNowPlayingControls(state))[0]?.components?.[3];
+    const muted = toJSON(buildNowPlayingControls({ ...state, muted: true }))[0]?.components?.[3];
 
-    expect(off).not.toEqual(on);
+    expect(loud).not.toEqual(muted);
   });
 
-  it('every button carries a decodable id', () => {
+  it('every component carries a decodable id', () => {
     for (const row of toJSON(buildNowPlayingControls(state))) {
       for (const component of row.components) {
         const customId = (component as { custom_id?: string }).custom_id;
@@ -83,6 +92,48 @@ describe('buildNowPlayingControls', () => {
         expect(decodeComponentId(customId as string)).not.toBeNull();
       }
     }
+  });
+});
+
+describe('buildVolumePicker', () => {
+  it('offers every step, as values the volume command understands', () => {
+    const menu = toJSON([buildVolumePicker(100)])[0]?.components?.[0] as {
+      options: { value: string; default?: boolean }[];
+    };
+
+    expect(menu.options.map((option) => Number(option.value))).toEqual([...VOLUME_STEPS]);
+  });
+
+  it('says where the volume is now, and marks that step', () => {
+    const menu = toJSON([buildVolumePicker(75)])[0]?.components?.[0] as {
+      placeholder: string;
+      options: { value: string; default?: boolean }[];
+    };
+
+    expect(menu.placeholder).toBe('Volume: 75%');
+    expect(menu.options.filter((option) => option.default).map((option) => option.value)).toEqual([
+      '75',
+    ]);
+  });
+
+  it('marks no step while muted, and says so', () => {
+    const menu = toJSON([buildVolumePicker(75, true)])[0]?.components?.[0] as {
+      placeholder: string;
+      options: { default?: boolean }[];
+    };
+
+    expect(menu.placeholder).toBe('Volume: muted');
+    expect(menu.options.some((option) => option.default)).toBe(false);
+  });
+
+  it('marks nothing when the level is between steps', () => {
+    const menu = toJSON([buildVolumePicker(63)])[0]?.components?.[0] as {
+      placeholder: string;
+      options: { default?: boolean }[];
+    };
+
+    expect(menu.placeholder).toBe('Volume: 63%');
+    expect(menu.options.some((option) => option.default)).toBe(false);
   });
 });
 

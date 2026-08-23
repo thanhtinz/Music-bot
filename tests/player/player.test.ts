@@ -155,6 +155,34 @@ describe('Player', () => {
     expect(await player.setVolume(Number.NaN)).toBe(0);
   });
 
+  it('mutes to silence and comes back to the level it left', async () => {
+    await player.setVolume(35);
+
+    expect(await player.toggleMute()).toBe(true);
+    expect(player.muted).toBe(true);
+    expect(player.volume).toBe(0);
+    expect(backend.volumeOf('g1')).toBe(0);
+
+    expect(await player.toggleMute()).toBe(false);
+    expect(player.muted).toBe(false);
+    expect(player.volume).toBe(35);
+    expect(backend.volumeOf('g1')).toBe(35);
+  });
+
+  it('lets a volume set by hand end the mute', async () => {
+    await player.setVolume(35);
+    await player.toggleMute();
+
+    await player.setVolume(80);
+
+    // The level asked for is the level wanted: pressing mute again silences
+    // the player rather than putting it back at 35.
+    expect(player.muted).toBe(false);
+    expect(await player.toggleMute()).toBe(true);
+    expect(await player.toggleMute()).toBe(false);
+    expect(player.volume).toBe(80);
+  });
+
   it('clamps seek to the track duration and ignores streams', async () => {
     await player.enqueue(track('A'));
 

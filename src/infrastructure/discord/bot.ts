@@ -7,6 +7,8 @@ import {
   type GuildMember,
   type Interaction,
   type Message,
+  type MessageComponentInteraction,
+  type StringSelectMenuInteraction,
   type VoiceState,
 } from 'discord.js';
 
@@ -190,6 +192,13 @@ async function handleInteraction(
     return;
   }
 
+  // The volume picker is a select menu, not a button: its value carries the
+  // level, so it needs its own branch rather than an id argument.
+  if (interaction.isStringSelectMenu()) {
+    await handleSelect(interaction, service, options);
+    return;
+  }
+
   if (!interaction.isChatInputCommand() || !interaction.inGuild()) return;
 
   const member = interaction.member as GuildMember | null;
@@ -317,6 +326,9 @@ async function handleButton(
     case 'favorite':
       await options.playlists?.toggleFavorite(context);
       return;
+    case 'mute':
+      await service.toggleMute(context);
+      return;
     case 'pick':
       await options.search?.pick(context, Number(id.arg) || 0);
       return;
@@ -353,6 +365,39 @@ export async function guildDefaults(
   };
 }
 
+/**
+ * A select-menu choice: today that is only the volume picker.
+ *
+ * Its own branch rather than a button id, because the level comes back in the
+ * menu's values rather than in the custom id.
+ */
+async function handleSelect(
+  interaction: StringSelectMenuInteraction,
+  service: MusicService,
+  options: BotOptions,
+): Promise<void> {
+  const id = decodeComponentId(interaction.customId);
+  if (!id || id.action !== 'volume' || !interaction.inGuild()) return;
+
+  const chosen = Number(interaction.values[0]);
+  if (!Number.isFinite(chosen)) return;
+
+  await interaction.deferUpdate().catch(() => undefined);
+
+  const member = interaction.member as GuildMember | null;
+  const context = decorate(
+    createButtonContext(interaction, {
+      tier: member
+        ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
+        : 'everyone',
+      voiceChannelId: voiceChannelOf(member),
+    }),
+    options,
+  );
+
+  await service.pickVolume(context, chosen);
+}
+
 /** Applies the notice-card wrapper, when one is configured. */
 function decorate(context: CommandContext, options: BotOptions): CommandContext {
   return options.notices ? withNoticeCards(context, { render: options.notices }) : context;
@@ -365,7 +410,7 @@ function decorate(context: CommandContext, options: BotOptions): CommandContext 
  * image in place instead of posting a new message (spec §35).
  */
 function createButtonContext(
-  interaction: ButtonInteraction,
+  interaction: MessageComponentInteraction,
   dependencies: { tier: CommandContext['tier']; voiceChannelId?: string },
 ): CommandContext {
   return {
