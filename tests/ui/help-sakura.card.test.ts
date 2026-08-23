@@ -9,8 +9,7 @@ import {
   type HelpSakuraCardData,
   type HelpSakuraCommand,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function commands(count: number): HelpSakuraCommand[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -40,7 +39,7 @@ function data(overrides: Partial<HelpSakuraCardData> = {}): HelpSakuraCardData {
 describe('renderSakuraHelpCard', () => {
   it('renders a PNG at the template size', async () => {
     const buffer = await renderSakuraHelpCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(HELP_SAKURA_TEMPLATE_SIZE.width);
@@ -81,7 +80,7 @@ describe('renderSakuraHelpCard', () => {
     }));
 
     const buffer = await renderSakuraHelpCard(data({ categories }));
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('caps rows at the page size', async () => {
@@ -122,7 +121,7 @@ describe('renderSakuraHelpCard', () => {
 
   it('renders with nothing to show', async () => {
     const buffer = await renderSakuraHelpCard(data({ categories: [], commands: [] }));
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('survives degenerate input', async () => {
@@ -134,6 +133,6 @@ describe('renderSakuraHelpCard', () => {
       }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

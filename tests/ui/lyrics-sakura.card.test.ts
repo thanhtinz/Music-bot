@@ -8,8 +8,7 @@ import {
   renderSakuraLyricsCard,
   type LyricsCardData,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function data(overrides: Partial<LyricsCardData> = {}): LyricsCardData {
   return {
@@ -65,7 +64,7 @@ describe('paginateLyrics', () => {
 describe('renderSakuraLyricsCard', () => {
   it('renders a PNG at the declared size', async () => {
     const buffer = await renderSakuraLyricsCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(LYRICS_SAKURA_SIZE.width);
@@ -92,15 +91,13 @@ describe('renderSakuraLyricsCard', () => {
 
   it('renders without an artist or a provider', async () => {
     const buffer = await renderSakuraLyricsCard(data({ artist: undefined, provider: undefined }));
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('survives an empty page and an over-long one', async () => {
-    expect(
-      (await renderSakuraLyricsCard(data({ lines: [] }))).subarray(0, 8).equals(PNG_MAGIC),
-    ).toBe(true);
+    expectCardImage(await renderSakuraLyricsCard(data({ lines: [] })));
 
     const many = data({ lines: Array.from({ length: 200 }, (_, i) => `Line ${i}`) });
-    expect((await renderSakuraLyricsCard(many)).subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(await renderSakuraLyricsCard(many));
   });
 });

@@ -16,6 +16,7 @@ import {
 } from '../primitives';
 import { resolveTheme, type CanvasTheme } from '../theme';
 import type { LoopMode } from '../../../domain/music/queue';
+import { encodeCard } from '../encode';
 
 export type { LoopMode };
 
@@ -87,7 +88,7 @@ export async function renderNowPlayingCard(data: NowPlayingCardData): Promise<Bu
   drawProgress(ctx, theme, data);
   drawMetaBar(ctx, theme, data);
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function drawBackground(ctx: SKRSContext2D, theme: CanvasTheme, artwork: Image): void {

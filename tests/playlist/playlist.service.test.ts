@@ -5,6 +5,8 @@ import { InMemoryPlaylistRepository, PlaylistService } from '../../src/applicati
 import type { MusicService } from '../../src/application/services/music.service';
 import { createTrack, type Track } from '../../src/domain/music';
 import { FAVORITES_NAME, MAX_PLAYLISTS_PER_OWNER } from '../../src/domain/playlist';
+import { cardFile } from '../../src/ui/canvas';
+import { expectCardImage } from '../helpers/card-image';
 
 interface Harness {
   ctx: CommandContext;
@@ -255,8 +257,8 @@ describe('PlaylistService', () => {
       const { ctx, replies } = harness();
       await service.list(ctx);
 
-      expect(replies[0]?.attachments?.[0]?.name).toBe('playlists.png');
-      expect(replies[0]?.attachments?.[0]?.data.subarray(1, 4).toString()).toBe('PNG');
+      expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('playlists'));
+      expectCardImage(replies[0]?.attachments?.[0]?.data);
       expect(replies[0]?.components).toEqual([{ page: 1, totalPages: 1 }]);
     });
 

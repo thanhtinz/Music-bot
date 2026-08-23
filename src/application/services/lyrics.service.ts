@@ -1,7 +1,7 @@
 import type { Lyrics, LyricsProvider } from '../../lyrics';
 import { describeResolverError, ResolverError } from '../../resolvers';
 import { createLogger } from '../../telemetry/logger';
-import { paginateLyrics, renderSakuraLyricsCard } from '../../ui/canvas';
+import { cardFile, paginateLyrics, renderSakuraLyricsCard } from '../../ui/canvas';
 import type { CommandContext } from '../commands';
 
 import type { MusicService } from './music.service';
@@ -100,7 +100,7 @@ export class LyricsService {
     });
 
     await ctx.reply({
-      attachments: [{ name: 'lyrics.png', data: card }],
+      attachments: [{ name: cardFile('lyrics'), data: card }],
       components: this.options.pageComponents?.(current, totalPages),
     });
   }

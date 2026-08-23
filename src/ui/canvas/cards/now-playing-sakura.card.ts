@@ -18,6 +18,7 @@ import {
   type Rect,
 } from '../primitives';
 import type { NowPlayingCardData } from './now-playing.card';
+import { encodeCard } from '../encode';
 
 /**
  * Pre-rendered artwork this card composites onto.
@@ -280,7 +281,7 @@ export async function renderSakuraNowPlayingCard(data: NowPlayingCardData): Prom
   // clips it.
   await drawMascot(ctx, { centerX: 1356, bottomY: 626, height: 252 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 /**

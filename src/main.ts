@@ -36,7 +36,7 @@ import { JsonSettingsRepository } from './infrastructure/storage/json-settings-r
 import { JsonStatsRepository } from './infrastructure/storage/json-stats-repository';
 import { LrclibProvider } from './lyrics';
 import { LavaSrcResolver, RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
-import { renderSakuraNoticeCard } from './ui/canvas';
+import { cardFile, configureCardEncoding, renderSakuraNoticeCard } from './ui/canvas';
 import { createBotMetrics } from './telemetry/bot-metrics';
 import { createHealthServer } from './infrastructure/http/health-server';
 import { createLogger, logger } from './telemetry/logger';
@@ -52,6 +52,10 @@ const log = createLogger('main');
  */
 async function main(): Promise<void> {
   const env = loadEnv();
+
+  // Set before anything renders, so every card in the process agrees on what
+  // it is encoding to and what its attachment should be called.
+  configureCardEncoding({ format: env.CARD_FORMAT, quality: env.CARD_QUALITY });
 
   const metrics = createBotMetrics();
   const client = createClient();
@@ -110,7 +114,7 @@ async function main(): Promise<void> {
       });
 
       await channel
-        .send({ files: [{ attachment: card, name: 'notice.png' }] })
+        .send({ files: [{ attachment: card, name: cardFile('notice') }] })
         .catch(() => undefined);
     },
   });

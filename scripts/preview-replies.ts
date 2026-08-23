@@ -22,7 +22,7 @@ import {
   type SourceResolver,
   type TrackCandidate,
 } from '../src/resolvers';
-import { renderSakuraNoticeCard } from '../src/ui/canvas';
+import { configureCardEncoding, renderSakuraNoticeCard } from '../src/ui/canvas';
 import {
   buildNowPlayingControls,
   buildQueuePagination,
@@ -37,6 +37,12 @@ import { FakeAudioBackend } from '../tests/helpers/fake-audio-backend';
  * forgets its title or picks the wrong tone, it shows up here.
  */
 const OUT_DIR = resolve(__dirname, '../preview');
+
+// The bot ships WebP, but these files are committed and shown in the README,
+// where a `.png` holding WebP bytes is an image GitHub will not draw. The
+// drawing is the same either way — quality 90 is indistinguishable from the
+// PNG at 2x zoom — so the preview renders the container it can display.
+configureCardEncoding({ format: 'png' });
 
 interface Capture {
   ctx: CommandContext;

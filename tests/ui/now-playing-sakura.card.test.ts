@@ -7,8 +7,7 @@ import {
   SAKURA_TEMPLATE_SIZE,
   type NowPlayingCardData,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 const BASE: NowPlayingCardData = {
   title: 'Chăm Hoa',
@@ -26,7 +25,7 @@ const BASE: NowPlayingCardData = {
 describe('renderSakuraNowPlayingCard', () => {
   it('renders a PNG at the template size', async () => {
     const buffer = await renderSakuraNowPlayingCard(BASE);
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(SAKURA_TEMPLATE_SIZE.width);
@@ -90,7 +89,7 @@ describe('renderSakuraNowPlayingCard', () => {
     ]);
 
     // Same mark, different label — so the images differ but neither throws.
-    expect(unknown.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(unknown);
     expect(unknown.equals(http)).toBe(false);
   });
 
@@ -104,7 +103,7 @@ describe('renderSakuraNowPlayingCard', () => {
       source: 'radio',
     });
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('is deterministic for identical input', async () => {
@@ -126,7 +125,7 @@ describe('renderSakuraNowPlayingCard', () => {
       source: undefined,
     });
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('truncates a title that would run into the stickers', async () => {
@@ -135,6 +134,6 @@ describe('renderSakuraNowPlayingCard', () => {
       title: 'A ridiculously long track title that could never fit beside the artwork frame',
     });
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

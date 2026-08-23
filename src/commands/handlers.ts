@@ -8,7 +8,7 @@ import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
 import { isFilterPreset } from '../infrastructure/lavalink/filters';
 import { parseTimeToSeconds } from '../resolvers';
-import { renderSakuraHelpCard } from '../ui/canvas';
+import { cardFile, renderSakuraHelpCard } from '../ui/canvas';
 
 import { catalogByCategory, COMMAND_CATALOG, type CommandMeta } from './catalog';
 
@@ -306,7 +306,7 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       });
 
       await ctx.reply({
-        attachments: [{ name: 'help.png', data: card }],
+        attachments: [{ name: cardFile('help'), data: card }],
         ...(options.helpComponents
           ? {
               components: options.helpComponents(

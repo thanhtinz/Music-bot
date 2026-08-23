@@ -12,6 +12,7 @@ import {
   type TrackStat,
 } from '../../domain/stats';
 import {
+  cardFile,
   formatHours,
   renderSakuraStatsCard,
   STATS_SAKURA_ROWS,
@@ -164,7 +165,7 @@ export class StatsService {
       ...data,
     });
 
-    await ctx.reply({ attachments: [{ name: 'stats.png', data: card }] });
+    await ctx.reply({ attachments: [{ name: cardFile('stats'), data: card }] });
   }
 
   /**

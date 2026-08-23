@@ -6,6 +6,7 @@ import { MusicService } from '../../src/application/services/music.service';
 import { createTrack, type Track } from '../../src/domain/music';
 import { ResolverRegistry } from '../../src/resolvers';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
+import { cardFile } from '../../src/ui/canvas';
 
 function song(title: string, requesterId = 'user'): Track {
   return createTrack({
@@ -354,7 +355,7 @@ describe('history', () => {
 
     await service.history(ctx);
 
-    expect(replies[0]?.attachments?.[0]?.name).toBe('history.png');
+    expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('history'));
   });
 
   it('renders an empty history rather than refusing', async () => {
@@ -363,7 +364,7 @@ describe('history', () => {
     await service.history(ctx);
 
     // A guild with no player at all still gets the card, saying so.
-    expect(replies[0]?.attachments?.[0]?.name).toBe('history.png');
+    expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('history'));
   });
 
   it('puts what just finished first', async () => {

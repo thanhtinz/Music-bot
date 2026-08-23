@@ -9,8 +9,7 @@ import {
   type HistoryCardEntry,
 } from '../../src/ui/canvas';
 import { historyCardHeight } from '../../src/ui/canvas/cards/history-sakura.card';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function entries(count: number): HistoryCardEntry[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -28,7 +27,7 @@ function data(overrides: Partial<HistoryCardData> = {}): HistoryCardData {
 describe('renderSakuraHistoryCard', () => {
   it('renders a PNG at the full size when the history is full', async () => {
     const buffer = await renderSakuraHistoryCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(HISTORY_SAKURA_SIZE.width);
@@ -118,6 +117,6 @@ describe('renderSakuraHistoryCard', () => {
       }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

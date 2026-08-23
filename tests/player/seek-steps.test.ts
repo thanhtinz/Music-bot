@@ -7,6 +7,7 @@ import { buildCommands } from '../../src/commands/handlers';
 import { createTrack, type Track } from '../../src/domain/music';
 import { ResolverRegistry } from '../../src/resolvers';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
+import { cardFile } from '../../src/ui/canvas';
 
 function song(title: string, overrides: Partial<Parameters<typeof createTrack>[0]> = {}): Track {
   return createTrack({
@@ -95,7 +96,7 @@ describe('stepping through a track', () => {
 
     await service.nudge(ctx, 10_000);
 
-    expect(replies.at(-1)?.attachments?.[0]?.name).toBe('now-playing.png');
+    expect(replies.at(-1)?.attachments?.[0]?.name).toBe(cardFile('now-playing'));
   });
 
   it('says why a live stream cannot be stepped through', async () => {

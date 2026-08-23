@@ -11,6 +11,7 @@ import {
 } from '../../src/infrastructure/discord/components';
 import { ResolverRegistry } from '../../src/resolvers';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
+import { cardFile } from '../../src/ui/canvas';
 
 function song(title: string): Track {
   return createTrack({
@@ -100,7 +101,7 @@ describe('the Now Playing volume controls', () => {
 
     const last = replies.at(-1);
     // The panel, not a notice that would cover it.
-    expect(last?.attachments?.[0]?.name).toBe('now-playing.png');
+    expect(last?.attachments?.[0]?.name).toBe(cardFile('now-playing'));
     expect(actionsOf(last)).toEqual([['previous', 'playpause', 'skip', 'mute'], ['volume']]);
   });
 
@@ -112,7 +113,7 @@ describe('the Now Playing volume controls', () => {
     expect(players.get('guild')?.volume).toBe(25);
     expect(backend.volumeOf('guild')).toBe(25);
     // Redrawn rather than answered, so the placeholder catches up.
-    expect(replies.at(-1)?.attachments?.[0]?.name).toBe('now-playing.png');
+    expect(replies.at(-1)?.attachments?.[0]?.name).toBe(cardFile('now-playing'));
   });
 
   it('lets a picked level end a mute', async () => {

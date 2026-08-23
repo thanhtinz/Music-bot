@@ -5,6 +5,7 @@ import { drawGlyph, glyphFor, type GlyphName } from '../glyphs';
 import { drawMascot } from '../mascot';
 import { fillRoundedRect, strokeRoundedRect, truncateText, type Rect } from '../primitives';
 import { drawMusicNote, drawSparkle, drawStar, SAKURA_STICKER_COLORS } from '../stickers';
+import { encodeCard } from '../encode';
 
 /**
  * How loudly a notice should read.
@@ -83,7 +84,7 @@ export async function renderSakuraNoticeCard(data: NoticeCardData): Promise<Buff
   // Drawn last, as on every card, so nothing can clip it.
   await drawMascot(ctx, { centerX: 1030, bottomY: 388, height: 272 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function drawBackground(ctx: SKRSContext2D): void {

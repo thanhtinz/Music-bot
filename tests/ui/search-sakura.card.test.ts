@@ -8,8 +8,7 @@ import {
   type SearchCardData,
   type SearchCardResult,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function results(count: number): SearchCardResult[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -27,7 +26,7 @@ function data(overrides: Partial<SearchCardData> = {}): SearchCardData {
 describe('renderSakuraSearchCard', () => {
   it('renders a PNG at the declared size', async () => {
     const buffer = await renderSakuraSearchCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(SEARCH_SAKURA_SIZE.width);
@@ -83,7 +82,7 @@ describe('renderSakuraSearchCard', () => {
   it('renders an empty result list as a line rather than a bare frame', async () => {
     const buffer = await renderSakuraSearchCard(data({ results: [] }));
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('marks a stream as live rather than showing 0:00', async () => {
@@ -102,7 +101,7 @@ describe('renderSakuraSearchCard', () => {
       data({ results: [{ title: 'Somewhere', author: 'Someone', durationMs: 1_000 }] }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('survives a title and a query long enough to run off the card', async () => {
@@ -113,6 +112,6 @@ describe('renderSakuraSearchCard', () => {
       }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

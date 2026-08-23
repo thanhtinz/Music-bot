@@ -1,7 +1,7 @@
 import type { ResolverRegistry, TrackCandidate } from '../../resolvers';
 import { describeResolverError } from '../../resolvers';
 import { createLogger } from '../../telemetry/logger';
-import { renderSakuraSearchCard, SEARCH_SAKURA_ROWS } from '../../ui/canvas';
+import { cardFile, renderSakuraSearchCard, SEARCH_SAKURA_ROWS } from '../../ui/canvas';
 import type { CommandContext } from '../commands';
 import type { MusicService } from '../services/music.service';
 
@@ -104,7 +104,7 @@ export class SearchService {
     });
 
     await ctx.reply({
-      attachments: [{ name: 'search.png', data: card }],
+      attachments: [{ name: cardFile('search'), data: card }],
       ...(this.options.searchComponents
         ? { components: this.options.searchComponents(results.length) }
         : {}),

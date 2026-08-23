@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CommandContext, ReplyPayload } from '../../src/application/commands';
 import { InMemorySettingsRepository, SettingsService } from '../../src/application/settings';
+import { cardFile } from '../../src/ui/canvas';
+import { expectCardImage } from '../helpers/card-image';
 
 const DEFAULTS = { prefix: '!', defaultVolume: 70, idleTimeoutMs: 300_000 };
 
@@ -73,8 +75,8 @@ describe('SettingsService', () => {
 
       await service.show(ctx);
 
-      expect(replies[0]?.attachments?.[0]?.name).toBe('settings.png');
-      expect(replies[0]?.attachments?.[0]?.data.subarray(1, 4).toString()).toBe('PNG');
+      expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('settings'));
+      expectCardImage(replies[0]?.attachments?.[0]?.data);
     });
 
     it('works for a guild with nothing saved', async () => {

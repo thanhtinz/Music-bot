@@ -6,6 +6,8 @@ import type { MusicService } from '../../src/application/services/music.service'
 import { createTrack, type Track } from '../../src/domain/music';
 import type { Lyrics, LyricsProvider } from '../../src/lyrics';
 import { ResolverError } from '../../src/resolvers';
+import { cardFile } from '../../src/ui/canvas';
+import { expectCardImage } from '../helpers/card-image';
 
 function harness(overrides: Partial<CommandContext> = {}): {
   ctx: CommandContext;
@@ -80,8 +82,8 @@ describe('LyricsService', () => {
 
     await service.show(ctx, '');
 
-    expect(replies[0]?.attachments?.[0]?.name).toBe('lyrics.png');
-    expect(replies[0]?.attachments?.[0]?.data.subarray(1, 4).toString()).toBe('PNG');
+    expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('lyrics'));
+    expectCardImage(replies[0]?.attachments?.[0]?.data);
   });
 
   it('pages a long song and attaches the buttons', async () => {

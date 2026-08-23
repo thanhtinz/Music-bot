@@ -7,6 +7,7 @@ import { font, registerFonts } from '../fonts';
 import { drawGlyph, glyphFor } from '../glyphs';
 import { drawMascot } from '../mascot';
 import { fillRoundedRect, truncateText, type Rect } from '../primitives';
+import { encodeCard } from '../encode';
 
 /**
  * Illustrated command-list artwork this card composites onto.
@@ -142,7 +143,7 @@ export async function renderSakuraHelpCard(data: HelpSakuraCardData): Promise<Bu
   // on every card, because the final command row reaches into this corner.
   await drawMascot(ctx, { centerX: 1402, bottomY: 994, height: 132 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 /** Paints over a region with a colour sampled from the template itself. */

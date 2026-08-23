@@ -5,6 +5,7 @@ import { drawGlyph } from '../glyphs';
 import { drawMascot } from '../mascot';
 import { fillRoundedRect, strokeRoundedRect, truncateText, type Rect } from '../primitives';
 import { drawMusicNote, drawSparkle, drawStar, SAKURA_STICKER_COLORS } from '../stickers';
+import { encodeCard } from '../encode';
 
 export interface StatsCardEntry {
   /** Track title, artist name, or a person's display name. */
@@ -129,7 +130,7 @@ export async function renderSakuraStatsCard(data: StatsCardData): Promise<Buffer
   // Drawn last, as on every card, so nothing can clip it.
   await drawMascot(ctx, { centerX: 1078, bottomY: 848, height: 138 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function drawBackground(ctx: SKRSContext2D): void {

@@ -14,18 +14,25 @@ import { catalogByCategory } from '../src/commands/catalog';
 import { createTrack, Queue, type Track } from '../src/domain/music';
 import type { AudioBackend, AudioBackendEmitter } from '../src/infrastructure/audio/audio-backend';
 import {
+  configureCardEncoding,
+  paginateSakuraQueue,
   QUEUE_PAGE_SIZE,
   renderHelpCard,
   renderNowPlayingCard,
+  renderQueueCard,
   renderSakuraHelpCard,
   renderSakuraNoticeCard,
   renderSakuraPlaylistCard,
-  paginateSakuraQueue,
-  renderQueueCard,
   type NowPlayingCardData,
 } from '../src/ui/canvas';
 
 const OUT_DIR = resolve(__dirname, '../preview');
+
+// The bot ships WebP, but these files are committed and shown in the README,
+// where a `.png` holding WebP bytes is an image GitHub will not draw. The
+// drawing is the same either way — quality 90 is indistinguishable from the
+// PNG at 2x zoom — so the preview renders the container it can display.
+configureCardEncoding({ format: 'png' });
 
 const scenarios: Array<{ file: string; data: NowPlayingCardData }> = [
   {

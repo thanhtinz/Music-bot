@@ -16,9 +16,10 @@ import {
 } from '../../domain/playlist';
 import { createLogger } from '../../telemetry/logger';
 import {
+  cardFile,
   PLAYLIST_SAKURA_PAGE_SIZE,
-  renderSakuraPlaylistCard,
   type PlaylistCardEntry,
+  renderSakuraPlaylistCard,
 } from '../../ui/canvas';
 import { invocationPrefix, type CommandContext } from '../commands';
 import type { MusicService } from '../services/music.service';
@@ -85,7 +86,7 @@ export class PlaylistService {
     });
 
     await ctx.reply({
-      attachments: [{ name: 'playlists.png', data: card }],
+      attachments: [{ name: cardFile('playlists'), data: card }],
       components: this.options.libraryComponents?.(current, totalPages),
     });
   }

@@ -14,12 +14,13 @@ import {
 } from '../../resolvers';
 import { createLogger } from '../../telemetry/logger';
 import {
+  cardFile,
   HISTORY_SAKURA_ROWS,
+  type NowPlayingCardData,
   paginateSakuraQueue,
   renderNowPlayingCard,
   renderQueueCard,
   renderSakuraHistoryCard,
-  type NowPlayingCardData,
 } from '../../ui/canvas';
 import { satisfiesTier, type CommandContext } from '../commands';
 import { lineFor } from '../player';
@@ -760,7 +761,7 @@ export class MusicService {
         : { guildName: this.options.guildName(ctx.guildId) }),
     });
 
-    await ctx.reply({ attachments: [{ name: 'history.png', data: card }] });
+    await ctx.reply({ attachments: [{ name: cardFile('history'), data: card }] });
   }
 
   /** Renders the Now Playing panel on demand. */
@@ -816,7 +817,7 @@ export class MusicService {
     });
 
     await ctx.reply({
-      attachments: [{ name: 'queue.png', data: card }],
+      attachments: [{ name: cardFile('queue'), data: card }],
       components: this.options.queueComponents?.(slice.page, slice.totalPages),
       edit: true,
     });
@@ -838,7 +839,7 @@ export class MusicService {
       // move without the image being redrawn: an edit that changes only the
       // text leaves the attachment alone, so the panel does not blink.
       content: lineFor(player),
-      attachments: [{ name: 'now-playing.png', data: card }],
+      attachments: [{ name: cardFile('now-playing'), data: card }],
       components: this.options.nowPlayingComponents?.(player),
       edit: true,
     });

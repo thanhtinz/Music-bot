@@ -11,6 +11,7 @@ import {
   type Rect,
 } from '../primitives';
 import { drawMusicNote, drawSparkle, drawStar, SAKURA_STICKER_COLORS } from '../stickers';
+import { encodeCard } from '../encode';
 
 export interface HistoryCardEntry {
   title: string;
@@ -104,7 +105,7 @@ export async function renderSakuraHistoryCard(data: HistoryCardData): Promise<Bu
   // Drawn last, as on every card, so nothing can clip it.
   await drawMascot(ctx, { centerX: 1080, bottomY: height - 26, height: 110 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function panelOf(height: number): Rect {

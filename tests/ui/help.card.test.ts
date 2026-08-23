@@ -2,8 +2,8 @@ import { loadImage } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
 
 import { HELP_CARD_WIDTH, renderHelpCard, type HelpCardData } from '../../src/ui/canvas';
+import { expectCardImage } from '../helpers/card-image';
 
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const SCALE = 2;
 
 function data(overrides: Partial<HelpCardData> = {}): HelpCardData {
@@ -26,7 +26,7 @@ function data(overrides: Partial<HelpCardData> = {}): HelpCardData {
 describe('renderHelpCard', () => {
   it('renders a PNG at the declared width', async () => {
     const buffer = await renderHelpCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(HELP_CARD_WIDTH * SCALE);
@@ -66,7 +66,7 @@ describe('renderHelpCard', () => {
 
   it('renders with no groups at all', async () => {
     const buffer = await renderHelpCard(data({ groups: [] }));
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('reflects the guild prefix', async () => {

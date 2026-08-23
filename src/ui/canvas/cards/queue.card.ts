@@ -15,6 +15,7 @@ import {
   type Rect,
 } from '../primitives';
 import { resolveTheme, type CanvasTheme } from '../theme';
+import { encodeCard } from '../encode';
 
 export interface QueueCardTrack {
   /** 1-based position as shown to the user. */
@@ -114,7 +115,7 @@ export async function renderQueueCard(data: QueueCardData): Promise<Buffer> {
   drawRows(ctx, theme, rows, y);
   drawFooter(ctx, theme, data, height);
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function drawBackground(

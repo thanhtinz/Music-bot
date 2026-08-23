@@ -105,3 +105,5 @@ export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';
 export type { CanvasTheme, ThemeName } from './theme';
 export { registerFonts, font, UI_FONT } from './fonts';
 export { formatDuration } from './primitives';
+export { cardFile, cardFormat, configureCardEncoding, encodeCard } from './encode';
+export type { CardFormat } from './encode';

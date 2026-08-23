@@ -14,6 +14,7 @@ import {
   type Rect,
 } from '../primitives';
 import type { QueueCardData, QueueCardTrack } from './queue.card';
+import { encodeCard } from '../encode';
 
 /**
  * Illustrated queue artwork this card composites onto.
@@ -237,7 +238,7 @@ export async function renderSakuraQueueCard(data: QueueCardData): Promise<Buffer
   // last so that clearing an unused row cannot cut its ears off.
   await drawMascot(ctx, { centerX: 786, bottomY: 948, height: 120 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 /** Current track first, then upcoming tracks, capped at the template's rows. */

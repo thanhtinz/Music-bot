@@ -21,6 +21,7 @@ import {
   drawStar,
   SAKURA_STICKER_COLORS,
 } from '../stickers';
+import { encodeCard } from '../encode';
 
 export interface PlaylistCardEntry {
   name: string;
@@ -122,7 +123,7 @@ export async function renderSakuraPlaylistCard(data: PlaylistCardData): Promise<
   // card, so neither the grid nor the empty state can clip it.
   await drawMascot(ctx, { centerX: 1374, bottomY: 964, height: 150 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function drawBackground(ctx: SKRSContext2D): void {

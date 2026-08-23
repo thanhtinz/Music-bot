@@ -11,8 +11,7 @@ import {
   type QueueCardData,
   type QueueCardTrack,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function rows(count: number, from = 2): QueueCardTrack[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -46,7 +45,7 @@ function data(overrides: Partial<QueueCardData> = {}): QueueCardData {
 describe('renderSakuraQueueCard', () => {
   it('renders a PNG at the template size', async () => {
     const buffer = await renderSakuraQueueCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(QUEUE_SAKURA_TEMPLATE_SIZE.width);
@@ -81,7 +80,7 @@ describe('renderSakuraQueueCard', () => {
       data({ current: undefined, tracks: [], totalTracks: 0, totalDurationMs: 0 }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('ignores tracks past the page size', async () => {
@@ -125,7 +124,7 @@ describe('renderSakuraQueueCard', () => {
       }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('is deterministic for identical input', async () => {
@@ -171,7 +170,7 @@ describe('renderSakuraQueueCard', () => {
       }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });
 
@@ -244,6 +243,6 @@ describe('an autoplayed row', () => {
       ),
     });
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

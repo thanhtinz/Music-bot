@@ -63,7 +63,7 @@ Swapping either template means re-measuring the region coordinates in `src/ui/ca
 
 ## The classic variant: a canvas-rendered UI
 
-Every panel the user sees is rendered server-side with [`@napi-rs/canvas`](https://github.com/Brooooooklyn/canvas) and sent to Discord as a PNG:
+Every panel the user sees is rendered server-side with [`@napi-rs/canvas`](https://github.com/Brooooooklyn/canvas) and sent to Discord as an image:
 
 - Rounded cover art over an ambient background blurred from that same artwork
 - A deterministic waveform per track — the same track always renders the same silhouette
@@ -241,6 +241,20 @@ Five results, because that is what fits on one row of Discord buttons — a row 
 A pending choice belongs to one person in one guild, so two people searching at once do not pick from each other's lists, and pressing a number on somebody else's card queues nothing. Choices expire after two minutes, and a used one is spent — one search queues one track. Everything that can go wrong (the wrong person, a stale card, a number off the end, not being in a voice channel) is answered privately, so a mis-press does not put a notice in front of the channel; a number off the end or a missing voice channel keeps the list, because losing a whole search to a typo is the harsher answer.
 
 One thing to know about the failure case: the resolver registry catches a provider's own failure and drops its results so one dead source cannot empty the whole list, which leaves nothing here to tell an outage apart from a query that matches nothing. Both read as **No results**.
+
+## Cards are sent as WebP
+
+Encoding is the whole cost of a card. Compositing the template and drawing the live state takes ~0 ms; encoding the 1536×1024 result is what takes the time:
+
+| Encoding                             | Time    | Size      |
+| ------------------------------------ | ------- | --------- |
+| PNG                                  | ~660 ms | 947 KB    |
+| WebP q90 (default)                   | ~140 ms | **56 KB** |
+| WebP q100 (lossless in this encoder) | ~380 ms | 826 KB    |
+
+Quality 90 rather than the 70 that also looks fine: the difference is 26 KB against a 947 KB baseline, which is not worth saving on a card somebody might zoom into. Compared side by side at 2× zoom — title, Vietnamese diacritics, the source badge, the timestamps — q90 and the PNG are the same picture. Lossless WebP saves only 13% over PNG and takes three times as long, so it earns nothing.
+
+`CARD_FORMAT=png` puts it back if a client ever refuses WebP, and attachment names follow the format (`now-playing.webp`), because Discord reads the extension to decide whether a file is an image worth showing inline. The committed preview images stay PNG so GitHub can draw them.
 
 ## A progress bar that moves
 

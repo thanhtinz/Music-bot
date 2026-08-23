@@ -9,8 +9,8 @@ import {
   type QueueCardData,
   type QueueCardTrack,
 } from '../../src/ui/canvas';
+import { expectCardImage } from '../helpers/card-image';
 
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const SCALE = 2;
 
 function rows(count: number): QueueCardTrack[] {
@@ -38,7 +38,7 @@ function data(overrides: Partial<QueueCardData> = {}): QueueCardData {
 describe('renderQueueCard', () => {
   it('renders a PNG at the declared width', async () => {
     const buffer = await renderQueueCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(QUEUE_CARD_WIDTH * SCALE);
@@ -75,7 +75,7 @@ describe('renderQueueCard', () => {
       data({ tracks: [], totalTracks: 0, totalDurationMs: 0, totalPages: 0 }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
     const image = await loadImage(buffer);
     expect(image.height).toBeGreaterThan(0);
   });
@@ -109,6 +109,6 @@ describe('renderQueueCard', () => {
       data({ page: 9, totalPages: 0, totalTracks: -3, totalDurationMs: -1 }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

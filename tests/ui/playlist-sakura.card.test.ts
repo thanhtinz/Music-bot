@@ -8,8 +8,7 @@ import {
   type PlaylistCardData,
   type PlaylistCardEntry,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function entries(count: number): PlaylistCardEntry[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -32,7 +31,7 @@ function data(overrides: Partial<PlaylistCardData> = {}): PlaylistCardData {
 describe('renderSakuraPlaylistCard', () => {
   it('renders a PNG at the declared size', async () => {
     const buffer = await renderSakuraPlaylistCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(PLAYLIST_SAKURA_SIZE.width);
@@ -73,7 +72,7 @@ describe('renderSakuraPlaylistCard', () => {
 
   it('renders an empty state instead of an empty grid', async () => {
     const buffer = await renderSakuraPlaylistCard(data({ entries: [] }));
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     // The card is drawn, not blank: something has to be painted over the panel.
     expect(await hasInk(buffer)).toBe(true);
@@ -134,7 +133,7 @@ describe('renderSakuraPlaylistCard', () => {
       }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('truncates a name that would run under the private badge', async () => {
@@ -151,7 +150,7 @@ describe('renderSakuraPlaylistCard', () => {
       }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });
 

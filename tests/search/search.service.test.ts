@@ -11,6 +11,7 @@ import {
   type TrackCandidate,
 } from '../../src/resolvers';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
+import { cardFile } from '../../src/ui/canvas';
 
 function candidate(title: string, index: number): TrackCandidate {
   return {
@@ -109,7 +110,7 @@ describe('SearchService', () => {
 
       await service.search(ctx, 'chăm hoa');
 
-      expect(replies[0]?.attachments?.[0]?.name).toBe('search.png');
+      expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('search'));
       expect(queries).toEqual(['chăm hoa']);
     });
 

@@ -9,8 +9,7 @@ import {
   type StatsCardData,
   type StatsCardEntry,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function entries(count: number): StatsCardEntry[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -37,7 +36,7 @@ function data(overrides: Partial<StatsCardData> = {}): StatsCardData {
 describe('renderSakuraStatsCard', () => {
   it('renders a PNG at the declared size', async () => {
     const buffer = await renderSakuraStatsCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(STATS_SAKURA_SIZE.width);
@@ -74,7 +73,7 @@ describe('renderSakuraStatsCard', () => {
 
   it('takes more rows than it shows without complaint', async () => {
     const buffer = await renderSakuraStatsCard(data({ topTracks: entries(40) }));
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('renders an empty column as a line rather than a blank box', async () => {
@@ -82,7 +81,7 @@ describe('renderSakuraStatsCard', () => {
       data({ topArtists: [], topListeners: [], topTracks: [] }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('renders without a server name, a period, or a caller line', async () => {
@@ -90,7 +89,7 @@ describe('renderSakuraStatsCard', () => {
       data({ guildName: undefined, since: undefined, you: undefined }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('survives an entry with no detail line', async () => {
@@ -98,7 +97,7 @@ describe('renderSakuraStatsCard', () => {
       data({ topListeners: [{ label: 'Someone', plays: 3 }] }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('does not stretch a bar for a column of zeroes', async () => {
@@ -107,7 +106,7 @@ describe('renderSakuraStatsCard', () => {
     );
 
     // The bar width divides by the highest count; zero must not blow it up.
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });
 
@@ -154,7 +153,7 @@ describe('renderSakuraStatsCard, for one person', () => {
   it('renders without a rank, for somebody outside the tracked listeners', async () => {
     const buffer = await renderSakuraStatsCard(data({ subject: { ...subject, rank: undefined } }));
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('renders for the only listener on the server', async () => {
@@ -162,7 +161,7 @@ describe('renderSakuraStatsCard, for one person', () => {
       data({ subject: { ...subject, listenerCount: 1 }, topListeners: entries(1) }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('picks the highlighted row out of the list', async () => {
@@ -184,6 +183,6 @@ describe('renderSakuraStatsCard, for one person', () => {
       data({ subject: { ...subject, name: 'a'.repeat(200) } }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

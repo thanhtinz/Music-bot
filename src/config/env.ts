@@ -23,6 +23,15 @@ const envSchema = z.object({
   CANVAS_THEME: z.string().default('midnight'),
   /** Card style: the illustrated templates or the themeable dark panels. */
   CARD_VARIANT: z.enum(['classic', 'sakura']).default('sakura'),
+  /**
+   * How cards are encoded.
+   *
+   * WebP by default: the same picture at a seventeenth of the size and a
+   * quarter of the encode time. PNG remains here to fall back to.
+   */
+  CARD_FORMAT: z.enum(['webp', 'png']).default('webp'),
+  /** WebP quality. 90 is indistinguishable from PNG at 2× zoom. */
+  CARD_QUALITY: z.coerce.number().int().min(1).max(100).default(90),
 
   /**
    * Where saved playlists are written.

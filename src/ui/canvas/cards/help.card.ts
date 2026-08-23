@@ -9,6 +9,7 @@ import {
   type Rect,
 } from '../primitives';
 import { resolveTheme, type CanvasTheme } from '../theme';
+import { encodeCard } from '../encode';
 
 export interface HelpCardCommand {
   name: string;
@@ -103,7 +104,7 @@ export async function renderHelpCard(data: HelpCardData): Promise<Buffer> {
 
   drawFooter(ctx, theme, data, height);
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function drawBackground(ctx: SKRSContext2D, theme: CanvasTheme, height: number): void {

@@ -1,4 +1,5 @@
 import { createLogger } from '../../telemetry/logger';
+import { cardFile } from '../../ui/canvas';
 
 import type { CommandContext, ReplyPayload } from './context';
 
@@ -57,7 +58,7 @@ export function withNoticeCards(
 
         return await ctx.reply({
           ...rest,
-          attachments: [{ name: options.fileName ?? 'notice.png', data: card }],
+          attachments: [{ name: options.fileName ?? cardFile('notice'), data: card }],
         });
       } catch (error) {
         // A card that will not draw must not swallow what the bot was trying

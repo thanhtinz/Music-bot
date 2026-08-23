@@ -11,6 +11,7 @@ import {
   type Rect,
 } from '../primitives';
 import { drawMusicNote, drawSparkle, drawStar, SAKURA_STICKER_COLORS } from '../stickers';
+import { encodeCard } from '../encode';
 
 export interface SearchCardResult {
   title: string;
@@ -93,7 +94,7 @@ export async function renderSakuraSearchCard(data: SearchCardData): Promise<Buff
   // Drawn last, as on every card, so nothing can clip it.
   await drawMascot(ctx, { centerX: 1074, bottomY: 742, height: 128 });
 
-  return canvas.toBuffer('image/png');
+  return encodeCard(canvas);
 }
 
 function drawBackground(ctx: SKRSContext2D): void {

@@ -7,8 +7,7 @@ import {
   SETTINGS_SAKURA_SIZE,
   type SettingsCardData,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 const settings = createSettings('guild', {
   prefix: '!',
@@ -33,7 +32,7 @@ function data(overrides: Partial<SettingsCardData> = {}): SettingsCardData {
 describe('renderSakuraSettingsCard', () => {
   it('renders a PNG at the declared size', async () => {
     const buffer = await renderSakuraSettingsCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(SETTINGS_SAKURA_SIZE.width);
@@ -61,7 +60,7 @@ describe('renderSakuraSettingsCard', () => {
 
   it('renders without a server name', async () => {
     const buffer = await renderSakuraSettingsCard(data({ guildName: undefined }));
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('reflects the prefix in the footer hint', async () => {
@@ -74,9 +73,7 @@ describe('renderSakuraSettingsCard', () => {
   });
 
   it('survives an empty sheet and an over-long one', async () => {
-    expect(
-      (await renderSakuraSettingsCard(data({ rows: [] }))).subarray(0, 8).equals(PNG_MAGIC),
-    ).toBe(true);
+    expectCardImage(await renderSakuraSettingsCard(data({ rows: [] })));
 
     const many = data({
       rows: Array.from({ length: 20 }, (_, index) => ({
@@ -86,6 +83,6 @@ describe('renderSakuraSettingsCard', () => {
         value: 'a value that is far too long to fit in the column',
       })),
     });
-    expect((await renderSakuraSettingsCard(many)).subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(await renderSakuraSettingsCard(many));
   });
 });

@@ -5,6 +5,7 @@ import {
   type CommandContext,
   type ReplyPayload,
 } from '../../src/application/commands';
+import { cardFile } from '../../src/ui/canvas';
 
 function base(): { ctx: CommandContext; replies: ReplyPayload[] } {
   const replies: ReplyPayload[] = [];
@@ -42,7 +43,7 @@ describe('withNoticeCards', () => {
       expect.objectContaining({ message: 'Volume set to **85%**.', tone: 'success' }),
     );
     expect(replies[0]?.content).toBeUndefined();
-    expect(replies[0]?.attachments).toEqual([{ name: 'notice.png', data: CARD }]);
+    expect(replies[0]?.attachments).toEqual([{ name: cardFile('notice'), data: CARD }]);
   });
 
   it('passes the title and icon through to the card', async () => {

@@ -7,8 +7,7 @@ import {
   renderSakuraNoticeCard,
   type NoticeCardData,
 } from '../../src/ui/canvas';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
 
 function data(overrides: Partial<NoticeCardData> = {}): NoticeCardData {
   return { title: 'Volume', message: 'Volume set to **85%**.', icon: 'volume', ...overrides };
@@ -73,7 +72,7 @@ describe('parseNoticeMessage', () => {
 describe('renderSakuraNoticeCard', () => {
   it('renders a PNG at the declared size', async () => {
     const buffer = await renderSakuraNoticeCard(data());
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(NOTICE_SAKURA_SIZE.width);
@@ -125,19 +124,19 @@ describe('renderSakuraNoticeCard', () => {
       data({ message: 'word '.repeat(200), footnote: 'note '.repeat(80) }),
     );
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('renders a single unbroken word longer than the panel', async () => {
     const buffer = await renderSakuraNoticeCard(data({ message: 'x'.repeat(400) }));
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('survives an empty message', async () => {
     const buffer = await renderSakuraNoticeCard({ message: '' });
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });
 
@@ -177,6 +176,6 @@ describe('a message longer than the card', () => {
   it('keeps a single unbreakable word inside the card', async () => {
     const buffer = await renderSakuraNoticeCard(data({ message: 'x'.repeat(400) }));
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });

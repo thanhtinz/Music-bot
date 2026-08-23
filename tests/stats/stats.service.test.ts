@@ -9,8 +9,8 @@ import {
 } from '../../src/application/stats';
 import { createTrack, type Track } from '../../src/domain/music';
 import { createGuildStats, recordPlay, type GuildStats } from '../../src/domain/stats';
-
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+import { expectCardImage } from '../helpers/card-image';
+import { cardFile } from '../../src/ui/canvas';
 
 /** Snowflake-shaped, because that is what a real mention resolves to. */
 const IDS = {
@@ -105,8 +105,8 @@ describe('StatsService, for the server', () => {
     await service.show(ctx);
 
     const attachment = replies[0]?.attachments?.[0];
-    expect(attachment?.name).toBe('stats.png');
-    expect(attachment?.data.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expect(attachment?.name).toBe(cardFile('stats'));
+    expectCardImage(attachment?.data);
   });
 
   it('says so plainly when nothing has been played', async () => {
@@ -152,7 +152,7 @@ describe('StatsService, for the server', () => {
 
     // A raw snowflake is unreadable and is somebody's account id, so the card
     // falls back to a stand-in rather than printing it.
-    expect(replies[1]?.attachments?.[0]?.data.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(replies[1]?.attachments?.[0]?.data);
     expect(replies[0]?.attachments?.[0]?.data.equals(replies[1]!.attachments![0]!.data)).toBe(
       false,
     );
@@ -186,7 +186,7 @@ describe('StatsService, for one person', () => {
 
     await service.show(ctx);
 
-    expect(replies[0]?.attachments?.[0]?.name).toBe('stats.png');
+    expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('stats'));
   });
 
   it('reads the slash option and the message argument the same way', async () => {

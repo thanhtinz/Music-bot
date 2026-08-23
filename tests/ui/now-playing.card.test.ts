@@ -6,6 +6,7 @@ import {
   renderNowPlayingCard,
   type NowPlayingCardData,
 } from '../../src/ui/canvas';
+import { expectCardImage } from '../helpers/card-image';
 
 const BASE: NowPlayingCardData = {
   title: 'Chạy Ngay Đi',
@@ -20,13 +21,12 @@ const BASE: NowPlayingCardData = {
 };
 
 /** PNG signature — cheap proof the buffer is a real image, not a stub. */
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 describe('renderNowPlayingCard', () => {
   it('renders a PNG at the declared 2x size', async () => {
     const buffer = await renderNowPlayingCard(BASE);
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(NOW_PLAYING_CARD_SIZE.width * NOW_PLAYING_CARD_SIZE.scale);
@@ -64,7 +64,7 @@ describe('renderNowPlayingCard', () => {
     });
 
     expect(buffer.byteLength).toBeGreaterThan(0);
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 
   it('renders live streams without a progress knob', async () => {
@@ -95,7 +95,7 @@ describe('renderNowPlayingCard', () => {
       artworkUrl: 'https://attacker.example.com/cover.png',
     });
 
-    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+    expectCardImage(buffer);
   });
 });
 

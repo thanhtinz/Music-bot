@@ -7,7 +7,7 @@ import {
   type SettingsDefaults,
 } from '../../domain/settings';
 import { createLogger } from '../../telemetry/logger';
-import { renderSakuraSettingsCard, type SettingsCardRow } from '../../ui/canvas';
+import { cardFile, renderSakuraSettingsCard, type SettingsCardRow } from '../../ui/canvas';
 import { prefixFor, type CommandContext } from '../commands';
 
 import type { SettingsRepository } from './settings-repository';
@@ -64,7 +64,7 @@ export class SettingsService {
       }),
     });
 
-    await ctx.reply({ attachments: [{ name: 'settings.png', data: card }] });
+    await ctx.reply({ attachments: [{ name: cardFile('settings'), data: card }] });
   }
 
   /** Changes one setting. */
