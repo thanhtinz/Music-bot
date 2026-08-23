@@ -41,6 +41,8 @@ const envSchema = z.object({
   SESSION_STORE_PATH: z.string().default('data/sessions.json'),
   /** Sessions older than this are dropped rather than resumed. */
   SESSION_MAX_AGE_MS: z.coerce.number().int().min(0).max(86_400_000).default(900_000),
+  /** Where listening stats are written; empty keeps them in memory. */
+  STATS_STORE_PATH: z.string().default('data/stats.json'),
   /** Port for /healthz, /readyz and /metrics. 0 turns the endpoint off. */
   METRICS_PORT: z.coerce.number().int().min(0).max(65_535).default(0),
   /** Bind address for that endpoint; loopback keeps it off the public net. */

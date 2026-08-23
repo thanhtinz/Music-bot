@@ -2,6 +2,7 @@ import type { Command } from '../application/commands';
 import type { PlaylistService } from '../application/playlist';
 import type { LyricsService } from '../application/services/lyrics.service';
 import type { SettingsService } from '../application/settings';
+import type { StatsService } from '../application/stats';
 import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
 import { isFilterPreset } from '../infrastructure/lavalink/filters';
@@ -20,6 +21,8 @@ export interface HandlerOptions {
   settings?: SettingsService;
   /** Lyrics lookup; without it `lyrics` stays unregistered. */
   lyrics?: LyricsService;
+  /** Listening stats; without it `stats` stays unregistered. */
+  stats?: StatsService;
 }
 
 /** What `playlist` was asked to do, however it was invoked. */
@@ -171,6 +174,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
       await service.setFilter(ctx, preset);
     },
+
+    ...(options.stats ? { stats: async (ctx) => options.stats!.show(ctx) } : {}),
 
     ...(options.lyrics
       ? { lyrics: async (ctx) => options.lyrics!.show(ctx, ctx.option('query') ?? ctx.rest) }
@@ -332,4 +337,5 @@ const FAKE_OPTIONS: HandlerOptions = {
   playlists: {} as PlaylistService,
   settings: {} as SettingsService,
   lyrics: {} as LyricsService,
+  stats: {} as StatsService,
 };

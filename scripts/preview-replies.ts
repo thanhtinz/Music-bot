@@ -9,9 +9,11 @@ import {
 import { PlayerManager } from '../src/application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from '../src/application/playlist';
 import { InMemorySettingsRepository, SettingsService } from '../src/application/settings';
+import { InMemoryStatsRepository, StatsService } from '../src/application/stats';
 import { LyricsService } from '../src/application/services/lyrics.service';
 import { MusicService } from '../src/application/services/music.service';
 import { createTrack } from '../src/domain/music';
+import { createGuildStats, recordPlay } from '../src/domain/stats';
 import { ResolverRegistry } from '../src/resolvers';
 import { renderSakuraNoticeCard } from '../src/ui/canvas';
 import { FakeAudioBackend } from '../tests/helpers/fake-audio-backend';
@@ -186,6 +188,36 @@ async function main(): Promise<void> {
   const lyricsCard = context({ commandName: 'lyrics' });
   await lyrics.show(lyricsCard.ctx, 'Chăm Hoa');
   save(lyricsCard, 'reply-lyrics.png');
+
+  const statsStore = new InMemoryStatsRepository();
+  let guildStats = createGuildStats('guild', Date.UTC(2026, 6, 1));
+  const PLAYS: Array<[string, string, string, number]> = [
+    ['Chăm Hoa', 'MONO', 'owner', 24],
+    ['Lạc Trôi', 'Sơn Tùng M-TP', 'linh', 18],
+    ['Faded', 'Alan Walker', 'minh', 15],
+    ['Waiting For Love', 'Avicii', 'owner', 11],
+    ['Nevada', 'Vicetone', 'khanh', 7],
+    ['Bones', 'Imagine Dragons', 'linh', 4],
+  ];
+  for (const [title, author, userId, plays] of PLAYS) {
+    for (let index = 0; index < plays; index += 1) {
+      guildStats = recordPlay(guildStats, {
+        track: song(title, author),
+        userId,
+        listenedMs: 205_000,
+        playedAt: Date.UTC(2026, 7, 20) + index * 1000,
+      });
+    }
+  }
+  await statsStore.save(guildStats);
+
+  const statsCard = context({ commandName: 'stats' });
+  await new StatsService(statsStore, {
+    guildName: () => 'Melody Test Server',
+    displayName: (userId) =>
+      ({ owner: 'thanhtinz', linh: 'linh', minh: 'minh', khanh: 'khanh' })[userId],
+  }).show(statsCard.ctx);
+  save(statsCard, 'reply-stats.png');
 
   const settingsSheet = context({ commandName: 'settings' });
   await settings.show(settingsSheet.ctx);

@@ -80,6 +80,13 @@ export {
   renderSakuraLyricsCard,
 } from './cards/lyrics-sakura.card';
 export type { LyricsCardData } from './cards/lyrics-sakura.card';
+export {
+  formatHours,
+  renderSakuraStatsCard,
+  STATS_SAKURA_ROWS,
+  STATS_SAKURA_SIZE,
+} from './cards/stats-sakura.card';
+export type { StatsCardData, StatsCardEntry } from './cards/stats-sakura.card';
 export { drawGlyph, glyphFor } from './glyphs';
 export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';

@@ -204,6 +204,13 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
   },
 
   {
+    name: 'stats',
+    description: 'What this server listens to',
+    category: 'general',
+    aliases: ['activity', 'top'],
+    deferred: true,
+  },
+  {
     name: 'help',
     description: 'Show every command',
     category: 'general',

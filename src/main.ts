@@ -6,6 +6,7 @@ import { IdleMonitor, PlayerManager, type Player } from './application/player';
 import { InMemorySessionRepository, restoreSessions, SessionRecorder } from './application/session';
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { InMemorySettingsRepository, SettingsService } from './application/settings';
+import { InMemoryStatsRepository, StatsRecorder, StatsService } from './application/stats';
 import { LyricsService } from './application/services/lyrics.service';
 import { MusicService } from './application/services/music.service';
 import { buildCommands } from './commands/handlers';
@@ -23,6 +24,7 @@ import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
 import { JsonPlaylistRepository } from './infrastructure/storage/json-playlist-repository';
 import { JsonSessionRepository } from './infrastructure/storage/json-session-repository';
 import { JsonSettingsRepository } from './infrastructure/storage/json-settings-repository';
+import { JsonStatsRepository } from './infrastructure/storage/json-stats-repository';
 import { LrclibProvider } from './lyrics';
 import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
 import { renderSakuraNoticeCard } from './ui/canvas';
@@ -91,7 +93,15 @@ async function main(): Promise<void> {
     ? new JsonSessionRepository(env.SESSION_STORE_PATH)
     : new InMemorySessionRepository();
   const sessions = new SessionRecorder(sessionStore);
-  players.onPlayerCreated = (player) => sessions.watch(player);
+  const statsStore = env.STATS_STORE_PATH
+    ? new JsonStatsRepository(env.STATS_STORE_PATH)
+    : new InMemoryStatsRepository();
+  const statsRecorder = new StatsRecorder(statsStore);
+
+  players.onPlayerCreated = (player) => {
+    sessions.watch(player);
+    statsRecorder.watch(player);
+  };
 
   const resolvers = new ResolverRegistry();
   // Radio goes first so a station name is not swallowed by the search provider.
@@ -162,6 +172,11 @@ async function main(): Promise<void> {
     pageComponents: (page, totalPages) => buildLyricsPagination(page, totalPages),
   });
 
+  const stats = new StatsService(statsStore, {
+    displayName: (userId) => client.users.cache.get(userId)?.displayName,
+    guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
+  });
+
   const registry = new CommandRegistry();
   registry.registerAll(
     buildCommands(service, {
@@ -170,6 +185,7 @@ async function main(): Promise<void> {
       playlists,
       settings,
       lyrics,
+      stats,
     }),
   );
 
