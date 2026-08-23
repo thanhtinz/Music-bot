@@ -1,4 +1,5 @@
 import { createTrack, type LoopMode, type Track, type TrackInput } from '../../domain/music';
+import { addVoter, startVote, tally, type SkipVote } from '../../domain/vote';
 import {
   describeResolverError,
   ResolverError,
@@ -12,7 +13,7 @@ import {
   renderQueueCard,
   type NowPlayingCardData,
 } from '../../ui/canvas';
-import type { CommandContext } from '../commands';
+import { satisfiesTier, type CommandContext } from '../commands';
 import type { Player, PlayerManager } from '../player';
 
 const logger = createLogger('music-service');
@@ -31,6 +32,14 @@ export interface MusicServiceOptions {
   /** Resolves a display name for a requester id. */
   displayName?: (userId: string) => string | undefined;
   /**
+   * How many people are listening in the guild's voice channel.
+   *
+   * Undefined means the count is unknown — the vote then falls back to asking
+   * one person, because refusing to skip on missing information would be worse
+   * than skipping too easily.
+   */
+  listenerCount?: (guildId: string) => number | undefined;
+  /**
    * Resolves a channel's name.
    *
    * Replies are drawn as images, where Discord's `<#id>` mention is only ever
@@ -47,6 +56,9 @@ export interface MusicServiceOptions {
  * invoked.
  */
 export class MusicService {
+  /** In-flight skip votes, one per guild. */
+  private readonly skipVotes = new Map<string, SkipVote>();
+
   constructor(
     private readonly players: PlayerManager,
     private readonly resolvers: ResolverRegistry,
@@ -238,10 +250,38 @@ export class MusicService {
     await this.sendNowPlaying(ctx, player);
   }
 
+  /**
+   * Skips, or opens a vote to.
+   *
+   * A DJ skips outright, and so does whoever queued the track — it is theirs to
+   * withdraw. Everybody else needs a majority of the room, so one person cannot
+   * talk over everyone else's choice.
+   */
   async skip(ctx: CommandContext): Promise<void> {
     const player = this.require(ctx);
     if (!player) return;
 
+    const current = player.queue.current;
+    const listeners = this.options.listenerCount?.(ctx.guildId) ?? 1;
+    const canSkipOutright =
+      satisfiesTier(ctx.tier, 'dj') || current?.requesterId === ctx.userId || listeners <= 1;
+
+    if (current && !canSkipOutright) {
+      const passed = this.recordSkipVote(ctx, current.id, listeners);
+
+      if (!passed) {
+        const vote = tally(this.skipVotes.get(ctx.guildId)!, listeners);
+        await ctx.reply({
+          content: `**${vote.votes}/${vote.required}** votes to skip **${current.title}**.`,
+          title: 'Vote to skip',
+          icon: 'skip',
+          tone: 'info',
+        });
+        return;
+      }
+    }
+
+    this.skipVotes.delete(ctx.guildId);
     const next = await this.players.withLock(ctx.guildId, () => player.skip());
 
     if (!next) {
@@ -254,6 +294,18 @@ export class MusicService {
     }
 
     await this.sendNowPlaying(ctx, player);
+  }
+
+  /** Records one vote, returning whether that carried it. */
+  private recordSkipVote(ctx: CommandContext, trackId: string, listeners: number): boolean {
+    const existing = this.skipVotes.get(ctx.guildId);
+    // A vote belongs to the track it was opened on; a new song starts over.
+    const vote = existing?.trackId === trackId ? existing : startVote(trackId, listeners);
+
+    const updated = addVoter(vote, ctx.userId);
+    this.skipVotes.set(ctx.guildId, updated);
+
+    return tally(updated, listeners).passed;
   }
 
   async previous(ctx: CommandContext): Promise<void> {

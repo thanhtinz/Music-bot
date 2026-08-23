@@ -97,6 +97,13 @@ async function main(): Promise<void> {
       }),
     queueComponents: (page, totalPages) => buildQueuePagination(page, totalPages),
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
+    listenerCount: (guildId) => {
+      const channelId = players.get(guildId)?.voiceChannelId;
+      const channel = channelId ? client.channels.cache.get(channelId) : undefined;
+      if (!channel?.isVoiceBased()) return undefined;
+
+      return channel.members.filter((member) => !member.user.bot).size;
+    },
     channelName: (channelId) => {
       const channel = client.channels.cache.get(channelId);
       return channel && 'name' in channel ? (channel.name ?? undefined) : undefined;

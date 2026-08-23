@@ -138,6 +138,18 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Voting to skip
+
+`skip` (also `voteskip`, `vs`) is open to everyone now, and gated by a vote:
+
+![](preview/reply-vote-skip.png)
+
+Three ways it skips without a vote — a DJ asked, whoever queued the track asked (it is theirs to withdraw), or nobody else is listening. Otherwise it takes a simple majority of the room.
+
+The tally is counted against the room **as it is now**, not as it was when the vote opened: three listeners becoming one should not leave a vote stuck needing two. A vote belongs to the track it was opened on, so the next song starts over — carrying it forward would let people skip a track they never heard. Voting twice does not count twice.
+
+If the listener count cannot be read, the vote falls back to asking one person. Refusing to skip on missing information would be worse than skipping too easily.
+
 ## Lyrics
 
 `lyrics` looks up the current track, or whatever you name. Long songs page with buttons:

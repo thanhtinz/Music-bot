@@ -52,10 +52,9 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
   },
   {
     name: 'skip',
-    description: 'Skip the current track',
+    description: 'Skip the current track, or vote to',
     category: 'playback',
-    aliases: ['s', 'next'],
-    tier: 'dj',
+    aliases: ['s', 'next', 'voteskip', 'vs'],
     cooldownMs: 2_000,
     requiresVoice: true,
   },

@@ -172,6 +172,17 @@ async function main(): Promise<void> {
     { pageComponents: () => [] },
   );
 
+  // A room of four, so an ordinary listener has to ask rather than just skip.
+  const voting = new MusicService(players, new ResolverRegistry(), {
+    defaultVolume: 70,
+    listenerCount: () => 4,
+    channelName: (channelId) => CHANNEL_NAMES[channelId],
+  });
+
+  const voteSkip = context({ commandName: 'skip', tier: 'everyone', userId: 'listener' });
+  await voting.skip(voteSkip.ctx);
+  save(voteSkip, 'reply-vote-skip.png');
+
   const lyricsCard = context({ commandName: 'lyrics' });
   await lyrics.show(lyricsCard.ctx, 'Chăm Hoa');
   save(lyricsCard, 'reply-lyrics.png');
