@@ -86,6 +86,40 @@ describe('health server', () => {
     expect(collected).toBe(2);
   });
 
+  it('404s the dashboard when no status is provided', async () => {
+    // A page that says nothing is worse than an honest 404.
+    expect((await fetch(`${base}/`)).status).toBe(404);
+  });
+
+  it('serves the dashboard when it can build one', async () => {
+    const withStatus = createHealthServer({
+      port: 0,
+      registry,
+      report: () => report,
+      status: () => ({
+        botName: 'Melody',
+        ready: true,
+        uptimeMs: 1000,
+        guilds: 1,
+        gatewayLatencyMs: 20,
+        players: [],
+        nodes: [],
+      }),
+    });
+    await withStatus.start();
+    const address = withStatus.server.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${address.port}/`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('text/html');
+      expect(await response.text()).toContain('Melody');
+    } finally {
+      await withStatus.stop();
+    }
+  });
+
   it('404s an unknown path', async () => {
     expect((await fetch(`${base}/nope`)).status).toBe(404);
   });

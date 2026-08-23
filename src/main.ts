@@ -219,6 +219,54 @@ async function main(): Promise<void> {
             players: players.size,
           },
         }),
+        status: () => ({
+          botName: client.user?.username ?? 'Melody',
+          ready: client.isReady(),
+          uptimeMs: client.uptime ?? 0,
+          guilds: client.guilds.cache.size,
+          gatewayLatencyMs: Math.max(0, client.ws.ping),
+          players: players.list().map((player) => {
+            const channel = client.channels.cache.get(player.voiceChannelId);
+            const listeners =
+              channel?.isVoiceBased() === true
+                ? channel.members.filter((member) => !member.user.bot).size
+                : undefined;
+
+            return {
+              guildId: player.guildId,
+              ...(client.guilds.cache.get(player.guildId)?.name === undefined
+                ? {}
+                : { guildName: client.guilds.cache.get(player.guildId)!.name }),
+              ...(channel && 'name' in channel && channel.name
+                ? { channelName: channel.name }
+                : {}),
+              status: player.status,
+              ...(player.queue.current === undefined
+                ? {}
+                : { title: player.queue.current.title, author: player.queue.current.author }),
+              positionMs: player.positionMs,
+              durationMs: player.queue.current?.durationMs ?? 0,
+              queueLength: player.queue.size,
+              ...(listeners === undefined ? {} : { listeners }),
+            };
+          }),
+          nodes: [...shoukaku.nodes].map(([name, node]) => ({
+            name,
+            connected: node.state === 2,
+            players: node.stats?.players ?? 0,
+            ...(node.stats?.cpu?.systemLoad === undefined
+              ? {}
+              : { cpu: node.stats.cpu.systemLoad }),
+            ...(node.stats?.memory === undefined
+              ? {}
+              : {
+                  memory:
+                    node.stats.memory.allocated > 0
+                      ? node.stats.memory.used / node.stats.memory.allocated
+                      : 0,
+                }),
+          })),
+        }),
         collect: () => {
           metrics.players.set(players.size);
           metrics.guilds.set(client.guilds.cache.size);

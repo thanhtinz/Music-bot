@@ -3,6 +3,8 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 import { createLogger } from '../../telemetry/logger';
 import type { MetricsRegistry } from '../../telemetry/metrics';
 
+import { renderDashboard, type DashboardStatus } from './dashboard';
+
 const logger = createLogger('health-server');
 
 export interface HealthReport {
@@ -23,6 +25,11 @@ export interface HealthServerOptions {
   report: () => HealthReport;
   /** Called just before metrics are rendered, to refresh the gauges. */
   collect?: () => void;
+  /**
+   * Builds the status page. Omitted, `/` is a plain 404 rather than a page
+   * that says nothing.
+   */
+  status?: () => DashboardStatus;
 }
 
 /**
@@ -61,6 +68,19 @@ export function createHealthServer(options: HealthServerOptions): {
             status: report.ready ? 'ready' : 'not-ready',
             ...report.details,
           });
+          return;
+        }
+
+        case '/':
+        case '/dashboard': {
+          if (!options.status) {
+            send(response, 404, 'application/json', { error: 'not found' });
+            return;
+          }
+
+          response
+            .writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+            .end(renderDashboard(options.status()));
           return;
         }
 
