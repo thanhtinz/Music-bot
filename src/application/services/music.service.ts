@@ -1,4 +1,10 @@
-import { createTrack, type LoopMode, type Track, type TrackInput } from '../../domain/music';
+import {
+  AUTOPLAY_REQUESTER_ID,
+  createTrack,
+  type LoopMode,
+  type Track,
+  type TrackInput,
+} from '../../domain/music';
 import { addVoter, startVote, tally, type SkipVote } from '../../domain/vote';
 import {
   describeResolverError,
@@ -600,6 +606,7 @@ export class MusicService {
         durationMs: track.durationMs,
         isStream: track.isStream,
         requesterName: this.nameFor(track.requesterId),
+        ...(track.requesterId === AUTOPLAY_REQUESTER_ID ? { autoplay: true } : {}),
       })),
       page: slice.page,
       totalPages: slice.totalPages,
@@ -742,6 +749,10 @@ export class MusicService {
   }
 
   private nameFor(userId: string): string {
+    // A track the bot chose has no requester to name, and printing the marker
+    // id on a card would read as somebody's account.
+    if (userId === AUTOPLAY_REQUESTER_ID) return 'Autoplay';
+
     return this.options.displayName?.(userId) ?? userId;
   }
 

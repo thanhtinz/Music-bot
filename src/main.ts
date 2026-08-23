@@ -2,7 +2,7 @@ import { Events, type Client } from 'discord.js';
 import { Connectors, Shoukaku } from 'shoukaku';
 
 import { CommandRegistry } from './application/commands';
-import { IdleMonitor, PlayerManager, type Player } from './application/player';
+import { AutoplaySelector, IdleMonitor, PlayerManager, type Player } from './application/player';
 import { InMemorySessionRepository, restoreSessions, SessionRecorder } from './application/session';
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { InMemorySettingsRepository, SettingsService } from './application/settings';
@@ -65,10 +65,23 @@ async function main(): Promise<void> {
     onTimeout: (guildId, reason) => players.leaveIdle(guildId, reason),
   });
 
+  const resolvers = new ResolverRegistry();
+  // Radio goes first so a station name is not swallowed by the search provider.
+  resolvers.registerAll([new RadioResolver(), new YouTubeResolver(backend)]);
+
+  // Built before the players, which hold the callback that reaches it.
+  const autoplay = new AutoplaySelector(resolvers);
+
   const players: PlayerManager = new PlayerManager(backend, {
     defaultVolume: env.DEFAULT_VOLUME,
     maxQueueSize: env.MAX_QUEUE_SIZE,
     idle,
+    autoplayResolver: async (guildId, seed) => {
+      const player = players.get(guildId);
+      const avoid = player ? [...player.queue.history, ...player.queue.tracks] : [];
+
+      return autoplay.suggest(guildId, seed, avoid);
+    },
     onIdleLeave: async (player, reason) => {
       const channel = client.channels.cache.get(player.textChannelId ?? '');
       if (!channel?.isSendable()) return;
@@ -104,10 +117,6 @@ async function main(): Promise<void> {
     sessions.watch(player);
     statsRecorder.watch(player);
   };
-
-  const resolvers = new ResolverRegistry();
-  // Radio goes first so a station name is not swallowed by the search provider.
-  resolvers.registerAll([new RadioResolver(), new YouTubeResolver(backend)]);
 
   const service = new MusicService(players, resolvers, {
     variant: env.CARD_VARIANT,

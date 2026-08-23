@@ -13,7 +13,7 @@ import { SearchService } from '../src/application/search';
 import { InMemoryStatsRepository, StatsService } from '../src/application/stats';
 import { LyricsService } from '../src/application/services/lyrics.service';
 import { MusicService } from '../src/application/services/music.service';
-import { createTrack } from '../src/domain/music';
+import { AUTOPLAY_REQUESTER_ID, createTrack } from '../src/domain/music';
 import { createGuildStats, recordPlay } from '../src/domain/stats';
 import { ResolverRegistry, type SourceResolver, type TrackCandidate } from '../src/resolvers';
 import { renderSakuraNoticeCard } from '../src/ui/canvas';
@@ -134,6 +134,9 @@ async function main(): Promise<void> {
   const backend = new FakeAudioBackend();
   const players = new PlayerManager(backend, { defaultVolume: 70, maxQueueSize: 100 });
   const music = new MusicService(players, new ResolverRegistry(), {
+    // The same variant the bot defaults to, so a preview shows the cards a
+    // user would actually be sent rather than the classic fallback.
+    variant: 'sakura',
     defaultVolume: 70,
     channelName: (channelId) => CHANNEL_NAMES[channelId],
   });
@@ -220,6 +223,7 @@ async function main(): Promise<void> {
 
   // A room of four, so an ordinary listener has to ask rather than just skip.
   const voting = new MusicService(players, new ResolverRegistry(), {
+    variant: 'sakura',
     defaultVolume: 70,
     listenerCount: () => 4,
     channelName: (channelId) => CHANNEL_NAMES[channelId],
@@ -294,6 +298,23 @@ async function main(): Promise<void> {
   });
   await stats.show(memberStats.ctx);
   save(memberStats, 'reply-stats-member.png');
+
+  // A queue card carrying a track the bot picked itself.
+  const autoplayed = players.get('guild');
+  await autoplayed?.enqueue(
+    createTrack({
+      source: 'youtube',
+      identifier: 'picked-for-you',
+      title: 'Waiting For Love',
+      author: 'Avicii',
+      durationMs: 230_000,
+      requesterId: AUTOPLAY_REQUESTER_ID,
+    }),
+  );
+
+  const autoplayQueue = context({ commandName: 'queue' });
+  await music.queue(autoplayQueue.ctx, 1);
+  save(autoplayQueue, 'reply-queue-autoplay.png');
 
   // Queue editing, on a queue with a couple of other people's tracks in it.
   const editing = players.get('guild');

@@ -1,4 +1,4 @@
-import type { Track } from '../../domain/music';
+import { isAutoplayed, type Track } from '../../domain/music';
 import { createGuildStats, recordPlay } from '../../domain/stats';
 import { createLogger } from '../../telemetry/logger';
 import type { Player } from '../player';
@@ -67,8 +67,14 @@ export class StatsRecorder {
     // playing when the bot restarted, for instance.
     if (!started) return;
 
-    const elapsed = Math.max(0, this.now() - started.startedAt);
     const track = started.track;
+
+    // A track the bot picked is not somebody's listening: counting it would
+    // credit a person who queued nothing and pad the server's totals with
+    // whatever played into an empty room.
+    if (isAutoplayed(track)) return;
+
+    const elapsed = Math.max(0, this.now() - started.startedAt);
     const listenedMs = track.isStream ? elapsed : Math.min(elapsed, track.durationMs);
 
     const existing = await this.repository.find(guildId);

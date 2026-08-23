@@ -162,6 +162,8 @@ const PAGE_INK = '#9b8388';
 
 const TITLE_INK = '#111011';
 const ARTIST_INK = '#635456';
+/** The tag on a row the bot filled in, in the card's own accent. */
+const AUTOPLAY_INK = '#e0537c';
 const DURATION_INK = '#5f585a';
 const DURATION_INK_CURRENT = '#ec5f80';
 const INDEX_INK = '#8f5f66';
@@ -365,16 +367,39 @@ async function drawRow(
     geometry.titleBaseline,
   );
 
-  ctx.font = font(22);
-  ctx.fillStyle = ARTIST_INK;
-  ctx.fillText(
-    truncateText(ctx, row.track.author || 'Unknown artist', geometry.textMaxWidth),
-    TEXT_X,
-    geometry.artistBaseline,
-  );
+  drawArtistLine(ctx, geometry, row);
 
   drawDuration(ctx, geometry, row, sample);
   if (!isFirstRow) drawIndex(ctx, geometry, row, sample);
+}
+
+/**
+ * The artist, with an "Autoplay" tag when the bot chose the track.
+ *
+ * On the same line rather than a row of its own: the template's rows are a
+ * fixed height, and this is the only spare width in one.
+ */
+function drawArtistLine(ctx: SKRSContext2D, geometry: RowGeometry, row: RenderRow): void {
+  const tag = row.track.autoplay ? 'Autoplay' : undefined;
+
+  ctx.font = font(20, 'bold');
+  const tagWidth = tag ? ctx.measureText(tag).width + 22 : 0;
+
+  ctx.font = font(22);
+  ctx.fillStyle = ARTIST_INK;
+  const artist = truncateText(
+    ctx,
+    row.track.author || 'Unknown artist',
+    geometry.textMaxWidth - tagWidth,
+  );
+  ctx.fillText(artist, TEXT_X, geometry.artistBaseline);
+
+  if (!tag) return;
+
+  const x = TEXT_X + ctx.measureText(artist).width + 14;
+  ctx.font = font(20, 'bold');
+  ctx.fillStyle = AUTOPLAY_INK;
+  ctx.fillText(`· ${tag}`, x, geometry.artistBaseline);
 }
 
 function drawDuration(

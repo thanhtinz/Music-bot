@@ -24,6 +24,8 @@ export interface QueueCardTrack {
   durationMs: number;
   isStream?: boolean;
   requesterName: string;
+  /** Picked by the bot rather than asked for; the row says so. */
+  autoplay?: boolean;
 }
 
 export interface QueueCardData {

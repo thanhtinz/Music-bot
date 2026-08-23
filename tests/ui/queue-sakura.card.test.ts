@@ -222,3 +222,28 @@ describe('paginateSakuraQueue', () => {
     expect(paginateSakuraQueue(items, 1, -3).items).toEqual([1]);
   });
 });
+
+describe('an autoplayed row', () => {
+  it('is marked, so a track nobody asked for says so', async () => {
+    const asked = await renderSakuraQueueCard(data());
+    const picked = await renderSakuraQueueCard({
+      ...data(),
+      tracks: data().tracks.map((track, index) =>
+        index === 0 ? { ...track, autoplay: true } : track,
+      ),
+    });
+
+    expect(asked.equals(picked)).toBe(false);
+  });
+
+  it('keeps the tag inside the row when the artist is long', async () => {
+    const buffer = await renderSakuraQueueCard({
+      ...data(),
+      tracks: data().tracks.map((track, index) =>
+        index === 0 ? { ...track, author: 'A'.repeat(200), autoplay: true } : track,
+      ),
+    });
+
+    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+  });
+});

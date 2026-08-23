@@ -26,6 +26,20 @@ export interface Track {
   readonly metadata: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Stands in for a requester on a track the bot chose itself.
+ *
+ * Autoplay has to put *something* here, and crediting the person whose song
+ * seeded the suggestion would put tracks they never queued into their name —
+ * in the queue card, and in their listening stats.
+ */
+export const AUTOPLAY_REQUESTER_ID = 'autoplay';
+
+/** Whether a track was picked by autoplay rather than asked for. */
+export function isAutoplayed(track: Track): boolean {
+  return track.requesterId === AUTOPLAY_REQUESTER_ID;
+}
+
 /** Everything needed to build a {@link Track} except the generated id. */
 export type TrackInput = Omit<Track, 'id' | 'isStream' | 'metadata'> &
   Partial<Pick<Track, 'isStream' | 'metadata'>>;

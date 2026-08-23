@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { PlayerManager, type Player } from '../../src/application/player';
 import { InMemoryStatsRepository, StatsRecorder } from '../../src/application/stats';
-import { createTrack, type Track } from '../../src/domain/music';
+import { AUTOPLAY_REQUESTER_ID, createTrack, type Track } from '../../src/domain/music';
 import { topListeners, topTracks, type GuildStats } from '../../src/domain/stats';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
 
@@ -199,5 +199,34 @@ describe('StatsRecorder', () => {
     // A storage hiccup loses that one play, not the recorder.
     const stats = await statsOf();
     expect(topTracks(stats, 5).map((track) => track.title)).toEqual(['Lucky']);
+  });
+});
+
+describe('StatsRecorder and autoplay', () => {
+  it('does not count a track the bot picked itself', async () => {
+    const backend = new FakeAudioBackend();
+    const manager = new PlayerManager(backend, { maxQueueSize: 20 });
+    const repository = new InMemoryStatsRepository();
+    const recorder = new StatsRecorder(repository);
+
+    const player = await manager.getOrCreate({ guildId: 'guild', voiceChannelId: 'voice' });
+    recorder.watch(player);
+
+    await player.enqueue(
+      createTrack({
+        source: 'youtube',
+        identifier: 'picked',
+        title: 'Picked For You',
+        author: 'MONO',
+        durationMs: 200_000,
+        requesterId: AUTOPLAY_REQUESTER_ID,
+      }),
+    );
+    backend.finishTrack('guild', 'stopped');
+    await settle();
+
+    // Counting it would credit a person who queued nothing, and pad the
+    // server's totals with whatever played into an empty room.
+    expect(await repository.find('guild')).toBeUndefined();
   });
 });

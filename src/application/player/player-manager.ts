@@ -1,3 +1,4 @@
+import type { Track } from '../../domain/music';
 import { createLogger } from '../../telemetry/logger';
 import type { AudioBackend } from '../../infrastructure/audio/audio-backend';
 
@@ -16,6 +17,13 @@ export interface PlayerManagerOptions {
   idle?: IdleMonitor;
   /** Told which player is being dropped for going idle, to announce it. */
   onIdleLeave?: (player: Player, reason: IdleReason) => Promise<void> | void;
+  /**
+   * Picks a track when a guild's queue runs out and autoplay is on.
+   *
+   * Held here rather than passed per player: it is one policy for the whole
+   * bot, and every player created afterwards should get it.
+   */
+  autoplayResolver?: (guildId: string, seed: Track) => Promise<Track | undefined>;
 }
 
 const logger = createLogger('player-manager');
@@ -128,10 +136,15 @@ export class PlayerManager {
       return existing;
     }
 
+    const resolveAutoplay = this.options.autoplayResolver;
+
     const player = new Player(this.backend, {
       ...options,
       volume: options.volume ?? this.options.defaultVolume,
       maxQueueSize: options.maxQueueSize ?? this.options.maxQueueSize,
+      ...(resolveAutoplay
+        ? { autoplayResolver: (seed: Track) => resolveAutoplay(options.guildId, seed) }
+        : {}),
     });
 
     // A player that has just been created has nothing playing yet, so the

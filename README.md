@@ -138,6 +138,23 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Autoplay
+
+`autoplay` keeps the music going when the queue runs dry. It had been a switch wired to nothing — the player has always asked for a suggestion at the end of a queue, and until now nobody answered.
+
+There is no recommendation API behind it. It searches for the seed track's artist and takes the best result that is not something the room just heard — a weaker suggestion than a real "related tracks" feed, needing no key, no account and no second provider, which is the trade the lyrics provider makes too.
+
+What it will not hand you:
+
+- the seed itself, anything still queued, or anything in the history
+- anything it suggested in this guild's last 40 picks, so it does not circle back
+- live streams, and anything over 15 minutes — an hour-long mix is a fine thing to ask for and a poor thing to be given
+- the literal words "Unknown artist": a track with no artist falls back to searching its title, since `createTrack` fills a blank field with a placeholder
+
+An autoplayed track is credited to nobody rather than to whoever queued the seed — they did not ask for it. The queue row says so, and the listening stats leave it out: counting it would credit a person who queued nothing and pad the server's totals with whatever played into an empty room.
+
+![](preview/reply-queue-autoplay.png)
+
 ## Editing the queue
 
 | Command            | What it does                                      | Who       |
@@ -285,7 +302,7 @@ Counts live in `STATS_STORE_PATH`, on the same `JsonStore` as playlists, setting
 npm run preview:replies
 ```
 
-Runs the real services through the real reply decorator with a fake audio backend, and writes each answer to `preview/reply-*.png`. Because the cards come from the command path rather than from hand-written sample data, a preview cannot drift from what a user would see — and mistakes show up as pictures.
+Runs the real services through the real reply decorator with a fake audio backend, in the same card variant the bot defaults to, and writes each answer to `preview/reply-*.png`. Because the cards come from the command path rather than from hand-written sample data, a preview cannot drift from what a user would see — and mistakes show up as pictures.
 
 It has already earned its place. Rendering the `stats` replies turned up a notice card that dropped everything past two lines with no sign it had — a sentence that stops mid-word reads as a broken bot, so an overlong message now ends in an ellipsis. Two more bugs were invisible in the source and obvious the moment the cards were rendered: `<#id>` and `` `play` `` are Discord chat markup, so on an image they were drawn literally as `<#voice-a>` and `` `play` ``. Channels are now named (`#general-voice`, falling back to _the voice channel_ when the name is not cached) and inline code is drawn in the accent colour like bold.
 
