@@ -7,7 +7,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { renderNowPlayingCard, type NowPlayingCardData } from '../src/ui/canvas';
+import { createTrack, Queue } from '../src/domain/music';
+import {
+  QUEUE_PAGE_SIZE,
+  renderNowPlayingCard,
+  renderQueueCard,
+  type NowPlayingCardData,
+} from '../src/ui/canvas';
 
 const OUT_DIR = resolve(__dirname, '../preview');
 
@@ -63,6 +69,67 @@ const scenarios: Array<{ file: string; data: NowPlayingCardData }> = [
   },
 ];
 
+const SAMPLE_QUEUE: Array<[string, string, number, string]> = [
+  ['Faded', 'Alan Walker', 212_000, 'thanhtinz'],
+  ['Shape of You', 'Ed Sheeran', 233_000, 'minh'],
+  ['Lạc Trôi', 'Sơn Tùng M-TP', 231_000, 'thanhtinz'],
+  ['Blinding Lights', 'The Weeknd', 200_000, 'linh'],
+  ['Levitating', 'Dua Lipa feat. DaBaby', 203_000, 'khanh'],
+  ['Anh Đếch Cần Gì Nhiều Ngoài Em', 'Đen Vâu', 285_000, 'minh'],
+  ['Stay', 'The Kid LAROI & Justin Bieber', 141_000, 'thanhtinz'],
+  ['Hãy Trao Cho Anh', 'Sơn Tùng M-TP feat. Snoop Dogg', 259_000, 'linh'],
+  ['Alone, Pt. II', 'Alan Walker & Ava Max', 179_000, 'khanh'],
+  ['Waiting For Love', 'Avicii', 230_000, 'minh'],
+  ['Bones', 'Imagine Dragons', 165_000, 'linh'],
+  ['Nevada', 'Vicetone feat. Cozi Zuehlsdorff', 216_000, 'thanhtinz'],
+];
+
+/**
+ * Builds the queue card from a real domain {@link Queue} rather than a literal,
+ * so the preview also exercises the queue logic end to end.
+ */
+async function renderQueuePreview(): Promise<Buffer> {
+  const queue = new Queue({ maxSize: 200 });
+  queue.add(
+    SAMPLE_QUEUE.map(([title, author, durationMs, requesterId]) =>
+      createTrack({
+        source: 'youtube',
+        identifier: title.toLowerCase().replace(/\s+/g, '-'),
+        title,
+        author,
+        durationMs,
+        requesterId,
+      }),
+    ),
+  );
+
+  const current = queue.next();
+  const page = queue.tracks.slice(0, QUEUE_PAGE_SIZE);
+
+  return renderQueueCard({
+    current: current && {
+      title: current.title,
+      author: current.author,
+      durationMs: current.durationMs,
+      positionMs: 78_000,
+    },
+    tracks: page.map((track, index) => ({
+      position: index + 1,
+      title: track.title,
+      author: track.author,
+      durationMs: track.durationMs,
+      isStream: track.isStream,
+      requesterName: track.requesterId,
+    })),
+    page: 1,
+    totalPages: Math.ceil(queue.size / QUEUE_PAGE_SIZE),
+    totalTracks: queue.size,
+    totalDurationMs: queue.totalDurationMs,
+    loop: queue.loop,
+    theme: 'midnight',
+  });
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
 
@@ -72,6 +139,10 @@ async function main(): Promise<void> {
     writeFileSync(path, buffer);
     console.log(`rendered ${scenario.file} (${(buffer.byteLength / 1024).toFixed(1)} KB)`);
   }
+
+  const queueCard = await renderQueuePreview();
+  writeFileSync(resolve(OUT_DIR, 'queue.png'), queueCard);
+  console.log(`rendered queue.png (${(queueCard.byteLength / 1024).toFixed(1)} KB)`);
 }
 
 main().catch((error) => {

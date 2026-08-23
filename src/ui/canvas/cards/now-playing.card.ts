@@ -15,8 +15,9 @@ import {
   type Rect,
 } from '../primitives';
 import { resolveTheme, type CanvasTheme } from '../theme';
+import type { LoopMode } from '../../../domain/music/queue';
 
-export type LoopMode = 'off' | 'song' | 'queue';
+export type { LoopMode };
 
 export interface NowPlayingCardData {
   title: string;

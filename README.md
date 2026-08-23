@@ -18,6 +18,10 @@ Every panel the user sees is rendered server-side with [`@napi-rs/canvas`](https
 |---|---|---|
 | ![](preview/now-playing-default.png) | ![](preview/now-playing-paused.png) | ![](preview/now-playing-radio.png) |
 
+The queue is rendered the same way — a paginated list card that grows with the page:
+
+![](preview/queue.png)
+
 ## Getting started
 
 ```bash
@@ -35,6 +39,7 @@ npm run typecheck
 ```
 src/
 ├── config/          # environment loading and validation (zod)
+├── domain/music/    # Track and Queue — no Discord or Lavalink types
 ├── telemetry/       # JSON logger with secret redaction
 └── ui/canvas/       # canvas UI engine
     ├── theme.ts        # color tokens and themes
@@ -57,7 +62,7 @@ tests/               # unit tests
 | Phase | Scope | Status |
 |---|---|---|
 | F1 | Project skeleton, config, logger, **canvas UI + Now Playing card** | ✅ done |
-| F2 | Domain: track, queue, loop/shuffle/autoplay | ⏳ |
+| F2 | Domain: track and queue (loop, shuffle, history, snapshots) + queue card | ✅ done |
 | F3 | Unified command engine (slash + prefix + @mention) | ⏳ |
 | F4 | Lavalink adapter + player manager | ⏳ |
 | F5 | Resolvers: YouTube / Spotify metadata / radio | ⏳ |
