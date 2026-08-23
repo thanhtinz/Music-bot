@@ -1,11 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CommandContext, ReplyPayload } from '../../src/application/commands';
-import { InMemoryStatsRepository, StatsService } from '../../src/application/stats';
+import { InMemoryStatsRepository, parseUserId, StatsService } from '../../src/application/stats';
 import { createTrack, type Track } from '../../src/domain/music';
 import { createGuildStats, recordPlay, type GuildStats } from '../../src/domain/stats';
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Snowflake-shaped, because that is what a real mention resolves to. */
+const IDS = {
+  me: '100000000000000001',
+  linh: '200000000000000002',
+  minh: '300000000000000003',
+} as const;
+
+const NAMES: Record<string, string> = {
+  [IDS.me]: 'thanhtinz',
+  [IDS.linh]: 'linh',
+};
 
 function song(title: string, author: string, requesterId: string): Track {
   return createTrack({
@@ -27,7 +39,7 @@ function harness(overrides: Partial<CommandContext> = {}): {
   const ctx = {
     guildId: 'guild',
     channelId: 'text',
-    userId: 'thanhtinz',
+    userId: IDS.me,
     commandName: 'stats',
     args: [],
     rest: '',
@@ -50,9 +62,9 @@ function seeded(): GuildStats {
   let stats = createGuildStats('guild', 1_000);
 
   const plays: Array<[Track, number]> = [
-    [song('Chăm Hoa', 'MONO', 'thanhtinz'), 3],
-    [song('Lạc Trôi', 'Sơn Tùng M-TP', 'linh'), 2],
-    [song('Nevada', 'Vicetone', 'minh'), 1],
+    [song('Chăm Hoa', 'MONO', IDS.me), 3],
+    [song('Lạc Trôi', 'Sơn Tùng M-TP', IDS.linh), 2],
+    [song('Nevada', 'Vicetone', IDS.minh), 1],
   ];
 
   for (const [track, count] of plays) {
@@ -77,7 +89,7 @@ describe('StatsService', () => {
     repository = new InMemoryStatsRepository();
     service = new StatsService(repository, {
       guildName: () => 'Melody Test Server',
-      displayName: (userId) => ({ thanhtinz: 'thanhtinz', linh: 'linh' })[userId],
+      displayName: (userId) => NAMES[userId],
     });
   });
 
@@ -114,8 +126,8 @@ describe('StatsService', () => {
   it('renders a different card for a caller with their own numbers', async () => {
     await repository.save(seeded());
 
-    const mine = harness({ userId: 'thanhtinz' });
-    const theirs = harness({ userId: 'nobody' });
+    const mine = harness({ userId: IDS.me });
+    const theirs = harness({ userId: '900000000000000009' });
     await service.show(mine.ctx);
     await service.show(theirs.ctx);
 
@@ -148,5 +160,97 @@ describe('StatsService', () => {
     await service.show(harness().ctx);
 
     expect(await repository.find('guild')).toEqual(before);
+  });
+});
+
+describe('StatsService, for one person', () => {
+  let repository: InMemoryStatsRepository;
+  let service: StatsService;
+
+  beforeEach(async () => {
+    repository = new InMemoryStatsRepository();
+    service = new StatsService(repository, {
+      guildName: () => 'Melody Test Server',
+      displayName: (userId) => NAMES[userId],
+    });
+    await repository.save(seeded());
+  });
+
+  it('takes a mention as the person to report on', async () => {
+    const { ctx, replies } = harness({ args: [`<@${IDS.linh}>`] });
+
+    await service.show(ctx);
+
+    expect(replies[0]?.attachments?.[0]?.name).toBe('stats.png');
+  });
+
+  it('reads the slash option and the message argument the same way', async () => {
+    const slash = harness({ option: (name) => (name === 'user' ? `<@${IDS.linh}>` : undefined) });
+    const prefix = harness({ args: [`<@!${IDS.linh}>`] });
+
+    await service.show(slash.ctx);
+    await service.show(prefix.ctx);
+
+    expect(
+      slash.replies[0]?.attachments?.[0]?.data.equals(prefix.replies[0]!.attachments![0]!.data),
+    ).toBe(true);
+  });
+
+  it('shows that person, not the server', async () => {
+    const member = harness({ args: [IDS.linh] });
+    const guild = harness();
+
+    await service.show(member.ctx);
+    await service.show(guild.ctx);
+
+    expect(
+      member.replies[0]?.attachments?.[0]?.data.equals(guild.replies[0]!.attachments![0]!.data),
+    ).toBe(false);
+  });
+
+  it('says so plainly for somebody who has never queued anything', async () => {
+    const { ctx, replies } = harness({ args: [`<@${IDS.minh}999>`] });
+
+    await service.show(ctx);
+
+    // A card of empty columns says less than the sentence does.
+    expect(replies[0]?.attachments).toBeUndefined();
+    expect(replies[0]?.title).toBe('Nothing to show');
+  });
+
+  it('asks again rather than guessing at something that is not a user', async () => {
+    const { ctx, replies } = harness({ args: ['nobody'] });
+
+    await service.show(ctx);
+
+    expect(replies[0]?.title).toBe('Who?');
+    expect(replies[0]?.content).toContain('nobody');
+  });
+
+  it('does not treat a stray argument as an empty-server answer', async () => {
+    await repository.save(createGuildStats('empty', 1_000));
+    const { ctx, replies } = harness({ guildId: 'empty', args: ['nobody'] });
+
+    await service.show(ctx);
+
+    // The complaint about the argument comes first: telling someone the server
+    // is empty does not answer the thing they typed wrong.
+    expect(replies[0]?.title).toBe('Who?');
+  });
+});
+
+describe('parseUserId', () => {
+  it('reads a mention, a nickname mention, and a raw id', () => {
+    expect(parseUserId('<@100000000000000001>')).toBe('100000000000000001');
+    expect(parseUserId('<@!100000000000000001>')).toBe('100000000000000001');
+    expect(parseUserId('  100000000000000001 ')).toBe('100000000000000001');
+  });
+
+  it('refuses anything that is not an id', () => {
+    expect(parseUserId(undefined)).toBeUndefined();
+    expect(parseUserId('')).toBeUndefined();
+    expect(parseUserId('linh')).toBeUndefined();
+    expect(parseUserId('<@&100000000000000001>')).toBeUndefined();
+    expect(parseUserId('123')).toBeUndefined();
   });
 });

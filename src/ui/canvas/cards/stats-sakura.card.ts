@@ -12,6 +12,8 @@ export interface StatsCardEntry {
   /** Second line: the artist, or how long they listened. */
   detail?: string;
   plays: number;
+  /** Picks this row out of the list — the person whose card this is. */
+  highlight?: boolean;
 }
 
 export interface StatsCardData {
@@ -26,6 +28,20 @@ export interface StatsCardData {
   topListeners: StatsCardEntry[];
   /** The caller's own line, when they have one. */
   you?: { plays: number; listenedMs: number };
+  /**
+   * Whose card this is, when it is one person's rather than the server's.
+   *
+   * Set, the columns are read as that person's and the summary becomes their
+   * own totals and their place among the guild's listeners.
+   */
+  subject?: {
+    name: string;
+    plays: number;
+    listenedMs: number;
+    /** Their place among the listeners, counting from 1. */
+    rank?: number;
+    listenerCount: number;
+  };
 }
 
 const WIDTH = 1200;
@@ -68,6 +84,8 @@ const COLORS = {
   pink: '#ec5d84',
   pinkStrong: '#f2406e',
   pinkSoft: '#fbe0e9',
+  /** One shade up, for the row the card is about. */
+  pinkMid: '#f7c8d8',
 } as const;
 
 /**
@@ -147,11 +165,18 @@ function drawHeader(ctx: SKRSContext2D, data: StatsCardData): void {
 
   ctx.font = font(34, 'bold');
   ctx.fillStyle = COLORS.ink;
-  ctx.fillText('LISTENING STATS', 136, 88);
+  ctx.fillText(
+    truncateText(ctx, data.subject ? data.subject.name.toUpperCase() : 'LISTENING STATS', 700),
+    136,
+    88,
+  );
 
   ctx.font = font(21);
   ctx.fillStyle = COLORS.inkMuted;
-  const subtitle = [data.guildName, data.since ? `since ${formatDate(data.since)}` : undefined]
+  const subtitle = [
+    data.subject ? (data.guildName ? `in ${data.guildName}` : 'listening stats') : data.guildName,
+    data.since ? `since ${formatDate(data.since)}` : undefined,
+  ]
     .filter(Boolean)
     .join('  ·  ');
   if (subtitle) ctx.fillText(truncateText(ctx, subtitle, 700), 136, 118);
@@ -160,14 +185,25 @@ function drawHeader(ctx: SKRSContext2D, data: StatsCardData): void {
 function drawSummary(ctx: SKRSContext2D, data: StatsCardData): void {
   const width = (PANEL.width - 72 - SUMMARY.gap * (SUMMARY.count - 1)) / SUMMARY.count;
 
-  const cells: Array<[string, string]> = [
-    [String(data.totalPlays), 'tracks played'],
-    [formatHours(data.totalListenedMs), 'spent listening'],
-    [
-      data.you ? `${data.you.plays}` : '—',
-      data.you ? `queued by you · ${formatHours(data.you.listenedMs)}` : 'queued by you',
-    ],
-  ];
+  const subject = data.subject;
+
+  const cells: Array<[string, string]> = subject
+    ? [
+        [String(subject.plays), `of ${data.totalPlays} played here`],
+        [formatHours(subject.listenedMs), 'spent listening'],
+        [
+          subject.rank ? `#${subject.rank}` : '—',
+          `of ${subject.listenerCount} ${subject.listenerCount === 1 ? 'listener' : 'listeners'}`,
+        ],
+      ]
+    : [
+        [String(data.totalPlays), 'tracks played'],
+        [formatHours(data.totalListenedMs), 'spent listening'],
+        [
+          data.you ? `${data.you.plays}` : '—',
+          data.you ? `queued by you · ${formatHours(data.you.listenedMs)}` : 'queued by you',
+        ],
+      ];
 
   cells.forEach(([value, label], index) => {
     const box: Rect = {
@@ -217,13 +253,17 @@ function drawColumn(ctx: SKRSContext2D, title: string, entries: StatsCardEntry[]
     const textWidth = box.width - 44 - countWidth;
 
     // A bar behind the row, so the shape of the list reads before the numbers.
+    // The highlighted one is drawn taller: it is the only bar with an outline,
+    // and at the usual height that outline ran straight through the row's
+    // second line.
     const bar: Rect = {
       x: box.x + 16,
-      y: top - 16,
+      y: top - (entry.highlight ? 20 : 16),
       width: Math.max(6, (box.width - 32) * (entry.plays / best)),
-      height: 36,
+      height: entry.highlight ? 44 : 36,
     };
-    fillRoundedRect(ctx, bar, 10, COLORS.pinkSoft);
+    fillRoundedRect(ctx, bar, 10, entry.highlight ? COLORS.pinkMid : COLORS.pinkSoft);
+    if (entry.highlight) strokeRoundedRect(ctx, bar, 10, COLORS.pink, 2);
 
     ctx.font = font(19, 'bold');
     ctx.fillStyle = COLORS.ink;

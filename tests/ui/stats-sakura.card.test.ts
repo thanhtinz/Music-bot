@@ -132,3 +132,58 @@ describe('formatHours', () => {
     expect(formatHours(-5_000)).toBe('0m');
   });
 });
+
+describe('renderSakuraStatsCard, for one person', () => {
+  const subject = {
+    name: 'linh',
+    plays: 37,
+    listenedMs: 7_560_000,
+    rank: 1,
+    listenerCount: 4,
+  };
+
+  it('draws a different card from the server one', async () => {
+    const [guild, member] = await Promise.all([
+      renderSakuraStatsCard(data()),
+      renderSakuraStatsCard(data({ subject })),
+    ]);
+
+    expect(guild.equals(member)).toBe(false);
+  });
+
+  it('renders without a rank, for somebody outside the tracked listeners', async () => {
+    const buffer = await renderSakuraStatsCard(data({ subject: { ...subject, rank: undefined } }));
+
+    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+  });
+
+  it('renders for the only listener on the server', async () => {
+    const buffer = await renderSakuraStatsCard(
+      data({ subject: { ...subject, listenerCount: 1 }, topListeners: entries(1) }),
+    );
+
+    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+  });
+
+  it('picks the highlighted row out of the list', async () => {
+    const plain = data({ subject });
+    const marked = data({
+      subject,
+      topListeners: data().topListeners.map((entry, index) =>
+        index === 0 ? { ...entry, highlight: true } : entry,
+      ),
+    });
+
+    expect((await renderSakuraStatsCard(plain)).equals(await renderSakuraStatsCard(marked))).toBe(
+      false,
+    );
+  });
+
+  it('survives a name long enough to run off the card', async () => {
+    const buffer = await renderSakuraStatsCard(
+      data({ subject: { ...subject, name: 'a'.repeat(200) } }),
+    );
+
+    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+  });
+});

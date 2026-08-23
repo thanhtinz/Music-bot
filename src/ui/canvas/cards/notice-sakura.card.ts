@@ -210,9 +210,15 @@ function drawMessage(ctx: SKRSContext2D, message: string, accent: string): void 
 
   let line = 0;
   let x = TEXT_X;
+  let lastX = TEXT_X;
+  let lastBaseline = MESSAGE_TOP + 30;
+  let dropped = false;
 
   for (const word of words) {
-    if (line >= MESSAGE_MAX_LINES) return;
+    if (line >= MESSAGE_MAX_LINES) {
+      dropped = true;
+      break;
+    }
 
     const width = ctx.measureText(word.text).width;
     const atLineStart = x === TEXT_X;
@@ -223,7 +229,10 @@ function drawMessage(ctx: SKRSContext2D, message: string, accent: string): void 
     if (word.spaced && !atLineStart && x + gap + width > TEXT_X + TEXT_MAX_WIDTH) {
       line += 1;
       x = TEXT_X;
-      if (line >= MESSAGE_MAX_LINES) return;
+      if (line >= MESSAGE_MAX_LINES) {
+        dropped = true;
+        break;
+      }
     }
 
     const baseline = MESSAGE_TOP + line * MESSAGE_LINE_HEIGHT + 30;
@@ -236,5 +245,15 @@ function drawMessage(ctx: SKRSContext2D, message: string, accent: string): void 
     ctx.fillStyle = word.emphasis ? accent : COLORS.inkSoft;
     ctx.fillText(text, x, baseline);
     x += ctx.measureText(text).width;
+    lastX = x;
+    lastBaseline = baseline;
+  }
+
+  // A message longer than the card ends in an ellipsis rather than mid-word:
+  // a sentence that just stops reads as a broken bot, not as a long one.
+  if (dropped) {
+    const width = ctx.measureText('…').width;
+    ctx.fillStyle = COLORS.inkMuted;
+    ctx.fillText('…', Math.min(lastX, TEXT_X + TEXT_MAX_WIDTH - width), lastBaseline);
   }
 }

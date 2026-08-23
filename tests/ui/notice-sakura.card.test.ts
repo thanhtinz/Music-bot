@@ -140,3 +140,43 @@ describe('renderSakuraNoticeCard', () => {
     expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
   });
 });
+
+describe('a message longer than the card', () => {
+  const long = 'This message goes on well past the two lines the card has room for, and then some.';
+
+  it('drops the tail, so two messages that differ only past the cut match', async () => {
+    const [alpha, omega] = await Promise.all([
+      renderSakuraNoticeCard(data({ message: `${long} Alpha alpha alpha.` })),
+      renderSakuraNoticeCard(data({ message: `${long} Omega omega omega.` })),
+    ]);
+
+    expect(alpha.equals(omega)).toBe(true);
+  });
+
+  it('marks the cut, so a long message does not read as a finished one', async () => {
+    const [cut, whole] = await Promise.all([
+      renderSakuraNoticeCard(data({ message: long })),
+      // The words that survive the cut, on their own: they fit, so they are
+      // drawn without an ellipsis. A sentence that just stops reads as a
+      // broken bot rather than a long message.
+      renderSakuraNoticeCard(data({ message: 'This message goes on well past the two' })),
+    ]);
+
+    expect(cut.equals(whole)).toBe(false);
+  });
+
+  it('differs from the message that fits', async () => {
+    const [cut, short] = await Promise.all([
+      renderSakuraNoticeCard(data({ message: long })),
+      renderSakuraNoticeCard(data({ message: 'Short enough.' })),
+    ]);
+
+    expect(cut.equals(short)).toBe(false);
+  });
+
+  it('keeps a single unbreakable word inside the card', async () => {
+    const buffer = await renderSakuraNoticeCard(data({ message: 'x'.repeat(400) }));
+
+    expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+  });
+});

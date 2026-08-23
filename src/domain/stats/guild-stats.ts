@@ -23,6 +23,15 @@ export interface UserStat {
   readonly plays: number;
   readonly listenedMs: number;
   readonly lastPlayedAt: number;
+  /**
+   * What this person in particular queues.
+   *
+   * Kept per user as well as per guild because "what does the server play" and
+   * "what do *you* play" are different questions, and the second cannot be
+   * answered from the first. Capped tighter than the guild list: three hundred
+   * songs each across three hundred people is a file nobody wants.
+   */
+  readonly tracks: readonly TrackStat[];
 }
 
 export interface GuildStats {
@@ -45,6 +54,7 @@ export interface GuildStats {
  */
 export const MAX_TRACKED_TRACKS = 300;
 export const MAX_TRACKED_USERS = 300;
+export const MAX_TRACKED_USER_TRACKS = 50;
 
 export function createGuildStats(guildId: string, now = Date.now()): GuildStats {
   return {
@@ -78,20 +88,27 @@ export function recordPlay(stats: GuildStats, record: PlayRecord): GuildStats {
   const listenedMs = Math.max(0, Math.round(record.listenedMs));
   const key = trackKey(record.track);
 
-  const tracks = upsert(
-    stats.tracks,
-    (entry) => entry.key === key,
-    (existing) => ({
-      key,
-      // The newest title wins: a track re-uploaded under a tidier name should
-      // show as that, not as whatever it was first called.
-      title: record.track.title,
-      author: record.track.author,
-      plays: (existing?.plays ?? 0) + 1,
-      listenedMs: (existing?.listenedMs ?? 0) + listenedMs,
-      lastPlayedAt: playedAt,
-    }),
-  );
+  /** Folds this play into one track list — the guild's, or one person's. */
+  const foldTrack = (tracks: readonly TrackStat[], limit: number): TrackStat[] =>
+    prune(
+      upsert(
+        tracks,
+        (entry) => entry.key === key,
+        (existing) => ({
+          key,
+          // The newest title wins: a track re-uploaded under a tidier name
+          // should show as that, not as whatever it was first called.
+          title: record.track.title,
+          author: record.track.author,
+          plays: (existing?.plays ?? 0) + 1,
+          listenedMs: (existing?.listenedMs ?? 0) + listenedMs,
+          lastPlayedAt: playedAt,
+        }),
+      ),
+      limit,
+    );
+
+  const tracks = foldTrack(stats.tracks, MAX_TRACKED_TRACKS);
 
   const users = upsert(
     stats.users,
@@ -101,12 +118,15 @@ export function recordPlay(stats: GuildStats, record: PlayRecord): GuildStats {
       plays: (existing?.plays ?? 0) + 1,
       listenedMs: (existing?.listenedMs ?? 0) + listenedMs,
       lastPlayedAt: playedAt,
+      // `?? []` covers a file written before per-user tracks existed: an old
+      // store should start collecting them, not fail to load.
+      tracks: foldTrack(existing?.tracks ?? [], MAX_TRACKED_USER_TRACKS),
     }),
   );
 
   return {
     ...stats,
-    tracks: prune(tracks, MAX_TRACKED_TRACKS),
+    tracks,
     users: prune(users, MAX_TRACKED_USERS),
     totalPlays: stats.totalPlays + 1,
     totalListenedMs: stats.totalListenedMs + listenedMs,
@@ -114,19 +134,51 @@ export function recordPlay(stats: GuildStats, record: PlayRecord): GuildStats {
   };
 }
 
+export interface ArtistStat {
+  readonly author: string;
+  readonly plays: number;
+  readonly listenedMs: number;
+}
+
 /** The most played tracks, ties broken by the more recent. */
 export function topTracks(stats: GuildStats, limit: number): TrackStat[] {
-  return [...stats.tracks].sort(byPlays).slice(0, Math.max(0, limit));
+  return topTracksOf(stats.tracks, limit);
 }
 
 /** The most played artists, summed across their tracks. */
-export function topArtists(
-  stats: GuildStats,
-  limit: number,
-): Array<{ author: string; plays: number; listenedMs: number }> {
+export function topArtists(stats: GuildStats, limit: number): ArtistStat[] {
+  return topArtistsOf(stats.tracks, limit);
+}
+
+/** One person's own most played tracks. */
+export function topTracksFor(stats: GuildStats, userId: string, limit: number): TrackStat[] {
+  return topTracksOf(statsFor(stats, userId)?.tracks ?? [], limit);
+}
+
+/** One person's own most played artists. */
+export function topArtistsFor(stats: GuildStats, userId: string, limit: number): ArtistStat[] {
+  return topArtistsOf(statsFor(stats, userId)?.tracks ?? [], limit);
+}
+
+/**
+ * Where someone comes in the guild's listeners, counting from 1.
+ *
+ * Undefined for a person who has never queued anything: they have no place in
+ * a ranking rather than last place in it.
+ */
+export function rankOf(stats: GuildStats, userId: string): number | undefined {
+  const index = [...stats.users].sort(byPlays).findIndex((entry) => entry.userId === userId);
+  return index < 0 ? undefined : index + 1;
+}
+
+function topTracksOf(tracks: readonly TrackStat[], limit: number): TrackStat[] {
+  return [...tracks].sort(byPlays).slice(0, Math.max(0, limit));
+}
+
+function topArtistsOf(tracks: readonly TrackStat[], limit: number): ArtistStat[] {
   const totals = new Map<string, { author: string; plays: number; listenedMs: number }>();
 
-  for (const track of stats.tracks) {
+  for (const track of tracks) {
     const name = track.author.trim() || 'Unknown artist';
     const existing = totals.get(name.toLowerCase());
 

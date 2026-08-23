@@ -4,11 +4,15 @@ import { createTrack, type Track } from '../../src/domain/music';
 import {
   createGuildStats,
   MAX_TRACKED_TRACKS,
+  MAX_TRACKED_USER_TRACKS,
+  rankOf,
   recordPlay,
   statsFor,
   topArtists,
+  topArtistsFor,
   topListeners,
   topTracks,
+  topTracksFor,
   type GuildStats,
 } from '../../src/domain/stats';
 
@@ -165,5 +169,115 @@ describe('topListeners and statsFor', () => {
 
     expect(statsFor(stats, 'alice')?.plays).toBe(1);
     expect(statsFor(stats, 'nobody')).toBeUndefined();
+  });
+});
+
+describe('per-user tracks', () => {
+  const chamHoa = song('Chăm Hoa', 'MONO');
+  const lacTroi = song('Lạc Trôi', 'Sơn Tùng M-TP');
+
+  /** Two people with different taste in the same guild. */
+  function mixed(): GuildStats {
+    let stats = createGuildStats('guild', 0);
+
+    for (let index = 0; index < 3; index += 1) {
+      stats = recordPlay(stats, { track: chamHoa, userId: 'linh', listenedMs: 1_000, playedAt: 1 });
+    }
+    stats = recordPlay(stats, { track: lacTroi, userId: 'minh', listenedMs: 1_000, playedAt: 2 });
+
+    return stats;
+  }
+
+  it('keeps what each person queues, not just the guild total', () => {
+    const stats = mixed();
+
+    expect(topTracksFor(stats, 'linh', 5).map((track) => track.title)).toEqual(['Chăm Hoa']);
+    expect(topTracksFor(stats, 'minh', 5).map((track) => track.title)).toEqual(['Lạc Trôi']);
+  });
+
+  it('counts a person plays against their own list only', () => {
+    expect(topTracksFor(mixed(), 'linh', 5)[0]?.plays).toBe(3);
+  });
+
+  it('sums a person artists across their own tracks', () => {
+    const stats = mixed();
+
+    expect(topArtistsFor(stats, 'linh', 5)).toEqual([
+      { author: 'MONO', plays: 3, listenedMs: 3_000 },
+    ]);
+  });
+
+  it('has nothing for somebody who has never queued anything', () => {
+    expect(topTracksFor(mixed(), 'nobody', 5)).toEqual([]);
+    expect(topArtistsFor(mixed(), 'nobody', 5)).toEqual([]);
+  });
+
+  it('caps how many tracks it remembers per person', () => {
+    let stats = createGuildStats('guild', 0);
+
+    for (let index = 0; index < MAX_TRACKED_USER_TRACKS + 20; index += 1) {
+      stats = recordPlay(stats, {
+        track: song(`Song ${index}`, 'Artist'),
+        userId: 'linh',
+        listenedMs: 1_000,
+        playedAt: index,
+      });
+    }
+
+    // Three hundred songs each across three hundred people is a file nobody
+    // wants; the guild list is the one that keeps the long tail.
+    expect(statsFor(stats, 'linh')?.tracks).toHaveLength(MAX_TRACKED_USER_TRACKS);
+    expect(statsFor(stats, 'linh')?.plays).toBe(MAX_TRACKED_USER_TRACKS + 20);
+  });
+
+  it('starts collecting for a record written before it kept them', () => {
+    const old = createGuildStats('guild', 0);
+    const legacy = {
+      ...old,
+      users: [{ userId: 'linh', plays: 9, listenedMs: 900, lastPlayedAt: 1 }],
+      totalPlays: 9,
+    } as unknown as GuildStats;
+
+    const stats = recordPlay(legacy, {
+      track: chamHoa,
+      userId: 'linh',
+      listenedMs: 1_000,
+      playedAt: 2,
+    });
+
+    expect(topTracksFor(stats, 'linh', 5)).toHaveLength(1);
+    expect(statsFor(stats, 'linh')?.plays).toBe(10);
+  });
+});
+
+describe('rankOf', () => {
+  function withPlays(counts: Record<string, number>): GuildStats {
+    let stats = createGuildStats('guild', 0);
+
+    for (const [userId, plays] of Object.entries(counts)) {
+      for (let index = 0; index < plays; index += 1) {
+        stats = recordPlay(stats, {
+          track: song('Track', 'Artist'),
+          userId,
+          listenedMs: 1_000,
+          playedAt: index,
+        });
+      }
+    }
+
+    return stats;
+  }
+
+  it('counts from one, most plays first', () => {
+    const stats = withPlays({ linh: 5, minh: 9, khanh: 1 });
+
+    expect(rankOf(stats, 'minh')).toBe(1);
+    expect(rankOf(stats, 'linh')).toBe(2);
+    expect(rankOf(stats, 'khanh')).toBe(3);
+  });
+
+  it('gives no place to somebody who has never queued anything', () => {
+    // No place in the ranking rather than last place in it.
+    expect(rankOf(withPlays({ linh: 1 }), 'nobody')).toBeUndefined();
   });
 });

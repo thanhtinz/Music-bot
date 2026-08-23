@@ -191,13 +191,29 @@ async function main(): Promise<void> {
 
   const statsStore = new InMemoryStatsRepository();
   let guildStats = createGuildStats('guild', Date.UTC(2026, 6, 1));
+  // Snowflake-shaped ids, because that is what a real mention resolves to.
+  const PEOPLE = {
+    me: '100000000000000001',
+    linh: '200000000000000002',
+    minh: '300000000000000003',
+    khanh: '400000000000000004',
+  } as const;
+  const NAMES: Record<string, string> = {
+    [PEOPLE.me]: 'thanhtinz',
+    [PEOPLE.linh]: 'linh',
+    [PEOPLE.minh]: 'minh',
+    [PEOPLE.khanh]: 'khanh',
+  };
+
   const PLAYS: Array<[string, string, string, number]> = [
-    ['Chăm Hoa', 'MONO', 'owner', 24],
-    ['Lạc Trôi', 'Sơn Tùng M-TP', 'linh', 18],
-    ['Faded', 'Alan Walker', 'minh', 15],
-    ['Waiting For Love', 'Avicii', 'owner', 11],
-    ['Nevada', 'Vicetone', 'khanh', 7],
-    ['Bones', 'Imagine Dragons', 'linh', 4],
+    ['Chăm Hoa', 'MONO', PEOPLE.me, 24],
+    ['Lạc Trôi', 'Sơn Tùng M-TP', PEOPLE.linh, 18],
+    ['Faded', 'Alan Walker', PEOPLE.minh, 15],
+    ['Waiting For Love', 'Avicii', PEOPLE.me, 11],
+    ['Nevada', 'Vicetone', PEOPLE.khanh, 7],
+    ['Bones', 'Imagine Dragons', PEOPLE.linh, 4],
+    ['Hào Quang', 'MONO', PEOPLE.linh, 9],
+    ['Alone', 'Alan Walker', PEOPLE.linh, 6],
   ];
   for (const [title, author, userId, plays] of PLAYS) {
     for (let index = 0; index < plays; index += 1) {
@@ -211,13 +227,27 @@ async function main(): Promise<void> {
   }
   await statsStore.save(guildStats);
 
-  const statsCard = context({ commandName: 'stats' });
-  await new StatsService(statsStore, {
+  const stats = new StatsService(statsStore, {
     guildName: () => 'Melody Test Server',
-    displayName: (userId) =>
-      ({ owner: 'thanhtinz', linh: 'linh', minh: 'minh', khanh: 'khanh' })[userId],
-  }).show(statsCard.ctx);
+    displayName: (userId) => NAMES[userId],
+  });
+
+  const statsCard = context({ commandName: 'stats', userId: PEOPLE.me });
+  await stats.show(statsCard.ctx);
   save(statsCard, 'reply-stats.png');
+
+  // `stats @linh` — one person's own listening, not the server's.
+  const memberStats = context({
+    commandName: 'stats',
+    userId: PEOPLE.me,
+    args: [`<@${PEOPLE.linh}>`],
+  });
+  await stats.show(memberStats.ctx);
+  save(memberStats, 'reply-stats-member.png');
+
+  const statsUnknown = context({ commandName: 'stats', args: ['nobody'] });
+  await stats.show(statsUnknown.ctx);
+  save(statsUnknown, 'reply-stats-unknown-user.png');
 
   const settingsSheet = context({ commandName: 'settings' });
   await settings.show(settingsSheet.ctx);
