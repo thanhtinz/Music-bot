@@ -138,6 +138,17 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Joining and leaving
+
+| Command | Aliases             | What it does                                              |
+| ------- | ------------------- | --------------------------------------------------------- |
+| `join`  | `summon`, `connect` | Joins your voice channel without queueing anything        |
+| `leave` | `disconnect`, `dc`  | Leaves and clears the queue, saying how much went with it |
+
+`join` is also how the bot is moved. `play` never moves it — an existing session keeps its channel, because moving should be something someone asked for rather than a side effect of a person in another channel running a command.
+
+A move is a real reconnect, not a field change: Lavalink destroys its player when the bot leaves a channel, so the current track is started again from the position it had reached, and stays paused if it was paused.
+
 ## Every reply is a card
 
 Commands that used to answer with a line of chat answer with a panel in the same pastel style, so a reply looks like it came from the same place as the Now Playing and queue cards:

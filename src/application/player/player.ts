@@ -130,6 +130,49 @@ export class Player extends EventEmitter<PlayerEvents> {
   }
 
   /**
+   * Moves to another voice channel.
+   *
+   * {@link connect} cannot do this: it returns early once connected, so it
+   * would change the field and leave the bot where it was. A move also drops
+   * the backend's player — Lavalink destroys it on leave — so whatever was
+   * playing is restarted from where it had got to rather than from the top.
+   */
+  async move(voiceChannelId: string): Promise<void> {
+    if (voiceChannelId === this.voiceChannelId && this.state !== 'idle' && this.state !== 'error') {
+      return;
+    }
+
+    const resuming = this.queue.current;
+    // Read before disconnecting: afterwards the backend has no player to ask.
+    const positionMs = resuming && !resuming.isStream ? this.positionMs : 0;
+    const wasPaused = this.state === 'paused';
+
+    this.voiceChannelId = voiceChannelId;
+    this.setState('connecting');
+
+    try {
+      await this.backend.connect(this.guildId, voiceChannelId);
+      await this.backend.setVolume(this.guildId, this.currentVolume);
+      if (this.filterPreset) await this.backend.setFilter(this.guildId, this.filterPreset);
+      this.setState('ready');
+
+      if (resuming) {
+        await this.backend.play(this.guildId, resuming);
+        this.setState('playing');
+        if (positionMs > 0) await this.backend.seek(this.guildId, positionMs);
+        if (wasPaused) {
+          await this.backend.setPaused(this.guildId, true);
+          this.setState('paused');
+        }
+      }
+    } catch (error) {
+      this.setState('error');
+      this.emit('error', { guildId: this.guildId, error });
+      throw error;
+    }
+  }
+
+  /**
    * Enqueues tracks and starts playback when idle.
    *
    * Returns whether playback started right away, so the caller can choose

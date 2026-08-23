@@ -84,6 +84,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     clear: async (ctx) => service.clear(ctx),
     shuffle: async (ctx) => service.shuffle(ctx),
     nowplaying: async (ctx) => service.nowPlaying(ctx),
+    join: async (ctx) => service.join(ctx),
+    leave: async (ctx) => service.leave(ctx),
 
     seek: async (ctx) => {
       const raw = ctx.option('position') ?? '';

@@ -96,6 +96,22 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     category: 'playback',
     aliases: ['np'],
   },
+  {
+    name: 'join',
+    description: 'Join your voice channel',
+    category: 'playback',
+    aliases: ['summon', 'connect'],
+    requiresVoice: true,
+    deferred: true,
+  },
+  {
+    name: 'leave',
+    description: 'Leave the voice channel and clear the queue',
+    category: 'playback',
+    aliases: ['disconnect', 'dc'],
+    tier: 'dj',
+    deferred: true,
+  },
 
   {
     name: 'queue',

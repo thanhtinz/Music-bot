@@ -114,6 +114,96 @@ export class MusicService {
     }
   }
 
+  /**
+   * Connects to the caller's voice channel without queueing anything.
+   *
+   * Also the way to move the bot: `getOrCreate` deliberately keeps an existing
+   * session in its channel, because moving is an explicit act rather than a
+   * side effect of someone in another channel running `play`.
+   */
+  async join(ctx: CommandContext): Promise<void> {
+    if (!ctx.voiceChannelId) {
+      await ctx.reply({
+        content: 'Join a voice channel first, then ask me again.',
+        title: 'Which channel?',
+        icon: 'info',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const existing = this.players.get(ctx.guildId);
+
+    try {
+      if (existing && existing.voiceChannelId !== ctx.voiceChannelId) {
+        const from = existing.voiceChannelId;
+        await this.players.withLock(ctx.guildId, () => existing.move(ctx.voiceChannelId!));
+        existing.textChannelId = ctx.channelId;
+
+        await ctx.reply({
+          content: `Moved over to <#${ctx.voiceChannelId}>.`,
+          title: 'Moved',
+          icon: 'play',
+        });
+        logger.info({ guildId: ctx.guildId, from, to: ctx.voiceChannelId }, 'moved voice channel');
+        return;
+      }
+
+      if (existing) {
+        await ctx.reply({
+          content: `Already in <#${existing.voiceChannelId}>.`,
+          title: 'Already here',
+          icon: 'info',
+          tone: 'info',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      await this.players.getOrCreate({
+        guildId: ctx.guildId,
+        voiceChannelId: ctx.voiceChannelId,
+        textChannelId: ctx.channelId,
+        volume: this.options.defaultVolume,
+        maxQueueSize: this.options.maxQueueSize,
+      });
+
+      await ctx.reply({
+        content: `Joined <#${ctx.voiceChannelId}>. Queue something with \`play\`.`,
+        title: 'Joined',
+        icon: 'play',
+      });
+    } catch (error) {
+      await this.replyWithError(ctx, error, 'join');
+    }
+  }
+
+  /** Disconnects and forgets the queue. */
+  async leave(ctx: CommandContext): Promise<void> {
+    const player = this.players.get(ctx.guildId);
+
+    if (!player) {
+      await ctx.reply({
+        content: 'I am not in a voice channel.',
+        title: 'Not connected',
+        icon: 'info',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const channelId = player.voiceChannelId;
+    const abandoned = player.queue.size;
+    await this.players.destroy(ctx.guildId);
+
+    const note = abandoned > 0 ? ` **${abandoned}** queued track(s) went with it.` : '';
+    await ctx.reply({
+      content: `Left <#${channelId}>.${note}`,
+      title: 'Left the channel',
+      icon: 'stop',
+    });
+  }
+
   async pause(ctx: CommandContext): Promise<void> {
     const player = this.require(ctx);
     if (!player) return;
