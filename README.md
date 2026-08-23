@@ -162,6 +162,14 @@ It gets the same treatment as the track resolvers: a 6-second timeout and a circ
 
 The lookup is remembered per guild so a page button turns the page instead of spending another request.
 
+## More than one audio node
+
+`LAVALINK_NODES` takes extra nodes as `name@host:port:password` (comma separated, `:secure` for TLS). The single-node variables stay the first node, so an existing deployment keeps working untouched. An entry that will not parse is skipped with a warning — one typo in a list of three should cost that node, not the whole bot — and a repeated name _or_ address is dropped, because either would have Shoukaku connect to the same node twice.
+
+When a node goes away, the guilds that were on it are named in a `nodeLost` event and each one is re-established on another node: the track starts again from the position it had reached, keeping the queue, the history and a pause. A node dying costs seconds rather than the session.
+
+The failover runs under the same per-guild lock as everything else, so a command arriving mid-failover cannot interleave with the reconnect, and a reconnect that fails is reported rather than thrown at the event loop.
+
 ## Health and metrics
 
 Set `METRICS_PORT` and the bot serves three endpoints (on loopback by default, so it is not exposed by accident):

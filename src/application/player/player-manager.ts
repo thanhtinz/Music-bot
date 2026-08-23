@@ -70,6 +70,24 @@ export class PlayerManager {
       ).catch(() => undefined);
     });
 
+    this.backend.events.on('nodeLost', (event) => {
+      for (const guildId of event.guildIds) {
+        const player = this.players.get(guildId);
+        if (!player) continue;
+
+        // Serialised like every other mutation: a command arriving mid-failover
+        // must not interleave with the reconnect.
+        void this.withLock(guildId, () => player.reconnect())
+          .then(() => logger.info({ guildId, node: event.node }, 'moved off a lost node'))
+          .catch((error) => {
+            logger.error(
+              { err: error, guildId, node: event.node },
+              'could not move off a lost node',
+            );
+          });
+      }
+    });
+
     this.backend.events.on('voiceClosed', (event) => {
       this.players.get(event.guildId)?.onVoiceClosed(event);
       if (!event.recoverable) void this.destroy(event.guildId);

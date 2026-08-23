@@ -32,10 +32,19 @@ export interface VoiceClosedEvent {
  * Typed as a plain map so both the Lavalink adapter and the in-memory test
  * double can satisfy it without sharing a base class.
  */
+/** An audio node went away, taking whatever it was playing with it. */
+export interface NodeLostEvent {
+  node: string;
+  /** Guilds that were on it, and so need putting somewhere else. */
+  guildIds: string[];
+}
+
 export interface AudioBackendEvents {
   trackEnd: [TrackEndEvent];
   trackError: [TrackErrorEvent];
   voiceClosed: [VoiceClosedEvent];
+  /** Emitted when a node drops, so its players can be moved (spec §8.3). */
+  nodeLost: [NodeLostEvent];
 }
 
 export type AudioBackendEmitter = EventEmitter<AudioBackendEvents>;

@@ -114,6 +114,37 @@ export class LavalinkBackend implements AudioBackend, TrackSearchClient {
     this.searchPrefix = options.searchPrefix ?? 'ytsearch';
     this.shardIdFor = options.shardIdFor ?? (() => 0);
     this.selfDeaf = options.selfDeaf ?? true;
+
+    this.watchNodes();
+  }
+
+  /**
+   * Reports a node going away, with the guilds that were on it.
+   *
+   * Those players are gone as far as Lavalink is concerned; something above has
+   * to put them somewhere else, and it can only do that if it is told which
+   * ones (spec §8.3).
+   */
+  private watchNodes(): void {
+    const lost = (name: string) => {
+      const guildIds = [...this.players.entries()]
+        .filter(([, player]) => player.node?.name === name)
+        .map(([guildId]) => guildId);
+
+      if (guildIds.length === 0) return;
+
+      // Forgotten here so a reconnect creates a fresh player rather than
+      // reusing one bound to a node that is gone.
+      for (const guildId of guildIds) this.players.delete(guildId);
+
+      logger.warn({ node: name, guilds: guildIds.length }, 'audio node lost');
+      this.events.emit('nodeLost', { node: name, guildIds });
+    };
+
+    this.shoukaku.on('disconnect', (name) => lost(name));
+    this.shoukaku.on('close', (name) => {
+      logger.warn({ node: name }, 'audio node connection closed');
+    });
   }
 
   // ── AudioBackend ──────────────────────────────────────────────────────────

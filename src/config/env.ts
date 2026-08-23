@@ -57,6 +57,14 @@ const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   LAVALINK_NAME: z.string().default('main'),
+  /**
+   * Extra nodes, so one dying does not stop the music (spec §8).
+   *
+   * `name@host:port:password` per node, comma separated; append `:secure` for
+   * TLS. The single-node variables above stay the first node, so an existing
+   * deployment keeps working without touching anything.
+   */
+  LAVALINK_NODES: z.string().default(''),
 
   // ── Permissions ───────────────────────────────────────────────────────────
   /** Comma-separated Discord user ids with global control (spec §14.1). */

@@ -10,6 +10,7 @@ import { LyricsService } from './application/services/lyrics.service';
 import { MusicService } from './application/services/music.service';
 import { buildCommands } from './commands/handlers';
 import { loadEnv } from './config/env';
+import { dedupeNodes, parseNodes } from './config/nodes';
 import { attachHandlers, createClient } from './infrastructure/discord/bot';
 import {
   buildLyricsPagination,
@@ -266,18 +267,29 @@ async function main(): Promise<void> {
 
 /** Connects the audio node pool and logs its lifecycle (spec §8). */
 function createShoukaku(client: Client, env: ReturnType<typeof loadEnv>): Shoukaku {
-  const shoukaku = new Shoukaku(
-    new Connectors.DiscordJS(client),
-    [
-      {
-        name: env.LAVALINK_NAME,
-        url: `${env.LAVALINK_HOST}:${env.LAVALINK_PORT}`,
-        auth: env.LAVALINK_PASSWORD,
-        secure: env.LAVALINK_SECURE,
-      },
-    ],
-    { moveOnDisconnect: true, resume: true, reconnectTries: 10 },
-  );
+  const extra = parseNodes(env.LAVALINK_NODES);
+  for (const entry of extra.rejected) {
+    // One typo in a list of three should cost that node, not the whole bot.
+    log.warn({ entry }, 'ignoring an audio node that could not be parsed');
+  }
+
+  const nodes = dedupeNodes([
+    {
+      name: env.LAVALINK_NAME,
+      url: `${env.LAVALINK_HOST}:${env.LAVALINK_PORT}`,
+      auth: env.LAVALINK_PASSWORD,
+      secure: env.LAVALINK_SECURE,
+    },
+    ...extra.nodes,
+  ]);
+
+  log.info({ nodes: nodes.map((node) => node.name) }, 'audio nodes configured');
+
+  const shoukaku = new Shoukaku(new Connectors.DiscordJS(client), nodes, {
+    moveOnDisconnect: true,
+    resume: true,
+    reconnectTries: 10,
+  });
 
   shoukaku.on('ready', (name, reconnected) => {
     log.info({ node: name, reconnected }, 'lavalink node ready');

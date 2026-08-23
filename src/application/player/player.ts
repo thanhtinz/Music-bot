@@ -142,8 +142,13 @@ export class Player extends EventEmitter<PlayerEvents> {
    * the backend's player — Lavalink destroys it on leave — so whatever was
    * playing is restarted from where it had got to rather than from the top.
    */
-  async move(voiceChannelId: string): Promise<void> {
-    if (voiceChannelId === this.voiceChannelId && this.state !== 'idle' && this.state !== 'error') {
+  async move(voiceChannelId: string, force = false): Promise<void> {
+    if (
+      !force &&
+      voiceChannelId === this.voiceChannelId &&
+      this.state !== 'idle' &&
+      this.state !== 'error'
+    ) {
       return;
     }
 
@@ -175,6 +180,17 @@ export class Player extends EventEmitter<PlayerEvents> {
       this.emit('error', { guildId: this.guildId, error });
       throw error;
     }
+  }
+
+  /**
+   * Re-establishes the session after losing the node it was on.
+   *
+   * The same work as a move, to the channel it is already in: the backend has
+   * to hand the guild to another node, and the track has to be started again
+   * there — from where it had got to, so a node dying costs seconds.
+   */
+  async reconnect(): Promise<void> {
+    await this.move(this.voiceChannelId, true);
   }
 
   /**
