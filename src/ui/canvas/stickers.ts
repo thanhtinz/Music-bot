@@ -208,7 +208,13 @@ export function drawHeartSwirl(
   ctx.restore();
 }
 
-/** Cheerful blob mascot with a sprout, matching the queue template's. */
+/**
+ * Cheerful sprout mascot, matching the one in the queue artwork.
+ *
+ * The silhouette is a pear rather than a circle — narrow crown widening to a
+ * broad base with a bump on each side — which is most of what makes it read as
+ * a character instead of a face drawn on a ball.
+ */
 export function drawSproutMascot(
   ctx: SKRSContext2D,
   x: number,
@@ -216,82 +222,159 @@ export function drawSproutMascot(
   size: number,
   colors: StickerColors,
 ): void {
-  const bodyWidth = size * 0.62;
-  const bodyHeight = size * 0.56;
-  const bodyTop = y - bodyHeight / 2;
+  // Nearly as wide as it is tall: the reference reads as a round dumpling, and
+  // a taller ratio turns it into an egg.
+  const width = size * 0.72;
+  const height = size * 0.6;
+  const top = y - height * 0.52;
+  const bottom = y + height * 0.48;
+  const halfBase = width * 0.5;
+  const halfCrown = width * 0.36;
+
+  const outline = '#a08d84';
+  const body = '#fdfbf8';
+  const leaf = '#a6c97e';
+  const leafEdge = '#7fa85f';
 
   ctx.save();
   ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
 
-  // Sprout grows straight out of the body's crown; starting it any higher
-  // leaves it visibly floating above the head.
-  ctx.strokeStyle = '#8fbf7a';
-  ctx.lineWidth = Math.max(2, size * 0.028);
+  drawSprout(ctx, x, top, width, height, leaf, leafEdge);
+
   ctx.beginPath();
-  ctx.moveTo(x, bodyTop + size * 0.02);
-  ctx.lineTo(x, bodyTop - size * 0.13);
-  ctx.stroke();
+  ctx.moveTo(x, top);
+  // Right: crown → side bump → base.
+  // The apex control stays close to the centreline: pushing it out sideways at
+  // the crown's own height flattens the head into a purse instead of doming it.
+  ctx.bezierCurveTo(
+    x + halfCrown * 0.62,
+    top,
+    x + halfBase * 1.0,
+    y - height * 0.26,
+    x + halfBase * 0.9,
+    y + height * 0.06,
+  );
+  ctx.bezierCurveTo(
+    x + halfBase * 1.1,
+    y + height * 0.24,
+    x + halfBase * 0.98,
+    bottom - height * 0.02,
+    x + halfBase * 0.6,
+    bottom,
+  );
+  // Base, with a shallow dip so it sits rather than balances on a point.
+  ctx.bezierCurveTo(
+    x + halfBase * 0.28,
+    bottom + height * 0.05,
+    x - halfBase * 0.28,
+    bottom + height * 0.05,
+    x - halfBase * 0.6,
+    bottom,
+  );
+  ctx.bezierCurveTo(
+    x - halfBase * 0.98,
+    bottom - height * 0.02,
+    x - halfBase * 1.1,
+    y + height * 0.24,
+    x - halfBase * 0.9,
+    y + height * 0.06,
+  );
+  ctx.bezierCurveTo(x - halfBase * 1.0, y - height * 0.26, x - halfCrown * 0.62, top, x, top);
+  ctx.closePath();
 
-  ctx.fillStyle = '#a8d18d';
-  for (const direction of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(
-      x + direction * size * 0.075,
-      bodyTop - size * 0.13,
-      size * 0.085,
-      size * 0.05,
-      direction * 0.6,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
-
-  ctx.fillStyle = colors.paper;
-  ctx.strokeStyle = colors.ink;
-  ctx.lineWidth = Math.max(2, size * 0.022);
-  ctx.beginPath();
-  ctx.ellipse(x, y, bodyWidth / 2, bodyHeight / 2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = body;
   ctx.fill();
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = Math.max(1.6, size * 0.013);
   ctx.stroke();
 
-  // Face: sized against the body rather than the sticker box, or it reads as a
-  // large blank circle with a tiny expression in the middle.
-  ctx.fillStyle = colors.ink;
-  for (const direction of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(
-      x + direction * bodyWidth * 0.22,
-      y - bodyHeight * 0.04,
-      bodyWidth * 0.05,
-      bodyHeight * 0.075,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
-
-  ctx.strokeStyle = colors.ink;
-  ctx.lineWidth = Math.max(2, bodyWidth * 0.035);
-  ctx.beginPath();
-  ctx.arc(x, y + bodyHeight * 0.06, bodyWidth * 0.13, 0.15 * Math.PI, 0.85 * Math.PI);
-  ctx.stroke();
-
-  ctx.fillStyle = colors.pinkSoft;
-  for (const direction of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(
-      x + direction * bodyWidth * 0.36,
-      y + bodyHeight * 0.1,
-      bodyWidth * 0.1,
-      bodyHeight * 0.07,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
-
+  drawFace(ctx, x, y, width, height, colors.pinkSoft);
   ctx.restore();
+}
+
+/** Two rounded leaves on a short stem, sitting on the crown. */
+function drawSprout(
+  ctx: SKRSContext2D,
+  x: number,
+  top: number,
+  width: number,
+  height: number,
+  leaf: string,
+  leafEdge: string,
+): void {
+  const stemTop = top - height * 0.11;
+
+  ctx.strokeStyle = leafEdge;
+  ctx.lineWidth = Math.max(1.6, width * 0.026);
+  ctx.beginPath();
+  ctx.moveTo(x, top + height * 0.02);
+  ctx.quadraticCurveTo(x - width * 0.02, top - height * 0.08, x, stemTop);
+  ctx.stroke();
+
+  for (const direction of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(
+      x + direction * width * 0.105,
+      stemTop - height * 0.01,
+      width * 0.115,
+      height * 0.075,
+      direction * 0.42,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fillStyle = leaf;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.2, width * 0.018);
+    ctx.strokeStyle = leafEdge;
+    ctx.stroke();
+  }
+}
+
+/** Dot eyes, an `ω` mouth and two blushes. */
+function drawFace(
+  ctx: SKRSContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  blush: string,
+): void {
+  // The face sits in the upper half of the body, as it does in the artwork;
+  // centring it makes the character look like it is slumping.
+  const eyeY = y - height * 0.17;
+
+  ctx.fillStyle = '#4a3f3c';
+  for (const direction of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(x + direction * width * 0.17, eyeY, width * 0.045, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Blush sits outside the eyes and slightly lower, the way a cheek does.
+  ctx.fillStyle = blush;
+  for (const direction of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(
+      x + direction * width * 0.26,
+      eyeY + height * 0.055,
+      width * 0.072,
+      height * 0.05,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+
+  // Two downward humps side by side make the small `ω` smile.
+  const mouthRadius = width * 0.033;
+  const mouthY = eyeY + height * 0.08;
+  ctx.strokeStyle = '#8a746d';
+  ctx.lineWidth = Math.max(1.4, width * 0.02);
+  for (const direction of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(x + direction * mouthRadius, mouthY, mouthRadius, 0, Math.PI);
+    ctx.stroke();
+  }
 }
