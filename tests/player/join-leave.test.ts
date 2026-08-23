@@ -43,7 +43,9 @@ describe('join and leave', () => {
   beforeEach(() => {
     backend = new FakeAudioBackend();
     players = new PlayerManager(backend, { defaultVolume: 60, maxQueueSize: 10 });
-    service = new MusicService(players, new ResolverRegistry());
+    service = new MusicService(players, new ResolverRegistry(), {
+      channelName: (id) => (id === 'voice-a' ? 'general-voice' : undefined),
+    });
   });
 
   describe('join', () => {
@@ -55,7 +57,10 @@ describe('join and leave', () => {
       const player = players.get('guild');
       expect(player?.voiceChannelId).toBe('voice-a');
       expect(player?.queue.isEmpty).toBe(true);
-      expect(replies[0]?.content).toContain('<#voice-a>');
+      // A card cannot render `<#id>`; Discord only turns that into a mention
+      // in chat, so the channel has to be named.
+      expect(replies[0]?.content).toContain('#general-voice');
+      expect(replies[0]?.content).not.toContain('<#');
       expect(replies[0]?.title).toBe('Joined');
     });
 
@@ -178,7 +183,7 @@ describe('join and leave', () => {
       await service.leave(ctx);
 
       expect(players.has('guild')).toBe(false);
-      expect(replies[0]?.content).toContain('<#voice-a>');
+      expect(replies[0]?.content).toContain('#general-voice');
       expect(replies[0]?.title).toBe('Left the channel');
     });
 
@@ -211,6 +216,16 @@ describe('join and leave', () => {
       await service.leave(ctx);
 
       expect(replies[0]?.content).not.toContain('queued track');
+    });
+
+    it('falls back to a neutral phrase for a channel it cannot name', async () => {
+      await service.join(harness().ctx);
+      await service.join(harness({ voiceChannelId: 'voice-b' }).ctx);
+
+      const { ctx, replies } = harness();
+      await service.leave(ctx);
+
+      expect(replies[0]?.content).toContain('the voice channel');
     });
 
     it('says so when it is not connected', async () => {

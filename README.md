@@ -138,6 +138,16 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Seeing what the bot replies
+
+```bash
+npm run preview:replies
+```
+
+Runs the real services through the real reply decorator with a fake audio backend, and writes each answer to `preview/reply-*.png`. Because the cards come from the command path rather than from hand-written sample data, a preview cannot drift from what a user would see — and mistakes show up as pictures.
+
+It has already earned its place. Two bugs were invisible in the source and obvious the moment the cards were rendered: `<#id>` and `` `play` `` are Discord chat markup, so on an image they were drawn literally as `<#voice-a>` and `` `play` ``. Channels are now named (`#general-voice`, falling back to _the voice channel_ when the name is not cached) and inline code is drawn in the accent colour like bold.
+
 ## Joining and leaving
 
 | Command | Aliases             | What it does                                              |

@@ -36,6 +36,26 @@ describe('parseNoticeMessage', () => {
     ]);
   });
 
+  it('marks a code span and drops its backticks', () => {
+    // On an image a backtick is just a backtick, so the marker has to go.
+    expect(parseNoticeMessage('Queue something with `play`.')).toEqual([
+      { text: 'Queue', emphasis: false, spaced: false },
+      { text: 'something', emphasis: false, spaced: true },
+      { text: 'with', emphasis: false, spaced: true },
+      { text: 'play', emphasis: true, spaced: true },
+      { text: '.', emphasis: false, spaced: false },
+    ]);
+  });
+
+  it('handles bold and code in the same message', () => {
+    const words = parseNoticeMessage('Left **#music-room**, resume with `play`.');
+
+    expect(words.filter((word) => word.emphasis).map((word) => word.text)).toEqual([
+      '#music-room',
+      'play',
+    ]);
+  });
+
   it('handles a message with no markup', () => {
     expect(parseNoticeMessage('Stopped playback.')).toEqual([
       { text: 'Stopped', emphasis: false, spaced: false },

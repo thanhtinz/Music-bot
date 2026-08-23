@@ -20,7 +20,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview:canvas": "tsx scripts/preview-canvas.ts"
+    "preview:canvas": "tsx scripts/preview-canvas.ts",
+    "preview:replies": "tsx scripts/preview-replies.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.61",

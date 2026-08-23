@@ -61,6 +61,10 @@ async function main(): Promise<void> {
       }),
     queueComponents: (page, totalPages) => buildQueuePagination(page, totalPages),
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
+    channelName: (channelId) => {
+      const channel = client.channels.cache.get(channelId);
+      return channel && 'name' in channel ? (channel.name ?? undefined) : undefined;
+    },
   });
 
   // A file store when one is configured, memory otherwise: playlists that do

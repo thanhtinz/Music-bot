@@ -17,7 +17,7 @@ export type NoticeTone = 'success' | 'info' | 'warning' | 'error';
 export interface NoticeCardData {
   /** Headline, e.g. `Volume`. Falls back to the tone's own word. */
   title?: string;
-  /** The sentence itself. `**bold**` runs are drawn in the accent colour. */
+  /** The sentence itself. `**bold**` and `` `code` `` are drawn in the accent colour. */
   message: string;
   /** Glyph key; anything {@link glyphFor} understands. */
   icon?: string;
@@ -157,15 +157,16 @@ export interface MessageWord {
 }
 
 /**
- * Splits Discord's `**bold**` markup into words.
+ * Splits Discord's inline markup into words.
  *
  * The messages were written for a chat client, where the important words are
  * already marked up. Rather than rewrite every one of them, the markup is read
- * and those words are drawn in the accent colour.
+ * and those words are drawn in the accent colour — and the markers themselves
+ * are dropped, because on an image `**loud**` is just asterisks.
  */
 export function parseNoticeMessage(message: string): MessageWord[] {
   const words: MessageWord[] = [];
-  const pattern = /\*\*([^*]+)\*\*/g;
+  const pattern = /\*\*([^*]+)\*\*|`([^`]+)`/g;
   let index = 0;
 
   // `spaced` is tracked rather than assumed, because emphasis often ends
@@ -188,7 +189,7 @@ export function parseNoticeMessage(message: string): MessageWord[] {
 
   for (let match = pattern.exec(message); match; match = pattern.exec(message)) {
     push(message.slice(index, match.index), false);
-    push(match[1] ?? '', true);
+    push(match[1] ?? match[2] ?? '', true);
     index = match.index + match[0].length;
   }
 

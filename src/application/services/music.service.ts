@@ -30,6 +30,13 @@ export interface MusicServiceOptions {
   queueComponents?: (page: number, totalPages: number) => unknown[];
   /** Resolves a display name for a requester id. */
   displayName?: (userId: string) => string | undefined;
+  /**
+   * Resolves a channel's name.
+   *
+   * Replies are drawn as images, where Discord's `<#id>` mention is only ever
+   * literal text, so a card has to name the channel itself.
+   */
+  channelName?: (channelId: string) => string | undefined;
 }
 
 /**
@@ -141,7 +148,7 @@ export class MusicService {
         existing.textChannelId = ctx.channelId;
 
         await ctx.reply({
-          content: `Moved over to <#${ctx.voiceChannelId}>.`,
+          content: `Moved over to **${this.channelLabel(ctx.voiceChannelId)}**.`,
           title: 'Moved',
           icon: 'play',
         });
@@ -151,7 +158,7 @@ export class MusicService {
 
       if (existing) {
         await ctx.reply({
-          content: `Already in <#${existing.voiceChannelId}>.`,
+          content: `Already in **${this.channelLabel(existing.voiceChannelId)}**.`,
           title: 'Already here',
           icon: 'info',
           tone: 'info',
@@ -169,7 +176,7 @@ export class MusicService {
       });
 
       await ctx.reply({
-        content: `Joined <#${ctx.voiceChannelId}>. Queue something with \`play\`.`,
+        content: `Joined **${this.channelLabel(ctx.voiceChannelId)}**. Queue something with \`play\`.`,
         title: 'Joined',
         icon: 'play',
       });
@@ -198,7 +205,7 @@ export class MusicService {
 
     const note = abandoned > 0 ? ` **${abandoned}** queued track(s) went with it.` : '';
     await ctx.reply({
-      content: `Left <#${channelId}>.${note}`,
+      content: `Left **${this.channelLabel(channelId)}**.${note}`,
       title: 'Left the channel',
       icon: 'stop',
     });
@@ -537,6 +544,12 @@ export class MusicService {
       ephemeral: true,
     });
     return undefined;
+  }
+
+  /** A channel's name, or a neutral phrase when it is not in cache. */
+  private channelLabel(channelId: string): string {
+    const name = this.options.channelName?.(channelId);
+    return name ? `#${name}` : 'the voice channel';
   }
 
   private nameFor(userId: string): string {
