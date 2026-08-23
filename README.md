@@ -69,12 +69,35 @@ Help is generated straight from the command catalog:
 
 ![](preview/help.png)
 
-## Getting started
+## Running the bot
+
+You need a Discord application and a Lavalink 4 node. `docker compose` brings up the node for you.
 
 ```bash
 npm install
-cp .env.example .env      # fill in DISCORD_TOKEN and DISCORD_CLIENT_ID
-npm run preview:canvas    # render sample cards into preview/
+cp .env.example .env       # fill in DISCORD_TOKEN and DISCORD_CLIENT_ID
+
+docker compose up -d lavalink   # audio node on 127.0.0.1:2333
+npm run dev                     # bot, with reload
+```
+
+Or run both in Docker:
+
+```bash
+docker compose up -d --build
+```
+
+In the [Discord developer portal](https://discord.com/developers/applications) the bot needs:
+
+- the **Message Content** privileged intent — without it only slash commands and `@Bot` mentions arrive
+- the **Connect** and **Speak** permissions in the voice channels it should join
+
+Set `DISCORD_DEV_GUILD_ID` while developing: guild commands appear immediately, global ones can take an hour.
+
+### Reviewing the UI without a bot
+
+```bash
+npm run preview:canvas    # render every card into preview/
 npm test                  # unit tests
 npm run typecheck
 ```
@@ -87,14 +110,16 @@ npm run typecheck
 src/
 ├── application/
 │   ├── commands/    # command engine: parser, registry, router, cooldowns
-│   └── player/      # per-guild Player and the PlayerManager that serialises it
-├── commands/        # command catalog — the matrix all three interfaces share
+│   ├── player/      # per-guild Player and the PlayerManager that serialises it
+│   └── services/    # MusicService — what every interface actually calls
+├── commands/        # catalog (the shared matrix) and its handlers
 ├── config/          # environment loading and validation (zod)
 ├── domain/music/    # Track and Queue — no Discord or Lavalink types
 ├── resolvers/       # URL parsing, source resolvers, circuit breaker, registry
 ├── infrastructure/
 │   ├── audio/       # AudioBackend seam — the audio engine behind an interface
-│   └── lavalink/    # node pool, load-balancing score, reconnect backoff
+│   ├── discord/     # client, contexts, buttons, permissions, slash registration
+│   └── lavalink/    # Lavalink backend, filter presets, node balancing
 ├── telemetry/       # JSON logger with secret redaction
 └── ui/canvas/       # canvas UI engine
     ├── theme.ts        # color tokens and themes
@@ -121,9 +146,10 @@ tests/               # unit tests
 | F3    | Unified command engine (slash + prefix + @mention) + help card           | ✅ done |
 | F4    | Player, player manager, audio-backend seam, node balancing               | ✅ done |
 | F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker      | ✅ done |
-| F6    | Queue / filter / stats cards, DJ permissions, playlists                  | ⏳      |
-| F7    | PostgreSQL + Redis, 24/7, autoplay, state recovery                       | ⏳      |
-| F8    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
+| F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
+| F7    | Playlists, favorites, lyrics, vote-skip                                  | ⏳      |
+| F8    | PostgreSQL + Redis, 24/7, state recovery                                 | ⏳      |
+| F9    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
 
 ## License
 

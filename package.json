@@ -6,13 +6,13 @@
   "author": "thanhtinz",
   "license": "MIT",
   "type": "commonjs",
-  "main": "dist/main.js",
+  "main": "dist/src/main.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js",
+    "start": "node dist/src/main.js",
     "dev": "tsx watch src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
@@ -24,7 +24,9 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.61",
+    "discord.js": "^14.27.0",
     "pino": "^9.5.0",
+    "shoukaku": "^4.3.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -1,0 +1,55 @@
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  server:
+    # Supplied by docker-compose from LAVALINK_PASSWORD, so no secret is
+    # committed here (spec §25).
+    password: '${LAVALINK_SERVER_PASSWORD:youshallnotpass}'
+    sources:
+      # YouTube is served by the youtube-source plugin below rather than the
+      # built-in source, which Lavalink 4 no longer maintains.
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: false
+      vimeo: false
+      http: true
+      local: false
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+
+  plugins:
+    - dependency: 'dev.lavalink.youtube:youtube-plugin:1.13.5'
+      repository: 'https://maven.lavalink.dev/releases'
+
+plugins:
+  youtube:
+    enabled: true
+    # Client order matters: MUSIC and WEBEMBEDDED cope with tracks the plain
+    # web client refuses, and ANDROID_VR avoids most age gates.
+    clients:
+      - MUSIC
+      - ANDROID_VR
+      - WEB
+      - WEBEMBEDDED
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
+  file:
+    path: ./logs/
+  logback:
+    rollingpolicy:
+      max-history: 7
+      max-file-size: 25MB

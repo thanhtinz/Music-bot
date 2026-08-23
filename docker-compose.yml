@@ -1,0 +1,40 @@
+services:
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    container_name: music-bot-lavalink
+    restart: unless-stopped
+    environment:
+      # Read by application.yml through Spring's placeholder syntax, so the
+      # password lives in .env rather than in a committed config file.
+      - _JAVA_OPTIONS=-Xmx1G
+      - SERVER_PORT=2333
+      - LAVALINK_SERVER_PASSWORD=${LAVALINK_PASSWORD:-youshallnotpass}
+    volumes:
+      - ./docker/lavalink/application.yml:/opt/Lavalink/application.yml:ro
+      - lavalink-plugins:/opt/Lavalink/plugins
+    ports:
+      # Bound to localhost: the node takes a password but has no business being
+      # reachable from the internet.
+      - '127.0.0.1:2333:2333'
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 2333 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  bot:
+    build: .
+    container_name: music-bot
+    restart: unless-stopped
+    depends_on:
+      lavalink:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - LAVALINK_HOST=lavalink
+      - LAVALINK_PORT=2333
+
+volumes:
+  lavalink-plugins:

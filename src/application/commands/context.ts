@@ -22,6 +22,14 @@ export interface ReplyPayload {
   ephemeral?: boolean;
   /** Edit the existing reply instead of sending a new message. */
   edit?: boolean;
+  /**
+   * Interactive components to attach.
+   *
+   * Deliberately untyped here: buttons are a Discord concept, and typing them
+   * would drag discord.js into the application layer. The Discord adapter is
+   * the only thing that looks inside.
+   */
+  components?: unknown[];
 }
 
 /**

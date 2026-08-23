@@ -21,6 +21,42 @@ const envSchema = z.object({
 
   /** Canvas theme applied when a guild has not chosen one. */
   CANVAS_THEME: z.string().default('midnight'),
+  /** Card style: the illustrated templates or the themeable dark panels. */
+  CARD_VARIANT: z.enum(['classic', 'sakura']).default('sakura'),
+
+  // ── Lavalink ──────────────────────────────────────────────────────────────
+  LAVALINK_HOST: z.string().default('127.0.0.1'),
+  LAVALINK_PORT: z.coerce.number().int().min(1).max(65_535).default(2333),
+  LAVALINK_PASSWORD: z.string().default('youshallnotpass'),
+  LAVALINK_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  LAVALINK_NAME: z.string().default('main'),
+
+  // ── Permissions ───────────────────────────────────────────────────────────
+  /** Comma-separated Discord user ids with global control (spec §14.1). */
+  BOT_OWNER_IDS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  /**
+   * Treat everyone as a DJ.
+   *
+   * Small servers usually want this; requiring a role there means one person
+   * ends up doing all the skipping.
+   */
+  EVERYONE_IS_DJ: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /** Role id that grants DJ rights when EVERYONE_IS_DJ is false. */
+  DJ_ROLE_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,0 +1,379 @@
+import { createTrack, type LoopMode, type Track } from '../../domain/music';
+import {
+  describeResolverError,
+  ResolverError,
+  type ResolverRegistry,
+  type TrackCandidate,
+} from '../../resolvers';
+import { createLogger } from '../../telemetry/logger';
+import {
+  paginateSakuraQueue,
+  renderNowPlayingCard,
+  renderQueueCard,
+  type NowPlayingCardData,
+} from '../../ui/canvas';
+import type { CommandContext } from '../commands';
+import type { Player, PlayerManager } from '../player';
+
+const logger = createLogger('music-service');
+
+export interface MusicServiceOptions {
+  /** Card style used for every panel. */
+  variant?: 'classic' | 'sakura';
+  /** Theme name for the classic variant. */
+  theme?: string;
+  defaultVolume?: number;
+  maxQueueSize?: number;
+  /** Builds the button rows attached to a Now Playing panel. */
+  nowPlayingComponents?: (player: Player) => unknown[];
+  /** Builds the button rows attached to a queue panel. */
+  queueComponents?: (page: number, totalPages: number) => unknown[];
+  /** Resolves a display name for a requester id. */
+  displayName?: (userId: string) => string | undefined;
+}
+
+/**
+ * The one place playback commands are implemented (spec §4.1).
+ *
+ * Slash, prefix, mention and button handlers all call these methods, so the
+ * three interfaces cannot drift apart in behaviour — only in how they were
+ * invoked.
+ */
+export class MusicService {
+  constructor(
+    private readonly players: PlayerManager,
+    private readonly resolvers: ResolverRegistry,
+    private readonly options: MusicServiceOptions = {},
+  ) {}
+
+  /**
+   * Resolves input and starts or queues it.
+   *
+   * Runs under the guild lock so two people hitting play at once cannot
+   * interleave a connect with an enqueue (spec §30).
+   */
+  async play(ctx: CommandContext, query: string): Promise<void> {
+    const player = await this.players.getOrCreate({
+      guildId: ctx.guildId,
+      voiceChannelId: ctx.voiceChannelId!,
+      textChannelId: ctx.channelId,
+      volume: this.options.defaultVolume,
+      maxQueueSize: this.options.maxQueueSize,
+    });
+
+    try {
+      const result = await this.resolvers.resolve(query, {
+        maxPlaylistSize: this.options.maxQueueSize,
+      });
+
+      if (result.kind === 'empty') {
+        await ctx.reply({ content: 'No results for that.', ephemeral: true });
+        return;
+      }
+
+      if (result.kind === 'playlist') {
+        const tracks = result.playlist.tracks.map((candidate) =>
+          this.toTrack(candidate, ctx.userId),
+        );
+        const { started, added } = await this.players.withLock(ctx.guildId, () =>
+          player.enqueue(tracks),
+        );
+
+        const suffix = result.playlist.truncated
+          ? ` (capped at ${added} of ${result.playlist.totalCount})`
+          : '';
+        await ctx.reply({
+          content: `Queued **${added}** tracks from **${result.playlist.name}**${suffix}.`,
+        });
+
+        if (started) await this.sendNowPlaying(ctx, player);
+        return;
+      }
+
+      const track = this.toTrack(result.track, ctx.userId);
+      const { started } = await this.players.withLock(ctx.guildId, () => player.enqueue(track));
+
+      if (started) {
+        await this.sendNowPlaying(ctx, player);
+      } else {
+        await ctx.reply({ content: `Added **${track.title}** to the queue.` });
+      }
+    } catch (error) {
+      await this.replyWithError(ctx, error, 'play');
+    }
+  }
+
+  async pause(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.withLock(ctx.guildId, () => player.pause());
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  async resume(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.withLock(ctx.guildId, () => player.resume());
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  /** Toggles pause, for the single play/pause button. */
+  async togglePause(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.withLock(ctx.guildId, () =>
+      player.status === 'paused' ? player.resume() : player.pause(),
+    );
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  async skip(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const next = await this.players.withLock(ctx.guildId, () => player.skip());
+
+    if (!next) {
+      await ctx.reply({ content: 'Nothing left to skip to — the queue is empty.' });
+      return;
+    }
+
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  async previous(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const previous = await this.players.withLock(ctx.guildId, () => player.previous());
+
+    if (!previous) {
+      await ctx.reply({ content: 'Nothing played before this one.', ephemeral: true });
+      return;
+    }
+
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  async stop(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.destroy(ctx.guildId);
+    await ctx.reply({ content: 'Stopped playback and cleared the queue.' });
+  }
+
+  async seek(ctx: CommandContext, positionMs: number): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.withLock(ctx.guildId, () => player.seek(positionMs));
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  async setVolume(ctx: CommandContext, volume: number): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const applied = await this.players.withLock(ctx.guildId, () => player.setVolume(volume));
+    await ctx.reply({ content: `Volume set to **${applied}%**.` });
+  }
+
+  async setFilter(ctx: CommandContext, preset: string | undefined): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    try {
+      await this.players.withLock(ctx.guildId, () => player.setFilter(preset));
+      await ctx.reply({
+        content: preset ? `Filter set to **${preset}**.` : 'Filters cleared.',
+      });
+    } catch (error) {
+      await this.replyWithError(ctx, error, 'filter');
+    }
+  }
+
+  async shuffle(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.players.withLock(ctx.guildId, () => player.queue.shuffle());
+    await ctx.reply({ content: `Shuffled **${player.queue.size}** tracks.` });
+  }
+
+  /** Cycles loop when no mode is given, so one button can drive it. */
+  async setLoop(ctx: CommandContext, mode?: LoopMode): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const next = mode ?? nextLoopMode(player.loop);
+    player.loop = next;
+
+    await ctx.reply({ content: `Loop: **${LOOP_LABELS[next]}**.` });
+  }
+
+  async setAutoplay(ctx: CommandContext, enabled?: boolean): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    player.autoplay = enabled ?? !player.autoplay;
+    await ctx.reply({ content: `Autoplay is now **${player.autoplay ? 'on' : 'off'}**.` });
+  }
+
+  async clear(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const removed = await this.players.withLock(ctx.guildId, () => player.queue.clear());
+    await ctx.reply({ content: `Removed **${removed}** tracks from the queue.` });
+  }
+
+  /** Renders the Now Playing panel on demand. */
+  async nowPlaying(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    await this.sendNowPlaying(ctx, player);
+  }
+
+  /** Renders one page of the queue. */
+  async queue(ctx: CommandContext, page = 1): Promise<void> {
+    const player = this.players.get(ctx.guildId);
+
+    if (!player || player.queue.isEmpty) {
+      await ctx.reply({ content: 'The queue is empty. Add something with `play`.' });
+      return;
+    }
+
+    const slice = paginateSakuraQueue(player.queue.tracks, page);
+    const current = player.queue.current;
+
+    const card = await renderQueueCard({
+      current: current && {
+        title: current.title,
+        author: current.author,
+        artworkUrl: current.artworkUrl,
+        durationMs: current.durationMs,
+        positionMs: player.positionMs,
+        isStream: current.isStream,
+        paused: player.status === 'paused',
+      },
+      tracks: slice.items.map((track, index) => ({
+        position: slice.firstPosition + index + (current ? 1 : 0),
+        title: track.title,
+        author: track.author,
+        durationMs: track.durationMs,
+        isStream: track.isStream,
+        requesterName: this.nameFor(track.requesterId),
+      })),
+      page: slice.page,
+      totalPages: slice.totalPages,
+      totalTracks: player.queue.size,
+      totalDurationMs: player.queue.totalDurationMs,
+      loop: player.loop,
+      theme: this.options.theme,
+      variant: this.options.variant,
+    });
+
+    await ctx.reply({
+      attachments: [{ name: 'queue.png', data: card }],
+      components: this.options.queueComponents?.(slice.page, slice.totalPages),
+      edit: true,
+    });
+  }
+
+  /** Renders and sends the Now Playing panel for a player. */
+  async sendNowPlaying(ctx: CommandContext, player: Player): Promise<void> {
+    const current = player.queue.current;
+
+    if (!current) {
+      await ctx.reply({ content: 'Nothing is playing right now.', ephemeral: true });
+      return;
+    }
+
+    const card = await renderNowPlayingCard(this.toCardData(player, current));
+
+    await ctx.reply({
+      attachments: [{ name: 'now-playing.png', data: card }],
+      components: this.options.nowPlayingComponents?.(player),
+      edit: true,
+    });
+  }
+
+  private toCardData(player: Player, current: Track): NowPlayingCardData {
+    return {
+      title: current.title,
+      author: current.author,
+      artworkUrl: current.artworkUrl,
+      durationMs: current.durationMs,
+      positionMs: player.positionMs,
+      isStream: current.isStream,
+      paused: player.status === 'paused',
+      requesterName: this.nameFor(current.requesterId),
+      volume: player.volume,
+      loop: player.loop,
+      autoplay: player.autoplay,
+      queueLength: player.queue.size,
+      filterPreset: player.snapshot().filterPreset,
+      source: current.source,
+      theme: this.options.theme,
+      variant: this.options.variant,
+    };
+  }
+
+  private toTrack(candidate: TrackCandidate, requesterId: string): Track {
+    return createTrack({
+      source: candidate.source,
+      identifier: candidate.identifier,
+      title: candidate.title,
+      author: candidate.author,
+      durationMs: candidate.durationMs,
+      uri: candidate.uri,
+      artworkUrl: candidate.artworkUrl,
+      isStream: candidate.isStream,
+      requesterId,
+      metadata: candidate.metadata,
+    });
+  }
+
+  /** Fetches the guild's player, replying when there is nothing to act on. */
+  private require(ctx: CommandContext): Player | undefined {
+    const player = this.players.get(ctx.guildId);
+    if (player) return player;
+
+    void ctx.reply({ content: 'Nothing is playing right now.', ephemeral: true });
+    return undefined;
+  }
+
+  private nameFor(userId: string): string {
+    return this.options.displayName?.(userId) ?? userId;
+  }
+
+  /** Maps a failure onto a short, actionable message (spec §24, §35). */
+  private async replyWithError(ctx: CommandContext, error: unknown, action: string): Promise<void> {
+    if (!(error instanceof ResolverError)) {
+      logger.error(
+        { err: error, guildId: ctx.guildId, action, correlationId: ctx.correlationId },
+        'music command failed',
+      );
+    }
+
+    await ctx.reply({ content: describeResolverError(error), ephemeral: true });
+  }
+}
+
+const LOOP_LABELS: Record<LoopMode, string> = {
+  off: 'off',
+  song: 'this track',
+  queue: 'the queue',
+};
+
+/** Cycles off → track → queue → off, the order the loop button walks. */
+function nextLoopMode(current: LoopMode): LoopMode {
+  if (current === 'off') return 'song';
+  if (current === 'song') return 'queue';
+  return 'off';
+}
