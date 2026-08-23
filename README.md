@@ -268,6 +268,10 @@ Coming back:
 | `idletimeout` | How long to wait alone before leaving |
 | `247`         | Stay in voice when the queue runs out |
 
+![](preview/reply-settings-prefix.png)
+
+![](preview/reply-help-guild-prefix.png)
+
 Each guild's prefix is read **before its messages are parsed**, so `settings prefix ?` actually changes what the bot answers to — as does its DJ role, which is applied wherever a tier is decided (message, slash command, button). Both were configurable and then ignored until now: the handler parsed with the environment's prefix and judged tiers by the environment's role, which made those two settings switches wired to nothing. The help and playlist cards print the guild's prefix too — a hint telling people to type `!play` on a server using `?` is wrong twice. A settings read that fails falls back to the environment's values rather than dropping the command.
 
 Settings are declared once, as data (`SETTING_DESCRIPTORS`), and the command, the card and the validation all read from that list — a setting cannot be half-added. Reading a guild's settings fills in the environment defaults without writing them back, so a guild nobody has configured behaves like one set to the defaults rather than one with holes in it.

@@ -13,6 +13,7 @@ import { SearchService } from '../src/application/search';
 import { InMemoryStatsRepository, StatsService } from '../src/application/stats';
 import { LyricsService } from '../src/application/services/lyrics.service';
 import { MusicService } from '../src/application/services/music.service';
+import { buildCommands } from '../src/commands/handlers';
 import { AUTOPLAY_REQUESTER_ID, createTrack } from '../src/domain/music';
 import { createGuildStats, recordPlay } from '../src/domain/stats';
 import { ResolverRegistry, type SourceResolver, type TrackCandidate } from '../src/resolvers';
@@ -375,6 +376,21 @@ async function main(): Promise<void> {
   const settingChanged = context({ commandName: 'settings' });
   await settings.set(settingChanged.ctx, 'volume', '85');
   save(settingChanged, 'reply-settings-changed.png');
+
+  // Changing the prefix, then the help card for that guild: the card has to
+  // print the prefix the guild actually answers to.
+  const prefixChanged = context({ commandName: 'settings' });
+  await settings.set(prefixChanged.ctx, 'prefix', '?');
+  save(prefixChanged, 'reply-settings-prefix.png');
+
+  const helpAfterPrefix = context({ commandName: 'help', sourceType: 'prefix' });
+  const helpCommand = buildCommands(music, {
+    prefix: '!',
+    botName: 'MusicBot',
+    settings,
+  }).find((command) => command.name === 'help');
+  await helpCommand?.execute(helpAfterPrefix.ctx);
+  save(helpAfterPrefix, 'reply-help-guild-prefix.png');
 
   const settingRejected = context({ commandName: 'settings' });
   await settings.set(settingRejected.ctx, 'volume', 'loud');
