@@ -78,6 +78,24 @@ export class MusicService {
    * interleave a connect with an enqueue (spec §30).
    */
   async play(ctx: CommandContext, query: string): Promise<void> {
+    await this.resolveAndQueue(ctx, query, 'end');
+  }
+
+  /**
+   * The same, but at the front of the queue.
+   *
+   * Jumping the line is a DJ's privilege rather than a second way to play, so
+   * the only difference here is where the track lands.
+   */
+  async playNext(ctx: CommandContext, query: string): Promise<void> {
+    await this.resolveAndQueue(ctx, query, 'next');
+  }
+
+  private async resolveAndQueue(
+    ctx: CommandContext,
+    query: string,
+    position: 'end' | 'next',
+  ): Promise<void> {
     const player = await this.players.getOrCreate({
       guildId: ctx.guildId,
       voiceChannelId: ctx.voiceChannelId!,
@@ -106,14 +124,16 @@ export class MusicService {
           this.toTrack(candidate, ctx.userId),
         );
         const { started, added } = await this.players.withLock(ctx.guildId, () =>
-          player.enqueue(tracks),
+          position === 'next' ? player.enqueueNext(tracks) : player.enqueue(tracks),
         );
 
         const suffix = result.playlist.truncated
           ? ` (capped at ${added} of ${result.playlist.totalCount})`
           : '';
         await ctx.reply({
-          content: `Queued **${added}** tracks from **${result.playlist.name}**${suffix}.`,
+          content: `Queued **${added}** tracks from **${result.playlist.name}**${suffix}${
+            position === 'next' ? ', up next' : ''
+          }.`,
           title: 'Playlist queued',
           icon: 'playlist',
         });
@@ -122,7 +142,7 @@ export class MusicService {
         return;
       }
 
-      await this.enqueueCandidate(ctx, player, result.track);
+      await this.enqueueCandidate(ctx, player, result.track, position);
     } catch (error) {
       await this.replyWithError(ctx, error, 'play');
     }
@@ -155,16 +175,22 @@ export class MusicService {
     ctx: CommandContext,
     player: Player,
     candidate: TrackCandidate,
+    position: 'end' | 'next' = 'end',
   ): Promise<void> {
     const track = this.toTrack(candidate, ctx.userId);
-    const { started } = await this.players.withLock(ctx.guildId, () => player.enqueue(track));
+    const { started } = await this.players.withLock(ctx.guildId, () =>
+      position === 'next' ? player.enqueueNext(track) : player.enqueue(track),
+    );
 
     if (started) {
       await this.sendNowPlaying(ctx, player);
     } else {
       await ctx.reply({
-        content: `Added **${track.title}** to the queue.`,
-        title: 'Added to queue',
+        content:
+          position === 'next'
+            ? `**${track.title}** is up next.`
+            : `Added **${track.title}** to the queue.`,
+        title: position === 'next' ? 'Up next' : 'Added to queue',
         icon: 'plus',
       });
     }
@@ -535,6 +561,38 @@ export class MusicService {
     logger.info({ guildId: ctx.guildId, position, track: track.title }, 'jumped in the queue');
 
     await this.sendNowPlaying(ctx, player);
+  }
+
+  /**
+   * Drops everything the caller queued.
+   *
+   * Their own tracks only: the point is leaving without stranding the room
+   * with forty songs nobody else picked, which needs no permission — and
+   * clearing somebody else's is what `clear` is for.
+   */
+  async removeMine(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const removed = await this.players.withLock(ctx.guildId, () =>
+      player.queue.removeByRequester(ctx.userId),
+    );
+
+    if (removed === 0) {
+      await ctx.reply({
+        content: 'You have nothing in the queue right now.',
+        title: 'Nothing to remove',
+        icon: 'queue',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await ctx.reply({
+      content: `Removed **${removed}** ${removed === 1 ? 'track' : 'tracks'} you queued.`,
+      title: 'Removed yours',
+      icon: 'stop',
+    });
   }
 
   /**

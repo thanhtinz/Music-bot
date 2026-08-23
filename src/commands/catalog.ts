@@ -38,6 +38,16 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     deferred: true,
   },
   {
+    name: 'playnext',
+    description: 'Queue something at the front, to play next',
+    category: 'playback',
+    aliases: ['pn', 'playtop'],
+    options: [QUERY],
+    tier: 'dj',
+    requiresVoice: true,
+    deferred: true,
+  },
+  {
     name: 'search',
     description: 'Search, then pick what to play',
     category: 'playback',
@@ -174,6 +184,12 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     description: 'Keep playing related tracks when the queue runs out',
     category: 'queue',
     tier: 'dj',
+  },
+  {
+    name: 'removemine',
+    description: 'Drop every track you queued',
+    category: 'queue',
+    aliases: ['rmmine', 'cleanup'],
   },
   {
     name: 'clear',

@@ -98,6 +98,7 @@ const CATEGORY_TITLES: Record<string, string> = {
 export function buildCommands(service: MusicService, options: HandlerOptions): Command[] {
   const executors: Record<string, Command['execute']> = {
     play: async (ctx) => service.play(ctx, ctx.option('query') ?? ctx.rest),
+    playnext: async (ctx) => service.playNext(ctx, ctx.option('query') ?? ctx.rest),
     pause: async (ctx) => service.pause(ctx),
     resume: async (ctx) => service.resume(ctx),
     skip: async (ctx) => service.skip(ctx),
@@ -167,6 +168,7 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     autoplay: async (ctx) => service.setAutoplay(ctx),
 
     remove: async (ctx) => service.remove(ctx, positionOf(ctx.option('position'))),
+    removemine: async (ctx) => service.removeMine(ctx),
     move: async (ctx) =>
       service.move(ctx, positionOf(ctx.option('from')), positionOf(ctx.option('to'))),
     jump: async (ctx) => service.jump(ctx, positionOf(ctx.option('position'))),

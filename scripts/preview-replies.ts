@@ -336,6 +336,14 @@ async function main(): Promise<void> {
   await music.remove(badPosition.ctx, 99);
   save(badPosition, 'reply-remove-out-of-range.png');
 
+  const mineGone = context({ commandName: 'removemine' });
+  await music.removeMine(mineGone.ctx);
+  save(mineGone, 'reply-remove-mine.png');
+
+  const nothingMine = context({ commandName: 'removemine', userId: 'nobody' });
+  await music.removeMine(nothingMine.ctx);
+  save(nothingMine, 'reply-remove-mine-none.png');
+
   const movedTrack = context({ commandName: 'move' });
   await music.move(movedTrack.ctx, 1, 2);
   save(movedTrack, 'reply-move.png');

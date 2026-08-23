@@ -225,3 +225,101 @@ describe('editing the queue', () => {
     });
   });
 });
+
+describe('playnext and removemine', () => {
+  let backend: FakeAudioBackend;
+  let players: PlayerManager;
+  let service: MusicService;
+
+  function upcoming(): string[] {
+    return players.get('guild')?.queue.tracks.map((track) => track.title) ?? [];
+  }
+
+  beforeEach(async () => {
+    backend = new FakeAudioBackend();
+    players = new PlayerManager(backend, { maxQueueSize: 20 });
+    service = new MusicService(players, new ResolverRegistry(), {});
+
+    const player = await players.getOrCreate({ guildId: 'guild', voiceChannelId: 'voice' });
+    await player.enqueue([song('Playing'), song('One'), song('Two', 'someone-else')]);
+  });
+
+  describe('enqueueNext', () => {
+    it('puts a track at the front, not the end', async () => {
+      await players.get('guild')!.enqueueNext(song('Jumped'));
+
+      expect(upcoming()).toEqual(['Jumped', 'One', 'Two']);
+    });
+
+    it('keeps a batch in the order it was given', async () => {
+      await players.get('guild')!.enqueueNext([song('A'), song('B'), song('C')]);
+
+      expect(upcoming()).toEqual(['A', 'B', 'C', 'One', 'Two']);
+    });
+
+    it('leaves the playing track playing', async () => {
+      await players.get('guild')!.enqueueNext(song('Jumped'));
+
+      expect(players.get('guild')?.queue.current?.title).toBe('Playing');
+    });
+
+    it('starts playing when there is no line to jump', async () => {
+      const empty = await players.getOrCreate({ guildId: 'quiet', voiceChannelId: 'voice' });
+
+      const { started } = await empty.enqueueNext(song('First'));
+
+      // Refusing to start would be a strange way to answer "play this next".
+      expect(started).toBe(true);
+      expect(empty.queue.current?.title).toBe('First');
+    });
+  });
+
+  describe('removeMine', () => {
+    it('drops every track the caller queued', async () => {
+      const { ctx, replies } = harness({ userId: 'user', commandName: 'removemine' });
+
+      await service.removeMine(ctx);
+
+      expect(upcoming()).toEqual(['Two']);
+      expect(replies[0]?.title).toBe('Removed yours');
+    });
+
+    it('leaves other people’s tracks alone', async () => {
+      const { ctx } = harness({ userId: 'someone-else', commandName: 'removemine' });
+
+      await service.removeMine(ctx);
+
+      expect(upcoming()).toEqual(['One']);
+    });
+
+    it('does not touch what is playing, even if it is yours', async () => {
+      const { ctx } = harness({ userId: 'user', commandName: 'removemine' });
+
+      await service.removeMine(ctx);
+
+      expect(players.get('guild')?.queue.current?.title).toBe('Playing');
+    });
+
+    it('says so when you have nothing queued', async () => {
+      const { ctx, replies } = harness({ userId: 'nobody', commandName: 'removemine' });
+
+      await service.removeMine(ctx);
+
+      expect(replies[0]?.title).toBe('Nothing to remove');
+      expect(replies[0]?.ephemeral).toBe(true);
+      expect(upcoming()).toHaveLength(2);
+    });
+
+    it('needs no permission — they are your own tracks', async () => {
+      const { ctx, replies } = harness({
+        userId: 'user',
+        tier: 'everyone',
+        commandName: 'removemine',
+      });
+
+      await service.removeMine(ctx);
+
+      expect(replies[0]?.title).toBe('Removed yours');
+    });
+  });
+});

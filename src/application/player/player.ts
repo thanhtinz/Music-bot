@@ -253,6 +253,31 @@ export class Player extends EventEmitter<PlayerEvents> {
     return { started: false, added };
   }
 
+  /**
+   * Queues tracks at the front, to play after the current one.
+   *
+   * With nothing playing this behaves like {@link enqueue}: there is no line
+   * to jump to the front of, and refusing to start would be a strange way to
+   * answer "play this next".
+   */
+  async enqueueNext(input: Track | readonly Track[]): Promise<{ started: boolean; added: number }> {
+    const tracks = Array.isArray(input) ? [...(input as readonly Track[])] : [input as Track];
+
+    // Added back to front, so a batch keeps the order it was given in.
+    for (const track of [...tracks].reverse()) this.queue.addNext(track);
+
+    if (this.queue.current === undefined) {
+      const next = this.queue.next();
+      if (next) {
+        await this.start(next);
+        return { started: true, added: tracks.length };
+      }
+    }
+
+    this.emitState();
+    return { started: false, added: tracks.length };
+  }
+
   /** Plays a track immediately, pushing the current one back onto the queue. */
   async playNow(track: Track): Promise<void> {
     this.queue.addNext(track);

@@ -173,6 +173,8 @@ Positions count from 1 and mean the **upcoming** queue — position 1 is the nex
 
 ![](preview/reply-remove-out-of-range.png)
 
+`removemine` takes out only your own tracks and needs no permission: the point is leaving without stranding the room with forty songs nobody else picked, and clearing everyone's is what `clear` is for. `playnext` is the other side of that — jumping the line is a DJ's privilege, so the only difference from `play` is where the track lands. Both were already in the domain (`removeByRequester`, `addNext`) with nothing calling them.
+
 A missing argument reads as `NaN` rather than defaulting to 1, so a mistyped position is refused instead of quietly editing the first track. What `jump` skips over goes into the history rather than being dropped, so `previous` can still reach a track somebody jumped past.
 
 ## Search, then pick
