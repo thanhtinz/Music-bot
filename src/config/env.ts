@@ -32,6 +32,10 @@ const envSchema = z.object({
    * anybody who means to keep them.
    */
   PLAYLIST_STORE_PATH: z.string().default('data/playlists.json'),
+  /** Where per-guild settings are written; empty keeps them in memory. */
+  SETTINGS_STORE_PATH: z.string().default('data/settings.json'),
+  /** How long an idle player waits before leaving, unless 24/7 is on. */
+  IDLE_TIMEOUT_MS: z.coerce.number().int().min(30_000).max(3_600_000).default(300_000),
 
   // ── Lavalink ──────────────────────────────────────────────────────────────
   LAVALINK_HOST: z.string().default('127.0.0.1'),

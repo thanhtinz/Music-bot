@@ -1,5 +1,6 @@
 import type { Command } from '../application/commands';
 import type { PlaylistService } from '../application/playlist';
+import type { SettingsService } from '../application/settings';
 import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
 import { isFilterPreset } from '../infrastructure/lavalink/filters';
@@ -14,6 +15,8 @@ export interface HandlerOptions {
   botName: string;
   /** Saved playlists; without it the playlist command stays unregistered. */
   playlists?: PlaylistService;
+  /** Guild settings; without it `settings` and `247` stay unregistered. */
+  settings?: SettingsService;
 }
 
 /** What `playlist` was asked to do, however it was invoked. */
@@ -166,6 +169,21 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       await service.setFilter(ctx, preset);
     },
 
+    ...(options.settings
+      ? {
+          settings: async (ctx) => {
+            const key = ctx.option('key');
+            if (!key) return options.settings!.show(ctx);
+            return options.settings!.set(ctx, key, ctx.option('value') ?? '');
+          },
+          247: async (ctx) => {
+            const raw = ctx.option('state')?.trim().toLowerCase();
+            const enabled = raw === undefined ? undefined : ['on', 'true', 'yes'].includes(raw);
+            return options.settings!.toggleStayConnected(ctx, enabled);
+          },
+        }
+      : {}),
+
     ...(options.playlists
       ? {
           playlist: playlistExecutor(options.playlists),
@@ -305,4 +323,5 @@ const FAKE_OPTIONS: HandlerOptions = {
   prefix: '!',
   botName: 'bot',
   playlists: {} as PlaylistService,
+  settings: {} as SettingsService,
 };

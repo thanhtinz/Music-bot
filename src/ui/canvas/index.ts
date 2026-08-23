@@ -67,6 +67,12 @@ export {
   renderSakuraNoticeCard,
 } from './cards/notice-sakura.card';
 export type { NoticeCardData, NoticeTone } from './cards/notice-sakura.card';
+export {
+  renderSakuraSettingsCard,
+  SETTINGS_SAKURA_PAGE_SIZE,
+  SETTINGS_SAKURA_SIZE,
+} from './cards/settings-sakura.card';
+export type { SettingsCardData, SettingsCardRow } from './cards/settings-sakura.card';
 export { drawGlyph, glyphFor } from './glyphs';
 export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';

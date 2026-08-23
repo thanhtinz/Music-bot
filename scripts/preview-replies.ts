@@ -8,6 +8,7 @@ import {
 } from '../src/application/commands';
 import { PlayerManager } from '../src/application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from '../src/application/playlist';
+import { InMemorySettingsRepository, SettingsService } from '../src/application/settings';
 import { MusicService } from '../src/application/services/music.service';
 import { createTrack } from '../src/domain/music';
 import { ResolverRegistry } from '../src/resolvers';
@@ -90,6 +91,10 @@ async function main(): Promise<void> {
     channelName: (channelId) => CHANNEL_NAMES[channelId],
   });
   const playlists = new PlaylistService(new InMemoryPlaylistRepository(), music, { prefix: '/' });
+  const settings = new SettingsService(new InMemorySettingsRepository(), {
+    defaults: { prefix: '!', defaultVolume: 70, idleTimeoutMs: 300_000 },
+    guildName: () => 'Melody Test Server',
+  });
 
   const joined = context();
   await music.join(joined.ctx);
@@ -137,6 +142,26 @@ async function main(): Promise<void> {
   const unfavorited = context({ commandName: 'favorite' });
   await playlists.toggleFavorite(unfavorited.ctx);
   save(unfavorited, 'reply-favorite-removed.png');
+
+  const settingsSheet = context({ commandName: 'settings' });
+  await settings.show(settingsSheet.ctx);
+  save(settingsSheet, 'reply-settings.png');
+
+  const settingChanged = context({ commandName: 'settings' });
+  await settings.set(settingChanged.ctx, 'volume', '85');
+  save(settingChanged, 'reply-settings-changed.png');
+
+  const settingRejected = context({ commandName: 'settings' });
+  await settings.set(settingRejected.ctx, 'volume', 'loud');
+  save(settingRejected, 'reply-settings-invalid.png');
+
+  const stayOn = context({ commandName: '247' });
+  await settings.toggleStayConnected(stayOn.ctx);
+  save(stayOn, 'reply-247-on.png');
+
+  const stayOff = context({ commandName: '247' });
+  await settings.toggleStayConnected(stayOff.ctx);
+  save(stayOff, 'reply-247-off.png');
 
   const left = context({ commandName: 'leave' });
   await music.leave(left.ctx);

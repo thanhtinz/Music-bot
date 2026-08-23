@@ -138,6 +138,24 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Guild settings
+
+`settings` with no arguments renders the sheet; with a name and value it changes one:
+
+![](preview/reply-settings.png)
+
+| Key           | What it does                          |
+| ------------- | ------------------------------------- |
+| `prefix`      | What message commands start with      |
+| `volume`      | Volume a new player starts at         |
+| `djrole`      | Role allowed to run DJ commands       |
+| `idletimeout` | How long to wait alone before leaving |
+| `247`         | Stay in voice when the queue runs out |
+
+Settings are declared once, as data (`SETTING_DESCRIPTORS`), and the command, the card and the validation all read from that list — a setting cannot be half-added. Reading a guild's settings fills in the environment defaults without writing them back, so a guild nobody has configured behaves like one set to the defaults rather than one with holes in it.
+
+Storage is the same port-and-JSON-file arrangement the playlists use; both now share one `JsonStore` with the atomic-rename write, rather than two near-identical copies.
+
 ## Seeing what the bot replies
 
 ```bash

@@ -4,6 +4,7 @@ import { Connectors, Shoukaku } from 'shoukaku';
 import { CommandRegistry } from './application/commands';
 import { PlayerManager, type Player } from './application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
+import { InMemorySettingsRepository, SettingsService } from './application/settings';
 import { MusicService } from './application/services/music.service';
 import { buildCommands } from './commands/handlers';
 import { loadEnv } from './config/env';
@@ -16,6 +17,7 @@ import {
 import { registerSlashCommands } from './infrastructure/discord/register-commands';
 import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
 import { JsonPlaylistRepository } from './infrastructure/storage/json-playlist-repository';
+import { JsonSettingsRepository } from './infrastructure/storage/json-settings-repository';
 import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
 import { renderSakuraNoticeCard } from './ui/canvas';
 import { createLogger, logger } from './telemetry/logger';
@@ -81,9 +83,29 @@ async function main(): Promise<void> {
     },
   );
 
+  const settings = new SettingsService(
+    env.SETTINGS_STORE_PATH
+      ? new JsonSettingsRepository(env.SETTINGS_STORE_PATH)
+      : new InMemorySettingsRepository(),
+    {
+      defaults: {
+        prefix: env.DEFAULT_PREFIX,
+        defaultVolume: env.DEFAULT_VOLUME,
+        ...(env.DJ_ROLE_ID === undefined ? {} : { djRoleId: env.DJ_ROLE_ID }),
+        idleTimeoutMs: env.IDLE_TIMEOUT_MS,
+      },
+      guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
+    },
+  );
+
   const registry = new CommandRegistry();
   registry.registerAll(
-    buildCommands(service, { prefix: env.DEFAULT_PREFIX, botName: 'MusicBot', playlists }),
+    buildCommands(service, {
+      prefix: env.DEFAULT_PREFIX,
+      botName: 'MusicBot',
+      playlists,
+      settings,
+    }),
   );
 
   attachHandlers(client, registry, service, players, {

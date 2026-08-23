@@ -189,6 +189,7 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     name: '247',
     description: 'Keep the bot connected around the clock',
     category: 'settings',
+    options: [{ name: 'state', description: 'on | off' }],
     tier: 'moderator',
   },
   {
@@ -196,7 +197,10 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     description: 'View and change guild music settings',
     category: 'settings',
     aliases: ['config'],
-    options: [{ name: 'key', description: 'Setting name' }],
+    options: [
+      { name: 'key', description: 'Setting name' },
+      { name: 'value', description: 'New value', rest: true },
+    ],
     tier: 'moderator',
   },
 
