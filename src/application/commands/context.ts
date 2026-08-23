@@ -17,6 +17,17 @@ export interface ReplyAttachment {
  */
 export interface ReplyPayload {
   content?: string;
+  /**
+   * Headline for the card a text reply is drawn onto.
+   *
+   * Only read when the reply is rendered as a notice panel; a command that
+   * says nothing here still gets a sensible heading from its tone.
+   */
+  title?: string;
+  /** Glyph key for that card, e.g. `volume`. */
+  icon?: string;
+  /** How the notice should read; defaults by whether the reply is ephemeral. */
+  tone?: 'success' | 'info' | 'warning' | 'error';
   attachments?: ReplyAttachment[];
   /** Only the invoking user should see this (settings, private errors). */
   ephemeral?: boolean;

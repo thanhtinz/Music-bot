@@ -61,6 +61,12 @@ export {
   PLAYLIST_SAKURA_SIZE,
 } from './cards/playlist-sakura.card';
 export type { PlaylistCardData, PlaylistCardEntry } from './cards/playlist-sakura.card';
+export {
+  NOTICE_SAKURA_SIZE,
+  parseNoticeMessage,
+  renderSakuraNoticeCard,
+} from './cards/notice-sakura.card';
+export type { NoticeCardData, NoticeTone } from './cards/notice-sakura.card';
 export { drawGlyph, glyphFor } from './glyphs';
 export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';

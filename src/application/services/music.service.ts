@@ -67,7 +67,12 @@ export class MusicService {
       });
 
       if (result.kind === 'empty') {
-        await ctx.reply({ content: 'No results for that.', ephemeral: true });
+        await ctx.reply({
+          content: 'No results for that.',
+          title: 'No results',
+          icon: 'search',
+          ephemeral: true,
+        });
         return;
       }
 
@@ -84,6 +89,8 @@ export class MusicService {
           : '';
         await ctx.reply({
           content: `Queued **${added}** tracks from **${result.playlist.name}**${suffix}.`,
+          title: 'Playlist queued',
+          icon: 'playlist',
         });
 
         if (started) await this.sendNowPlaying(ctx, player);
@@ -96,7 +103,11 @@ export class MusicService {
       if (started) {
         await this.sendNowPlaying(ctx, player);
       } else {
-        await ctx.reply({ content: `Added **${track.title}** to the queue.` });
+        await ctx.reply({
+          content: `Added **${track.title}** to the queue.`,
+          title: 'Added to queue',
+          icon: 'plus',
+        });
       }
     } catch (error) {
       await this.replyWithError(ctx, error, 'play');
@@ -137,7 +148,11 @@ export class MusicService {
     const next = await this.players.withLock(ctx.guildId, () => player.skip());
 
     if (!next) {
-      await ctx.reply({ content: 'Nothing left to skip to — the queue is empty.' });
+      await ctx.reply({
+        content: 'Nothing left to skip to — the queue is empty.',
+        title: 'End of queue',
+        icon: 'skip',
+      });
       return;
     }
 
@@ -151,7 +166,12 @@ export class MusicService {
     const previous = await this.players.withLock(ctx.guildId, () => player.previous());
 
     if (!previous) {
-      await ctx.reply({ content: 'Nothing played before this one.', ephemeral: true });
+      await ctx.reply({
+        content: 'Nothing played before this one.',
+        title: 'No history',
+        icon: 'previous',
+        ephemeral: true,
+      });
       return;
     }
 
@@ -163,7 +183,11 @@ export class MusicService {
     if (!player) return;
 
     await this.players.destroy(ctx.guildId);
-    await ctx.reply({ content: 'Stopped playback and cleared the queue.' });
+    await ctx.reply({
+      content: 'Stopped playback and cleared the queue.',
+      title: 'Stopped',
+      icon: 'stop',
+    });
   }
 
   async seek(ctx: CommandContext, positionMs: number): Promise<void> {
@@ -179,7 +203,11 @@ export class MusicService {
     if (!player) return;
 
     const applied = await this.players.withLock(ctx.guildId, () => player.setVolume(volume));
-    await ctx.reply({ content: `Volume set to **${applied}%**.` });
+    await ctx.reply({
+      content: `Volume set to **${applied}%**.`,
+      title: 'Volume',
+      icon: 'volume',
+    });
   }
 
   async setFilter(ctx: CommandContext, preset: string | undefined): Promise<void> {
@@ -190,6 +218,8 @@ export class MusicService {
       await this.players.withLock(ctx.guildId, () => player.setFilter(preset));
       await ctx.reply({
         content: preset ? `Filter set to **${preset}**.` : 'Filters cleared.',
+        title: 'Filters',
+        icon: 'sliders',
       });
     } catch (error) {
       await this.replyWithError(ctx, error, 'filter');
@@ -201,7 +231,11 @@ export class MusicService {
     if (!player) return;
 
     await this.players.withLock(ctx.guildId, () => player.queue.shuffle());
-    await ctx.reply({ content: `Shuffled **${player.queue.size}** tracks.` });
+    await ctx.reply({
+      content: `Shuffled **${player.queue.size}** tracks.`,
+      title: 'Shuffled',
+      icon: 'shuffle',
+    });
   }
 
   /** Cycles loop when no mode is given, so one button can drive it. */
@@ -212,7 +246,7 @@ export class MusicService {
     const next = mode ?? nextLoopMode(player.loop);
     player.loop = next;
 
-    await ctx.reply({ content: `Loop: **${LOOP_LABELS[next]}**.` });
+    await ctx.reply({ content: `Loop: **${LOOP_LABELS[next]}**.`, title: 'Loop', icon: 'loop' });
   }
 
   async setAutoplay(ctx: CommandContext, enabled?: boolean): Promise<void> {
@@ -220,7 +254,11 @@ export class MusicService {
     if (!player) return;
 
     player.autoplay = enabled ?? !player.autoplay;
-    await ctx.reply({ content: `Autoplay is now **${player.autoplay ? 'on' : 'off'}**.` });
+    await ctx.reply({
+      content: `Autoplay is now **${player.autoplay ? 'on' : 'off'}**.`,
+      title: 'Autoplay',
+      icon: 'shuffle',
+    });
   }
 
   async clear(ctx: CommandContext): Promise<void> {
@@ -228,7 +266,11 @@ export class MusicService {
     if (!player) return;
 
     const removed = await this.players.withLock(ctx.guildId, () => player.queue.clear());
-    await ctx.reply({ content: `Removed **${removed}** tracks from the queue.` });
+    await ctx.reply({
+      content: `Removed **${removed}** tracks from the queue.`,
+      title: 'Queue cleared',
+      icon: 'stop',
+    });
   }
 
   /** Renders the Now Playing panel on demand. */
@@ -244,7 +286,11 @@ export class MusicService {
     const player = this.players.get(ctx.guildId);
 
     if (!player || player.queue.isEmpty) {
-      await ctx.reply({ content: 'The queue is empty. Add something with `play`.' });
+      await ctx.reply({
+        content: 'The queue is empty. Add something with `play`.',
+        title: 'Queue',
+        icon: 'queue',
+      });
       return;
     }
 
@@ -333,7 +379,12 @@ export class MusicService {
    */
   async enqueueResolved(ctx: CommandContext, inputs: TrackInput[], label: string): Promise<void> {
     if (inputs.length === 0) {
-      await ctx.reply({ content: `**${label}** has no tracks in it yet.`, ephemeral: true });
+      await ctx.reply({
+        content: `**${label}** has no tracks in it yet.`,
+        title: 'Nothing to queue',
+        icon: 'playlist',
+        ephemeral: true,
+      });
       return;
     }
 
@@ -352,7 +403,11 @@ export class MusicService {
       );
 
       const suffix = added < tracks.length ? ` (the queue took ${added} of ${tracks.length})` : '';
-      await ctx.reply({ content: `Queued **${added}** tracks from **${label}**${suffix}.` });
+      await ctx.reply({
+        content: `Queued **${added}** tracks from **${label}**${suffix}.`,
+        title: 'Playlist queued',
+        icon: 'playlist',
+      });
 
       if (started) await this.sendNowPlaying(ctx, player);
     } catch (error) {
@@ -385,7 +440,12 @@ export class MusicService {
     const player = this.players.get(ctx.guildId);
     if (player) return player;
 
-    void ctx.reply({ content: 'Nothing is playing right now.', ephemeral: true });
+    void ctx.reply({
+      content: 'Nothing is playing right now.',
+      title: 'Nothing playing',
+      icon: 'note',
+      ephemeral: true,
+    });
     return undefined;
   }
 
@@ -402,7 +462,12 @@ export class MusicService {
       );
     }
 
-    await ctx.reply({ content: describeResolverError(error), ephemeral: true });
+    await ctx.reply({
+      content: describeResolverError(error),
+      title: 'That did not work',
+      tone: 'error',
+      ephemeral: true,
+    });
   }
 }
 

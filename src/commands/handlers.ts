@@ -92,6 +92,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       if (seconds <= 0) {
         await ctx.reply({
           content: 'Give me a position like `90`, `1:30` or `1m30s`.',
+          title: 'Seek',
+          icon: 'clock',
           ephemeral: true,
         });
         return;
@@ -109,7 +111,12 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
       const level = Number(raw);
       if (!Number.isFinite(level)) {
-        await ctx.reply({ content: 'Volume has to be a number, 0-200.', ephemeral: true });
+        await ctx.reply({
+          content: 'Volume has to be a number, 0-200.',
+          title: 'Volume',
+          icon: 'volume',
+          ephemeral: true,
+        });
         return;
       }
 
@@ -121,7 +128,12 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       const mode = toLoopMode(raw);
 
       if (raw && !mode) {
-        await ctx.reply({ content: 'Loop mode is `off`, `track` or `queue`.', ephemeral: true });
+        await ctx.reply({
+          content: 'Loop mode is `off`, `track` or `queue`.',
+          title: 'Loop',
+          icon: 'loop',
+          ephemeral: true,
+        });
         return;
       }
 
@@ -142,6 +154,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       if (preset && !isFilterPreset(preset)) {
         await ctx.reply({
           content: 'Unknown filter. Try `bass`, `nightcore`, `vaporwave`, `chill` or `party`.',
+          title: 'Filters',
+          icon: 'sliders',
           ephemeral: true,
         });
         return;
@@ -195,6 +209,8 @@ function playlistExecutor(playlists: PlaylistService): Command['execute'] {
     if (!request.name) {
       await ctx.reply({
         content: `Which playlist? Try \`${ctx.sourceType === 'slash' ? '/' : ''}playlist ${request.action} <name>\`.`,
+        title: 'Playlist',
+        icon: 'playlist',
         ephemeral: true,
       });
       return;
@@ -222,6 +238,8 @@ function playlistExecutor(playlists: PlaylistService): Command['execute'] {
         if (request.position === undefined) {
           await ctx.reply({
             content: 'Which track? Give its number, e.g. `playlist remove Chill 3`.',
+            title: 'Playlist',
+            icon: 'playlist',
             ephemeral: true,
           });
           return;
@@ -232,6 +250,8 @@ function playlistExecutor(playlists: PlaylistService): Command['execute'] {
         await ctx.reply({
           content:
             'Playlist actions: `list`, `create`, `play`, `add`, `remove`, `delete`, `public`, `private`.',
+          title: 'Playlist',
+          icon: 'playlist',
           ephemeral: true,
         });
     }

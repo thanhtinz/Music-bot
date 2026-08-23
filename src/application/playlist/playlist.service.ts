@@ -103,7 +103,9 @@ export class PlaylistService {
       await this.repository.save(playlist);
 
       await ctx.reply({
-        content: `Created **${playlist.name}**. Add the current track with \`${this.prefix}playlist add ${playlist.name}\`.`,
+        content: `Created **${playlist.name}**.`,
+        title: 'Playlist created',
+        icon: 'playlist',
       });
     } catch (error) {
       await this.replyWithError(ctx, error, 'create');
@@ -117,6 +119,8 @@ export class PlaylistService {
 
       await ctx.reply({
         content: `Deleted **${playlist.name}** and its ${playlist.tracks.length} track(s).`,
+        title: 'Playlist deleted',
+        icon: 'playlist',
       });
     } catch (error) {
       await this.replyWithError(ctx, error, 'delete');
@@ -129,7 +133,12 @@ export class PlaylistService {
       const current = this.music.currentTrack(ctx.guildId);
 
       if (!current) {
-        await ctx.reply({ content: 'Nothing is playing to add.', ephemeral: true });
+        await ctx.reply({
+          content: 'Nothing is playing to add.',
+          title: 'Nothing playing',
+          icon: 'note',
+          ephemeral: true,
+        });
         return;
       }
 
@@ -144,6 +153,8 @@ export class PlaylistService {
       const note = existing ? '' : ' (new playlist)';
       await ctx.reply({
         content: `Added **${current.title}** to **${updated.name}**${note} — ${updated.tracks.length} track(s).`,
+        title: 'Saved',
+        icon: 'plus',
       });
     } catch (error) {
       await this.replyWithError(ctx, error, 'add');
@@ -159,6 +170,8 @@ export class PlaylistService {
 
       await ctx.reply({
         content: `Removed **${removed.title}** from **${updated.name}** — ${updated.tracks.length} left.`,
+        title: 'Removed',
+        icon: 'playlist',
       });
     } catch (error) {
       await this.replyWithError(ctx, error, 'remove');
@@ -171,7 +184,12 @@ export class PlaylistService {
       const playlist = await this.mine(ctx, name);
 
       if (playlist.tracks.length === 0) {
-        await ctx.reply({ content: `**${playlist.name}** is empty.`, ephemeral: true });
+        await ctx.reply({
+          content: `**${playlist.name}** is empty.`,
+          title: 'Nothing to queue',
+          icon: 'playlist',
+          ephemeral: true,
+        });
         return;
       }
 
@@ -196,7 +214,11 @@ export class PlaylistService {
       const playlist = await this.mine(ctx, name);
       await this.repository.save(setVisibility(playlist, visibility));
 
-      await ctx.reply({ content: `**${playlist.name}** is now **${visibility}**.` });
+      await ctx.reply({
+        content: `**${playlist.name}** is now **${visibility}**.`,
+        title: 'Visibility',
+        icon: 'gear',
+      });
     } catch (error) {
       await this.replyWithError(ctx, error, 'visibility');
     }
@@ -227,11 +249,22 @@ export class PlaylistService {
 
   private async replyWithError(ctx: CommandContext, error: unknown, action: string): Promise<void> {
     if (error instanceof PlaylistError) {
-      await ctx.reply({ content: error.message, ephemeral: true });
+      await ctx.reply({
+        content: error.message,
+        title: 'Playlist',
+        icon: 'playlist',
+        tone: 'warning',
+        ephemeral: true,
+      });
       return;
     }
 
     logger.error({ err: error, guildId: ctx.guildId, action }, 'playlist command failed');
-    await ctx.reply({ content: `Could not ${action} that playlist. Try again.`, ephemeral: true });
+    await ctx.reply({
+      content: `Could not ${action} that playlist. Try again.`,
+      title: 'That did not work',
+      tone: 'error',
+      ephemeral: true,
+    });
   }
 }

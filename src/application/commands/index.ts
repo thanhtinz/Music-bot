@@ -6,5 +6,7 @@ export { usage, mapPositionalOptions, missingOptions } from './command';
 export type { Command, CommandOption, CommandCategory } from './command';
 export { CommandRegistry } from './registry';
 export { CooldownTracker } from './cooldown';
+export { withNoticeCards } from './notice-context';
+export type { NoticeRenderer, NoticeContextOptions } from './notice-context';
 export { CommandRouter } from './router';
 export type { DispatchResult, DispatchStatus, RouterOptions } from './router';

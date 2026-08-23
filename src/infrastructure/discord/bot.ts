@@ -16,6 +16,7 @@ import {
   type CommandRegistry,
   type ReplyPayload,
 } from '../../application/commands';
+import { withNoticeCards, type NoticeRenderer } from '../../application/commands';
 import type { PlaylistService } from '../../application/playlist';
 import type { MusicService } from '../../application/services/music.service';
 import type { PlayerManager } from '../../application/player';
@@ -37,6 +38,13 @@ export interface BotOptions {
   permissions: GuildPermissionSettings;
   /** Saved playlists; without it the library's page buttons say so. */
   playlists?: PlaylistService;
+  /**
+   * Draws text replies as notice panels.
+   *
+   * Left out, commands answer in plain text — which is what the tests want,
+   * and what a deployment gets if rendering is ever turned off.
+   */
+  notices?: NoticeRenderer;
 }
 
 /**
@@ -127,10 +135,13 @@ async function handleInteraction(
   const voiceChannelId = voiceChannelOf(member);
 
   const command = registry.get(interaction.commandName);
-  const context = createInteractionContext(interaction, {
-    tier: member ? resolveTier(member, options.permissions) : 'everyone',
-    voiceChannelId,
-  });
+  const context = decorate(
+    createInteractionContext(interaction, {
+      tier: member ? resolveTier(member, options.permissions) : 'everyone',
+      voiceChannelId,
+    }),
+    options,
+  );
 
   if (command?.requiresVoice && voiceChannelId) {
     const denied = await refuseWithoutVoicePermissions(interaction.guild, voiceChannelId, context);
@@ -159,10 +170,13 @@ async function handleMessage(
   const voiceChannelId = voiceChannelOf(member);
   const command = registry.get(parsed.name);
 
-  const context = createMessageContext(message, parsed, command, {
-    tier: member ? resolveTier(member, options.permissions) : 'everyone',
-    voiceChannelId,
-  });
+  const context = decorate(
+    createMessageContext(message, parsed, command, {
+      tier: member ? resolveTier(member, options.permissions) : 'everyone',
+      voiceChannelId,
+    }),
+    options,
+  );
 
   if (command?.requiresVoice && voiceChannelId) {
     const denied = await refuseWithoutVoicePermissions(message.guild, voiceChannelId, context);
@@ -191,10 +205,13 @@ async function handleButton(
   await interaction.deferUpdate().catch(() => undefined);
 
   const member = interaction.member as GuildMember | null;
-  const context = createButtonContext(interaction, {
-    tier: member ? resolveTier(member, options.permissions) : 'everyone',
-    voiceChannelId: voiceChannelOf(member),
-  });
+  const context = decorate(
+    createButtonContext(interaction, {
+      tier: member ? resolveTier(member, options.permissions) : 'everyone',
+      voiceChannelId: voiceChannelOf(member),
+    }),
+    options,
+  );
 
   switch (id.action) {
     case 'playpause':
@@ -225,11 +242,22 @@ async function handleButton(
       await options.playlists?.list(context, Number(id.arg) || 1);
       return;
     case 'favorite':
-      await context.reply({ content: 'Favorites are coming in a later phase.', ephemeral: true });
+      await context.reply({
+        content: 'Favorites are coming in a later phase.',
+        title: 'Not yet',
+        icon: 'heart',
+        tone: 'info',
+        ephemeral: true,
+      });
       return;
     default:
       return;
   }
+}
+
+/** Applies the notice-card wrapper, when one is configured. */
+function decorate(context: CommandContext, options: BotOptions): CommandContext {
+  return options.notices ? withNoticeCards(context, { render: options.notices }) : context;
 }
 
 /**

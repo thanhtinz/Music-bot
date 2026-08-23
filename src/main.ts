@@ -17,6 +17,7 @@ import { registerSlashCommands } from './infrastructure/discord/register-command
 import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
 import { JsonPlaylistRepository } from './infrastructure/storage/json-playlist-repository';
 import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
+import { renderSakuraNoticeCard } from './ui/canvas';
 import { createLogger, logger } from './telemetry/logger';
 
 const log = createLogger('main');
@@ -84,6 +85,9 @@ async function main(): Promise<void> {
   attachHandlers(client, registry, service, players, {
     prefix: env.DEFAULT_PREFIX,
     playlists,
+    // Every text reply comes back as a panel in the same style as the Now
+    // Playing and queue cards, rather than as a bare line of chat.
+    ...(env.CARD_VARIANT === 'sakura' ? { notices: renderSakuraNoticeCard } : {}),
     permissions: {
       botOwnerIds: env.BOT_OWNER_IDS,
       everyoneIsDj: env.EVERYONE_IS_DJ,

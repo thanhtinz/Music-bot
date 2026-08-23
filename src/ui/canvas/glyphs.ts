@@ -73,8 +73,33 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
 
 /** Resolves a command or category name to a glyph, falling back to a question mark. */
 export function glyphFor(name: string): GlyphName {
-  return GLYPH_ALIASES[name.toLowerCase()] ?? 'question';
+  const key = name.toLowerCase();
+  // A glyph's own name resolves to itself, so a caller that already knows which
+  // one it wants does not have to be listed among the aliases as well.
+  return GLYPH_ALIASES[key] ?? (GLYPH_NAMES.has(key) ? (key as GlyphName) : 'question');
 }
+
+const GLYPH_NAMES = new Set<string>([
+  'play',
+  'pause',
+  'stop',
+  'skip',
+  'previous',
+  'plus',
+  'list',
+  'search',
+  'note',
+  'playlist',
+  'gear',
+  'info',
+  'heart',
+  'shuffle',
+  'loop',
+  'sliders',
+  'clock',
+  'volume',
+  'question',
+]);
 
 /**
  * Draws `name` centred in `box`.

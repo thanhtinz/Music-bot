@@ -18,6 +18,7 @@ import {
   renderHelpCard,
   renderNowPlayingCard,
   renderSakuraHelpCard,
+  renderSakuraNoticeCard,
   renderSakuraPlaylistCard,
   paginateSakuraQueue,
   renderQueueCard,
@@ -395,12 +396,51 @@ async function main(): Promise<void> {
   writeFileSync(resolve(OUT_DIR, 'playlist-sakura.png'), playlistCard);
   console.log(`rendered playlist-sakura.png (${(playlistCard.byteLength / 1024).toFixed(1)} KB)`);
 
+  for (const notice of NOTICES) {
+    const card = await renderSakuraNoticeCard(notice.data);
+    writeFileSync(resolve(OUT_DIR, notice.file), card);
+    console.log(`rendered ${notice.file} (${(card.byteLength / 1024).toFixed(1)} KB)`);
+  }
+
   const playerCard = await renderPlayerPreview();
   writeFileSync(resolve(OUT_DIR, 'now-playing-live-player.png'), playerCard);
   console.log(
     `rendered now-playing-live-player.png (${(playerCard.byteLength / 1024).toFixed(1)} KB)`,
   );
 }
+
+/** One notice per tone, so a change of palette is visible in the preview. */
+const NOTICES: Array<{ file: string; data: Parameters<typeof renderSakuraNoticeCard>[0] }> = [
+  {
+    file: 'notice-volume.png',
+    data: { title: 'Volume', message: 'Volume set to **85%**.', icon: 'volume' },
+  },
+  {
+    file: 'notice-queued.png',
+    data: {
+      title: 'Added to queue',
+      message: 'Added **Chăm Hoa** to the queue.',
+      icon: 'plus',
+    },
+  },
+  {
+    file: 'notice-nothing-playing.png',
+    data: {
+      title: 'Nothing playing',
+      message: 'Nothing is playing right now. Start something with **/play**.',
+      icon: 'note',
+      tone: 'warning',
+    },
+  },
+  {
+    file: 'notice-error.png',
+    data: {
+      title: 'That did not work',
+      message: 'The audio node is unreachable. Give it a moment and try again.',
+      tone: 'error',
+    },
+  },
+];
 
 const SIDEBAR_TITLES: Record<string, string> = {
   playback: 'Player',

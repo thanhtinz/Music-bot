@@ -138,6 +138,20 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Every reply is a card
+
+Commands that used to answer with a line of chat answer with a panel in the same pastel style, so a reply looks like it came from the same place as the Now Playing and queue cards:
+
+![](preview/notice-volume.png)
+
+Four tones — success, info, warning, error — change the accent and the icon, never the layout: a warning that redesigned the card would stop looking like the same bot.
+
+![](preview/notice-nothing-playing.png)
+
+The conversion happens once, in `withNoticeCards`, which wraps the command context rather than sitting at each call site. A command still writes its reply as a sentence and adds a `title`/`icon`/`tone` if it has an opinion; anything already carrying a panel is left alone, and if a card fails to render the original text goes out instead — losing the picture is survivable, losing what the bot was saying is not.
+
+`**bold**` runs in a message are drawn in the accent colour, so the messages keep working as chat text too.
+
 ## Saved playlists
 
 `playlist` works over slash, prefix and the library card's page buttons:
