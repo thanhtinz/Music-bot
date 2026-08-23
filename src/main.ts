@@ -1,8 +1,9 @@
-import type { Client } from 'discord.js';
+import { Events, type Client } from 'discord.js';
 import { Connectors, Shoukaku } from 'shoukaku';
 
 import { CommandRegistry } from './application/commands';
 import { IdleMonitor, PlayerManager, type Player } from './application/player';
+import { InMemorySessionRepository, restoreSessions, SessionRecorder } from './application/session';
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { InMemorySettingsRepository, SettingsService } from './application/settings';
 import { LyricsService } from './application/services/lyrics.service';
@@ -19,6 +20,7 @@ import {
 import { registerSlashCommands } from './infrastructure/discord/register-commands';
 import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
 import { JsonPlaylistRepository } from './infrastructure/storage/json-playlist-repository';
+import { JsonSessionRepository } from './infrastructure/storage/json-session-repository';
 import { JsonSettingsRepository } from './infrastructure/storage/json-settings-repository';
 import { LrclibProvider } from './lyrics';
 import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
@@ -78,6 +80,14 @@ async function main(): Promise<void> {
         .catch(() => undefined);
     },
   });
+
+  // Saved so a deploy in the middle of a set costs the listeners a few seconds
+  // rather than their queue.
+  const sessionStore = env.SESSION_STORE_PATH
+    ? new JsonSessionRepository(env.SESSION_STORE_PATH)
+    : new InMemorySessionRepository();
+  const sessions = new SessionRecorder(sessionStore);
+  players.onPlayerCreated = (player) => sessions.watch(player);
 
   const resolvers = new ResolverRegistry();
   // Radio goes first so a station name is not swallowed by the search provider.
@@ -185,8 +195,24 @@ async function main(): Promise<void> {
 
   installShutdownHandlers(async () => {
     log.info('shutting down');
+    // Written before the players are torn down: destroying them first would
+    // save the state of a queue that has already been cleared.
+    await sessions.flushAll(players).catch((error) => {
+      log.warn({ err: error }, 'could not save sessions on the way out');
+    });
+    sessions.stop();
+
     await players.destroyAll().catch(() => undefined);
     await client.destroy();
+  });
+
+  client.once(Events.ClientReady, () => {
+    // Restored once the gateway is up, because rejoining a voice channel needs
+    // the guilds to be known.
+    void restoreSessions(players, sessionStore, {
+      maxAgeMs: env.SESSION_MAX_AGE_MS,
+      maxQueueSize: env.MAX_QUEUE_SIZE,
+    }).catch((error) => log.error({ err: error }, 'could not restore sessions'));
   });
 
   await client.login(env.DISCORD_TOKEN);

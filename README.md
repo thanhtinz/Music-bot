@@ -162,6 +162,19 @@ It gets the same treatment as the track resolvers: a 6-second timeout and a circ
 
 The lookup is remembered per guild so a page button turns the page instead of spending another request.
 
+## Surviving a restart
+
+A deploy in the middle of a set should cost the listeners a few seconds, not their queue. Each guild's session — voice channel, queue, history, loop, autoplay, filter, and where the current track had got to — is written to `SESSION_STORE_PATH` and picked back up when the bot returns.
+
+Writes are debounced: filling a queue fires an event per track, and saving each one would turn one command into a hundred file writes for a state that is stale a millisecond later. On shutdown every player is flushed **before** the players are torn down — destroying them first would save the state of a queue that has already been cleared.
+
+Coming back:
+
+- playback resumes at the saved position rather than from the top, and comes back paused if it was paused
+- each guild is restored independently, so one guild whose voice channel has since been deleted does not stop the others
+- a session is cleared whether or not it restored, because one that failed now will not restore any better next time
+- sessions older than `SESSION_MAX_AGE_MS` (15 minutes by default) are dropped. Coming back after a short deploy is a courtesy; coming back after a day and playing into a room that emptied hours ago is a nuisance
+
 ## Guild settings
 
 `settings` with no arguments renders the sheet; with a name and value it changes one:
@@ -254,7 +267,7 @@ Storage is behind a port (`PlaylistRepository`), so it can move to PostgreSQL in
 | F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker      | ✅ done |
 | F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
 | F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                    | 🚧      |
-| F8    | PostgreSQL + Redis, 24/7, state recovery                                 | ⏳      |
+| F8    | **24/7, state recovery**; PostgreSQL + Redis                             | 🚧      |
 | F9    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
 
 ## License

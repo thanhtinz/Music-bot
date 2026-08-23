@@ -29,6 +29,15 @@ const logger = createLogger('player-manager');
  * arrival order (spec §30).
  */
 export class PlayerManager {
+  /**
+   * Told about every new player.
+   *
+   * A field rather than an option because the session recorder is built after
+   * the manager — it needs somewhere to put its watch without the two having
+   * to be constructed in one breath.
+   */
+  onPlayerCreated?: (player: Player) => void;
+
   private readonly players = new Map<string, Player>();
   /** Tail of the pending-work chain per guild. */
   private readonly locks = new Map<string, Promise<unknown>>();
@@ -125,6 +134,7 @@ export class PlayerManager {
       throw error;
     }
 
+    this.onPlayerCreated?.(player);
     void this.options.idle?.idle(options.guildId);
     return player;
   }

@@ -253,6 +253,19 @@ export class Queue {
     };
   }
 
+  /**
+   * Loads a snapshot into this queue, replacing whatever it held.
+   *
+   * Used to put a saved session back: the current track and the history have to
+   * come back as they were, which re-adding the tracks one by one cannot do.
+   */
+  load(snapshot: { current?: Track; tracks?: Track[]; history?: Track[]; loop?: LoopMode }): void {
+    this.currentTrack = snapshot.current;
+    this.upcoming = [...(snapshot.tracks ?? [])].slice(0, this.capacity);
+    this.played = [...(snapshot.history ?? [])];
+    this.loopMode = snapshot.loop ?? 'off';
+  }
+
   /** Restores a queue from a {@link toJSON} snapshot. */
   static fromJSON(
     snapshot: {

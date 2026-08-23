@@ -34,6 +34,13 @@ const envSchema = z.object({
   PLAYLIST_STORE_PATH: z.string().default('data/playlists.json'),
   /** Where per-guild settings are written; empty keeps them in memory. */
   SETTINGS_STORE_PATH: z.string().default('data/settings.json'),
+  /**
+   * Where live sessions are written so a restart can pick them back up.
+   * Empty keeps them in memory, which means a restart loses the queue.
+   */
+  SESSION_STORE_PATH: z.string().default('data/sessions.json'),
+  /** Sessions older than this are dropped rather than resumed. */
+  SESSION_MAX_AGE_MS: z.coerce.number().int().min(0).max(86_400_000).default(900_000),
   /** How long an idle player waits before leaving, unless 24/7 is on. */
   IDLE_TIMEOUT_MS: z.coerce.number().int().min(30_000).max(3_600_000).default(300_000),
 

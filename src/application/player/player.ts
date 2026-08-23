@@ -107,6 +107,11 @@ export class Player extends EventEmitter<PlayerEvents> {
     this.emitState();
   }
 
+  /** The filter preset in force, if any. */
+  get filter(): string | undefined {
+    return this.filterPreset;
+  }
+
   get positionMs(): number {
     return this.state === 'idle' ? 0 : this.backend.position(this.guildId);
   }
@@ -170,6 +175,45 @@ export class Player extends EventEmitter<PlayerEvents> {
       this.emit('error', { guildId: this.guildId, error });
       throw error;
     }
+  }
+
+  /**
+   * Puts a saved session back and picks up where it left off.
+   *
+   * Not {@link enqueue}: the current track and the history have to come back as
+   * they were, and re-adding the tracks one by one would lose both. Playback
+   * resumes at the saved position rather than from the top, which is the
+   * difference between a deploy costing seconds and costing the song.
+   */
+  async restore(
+    snapshot: {
+      current?: Track;
+      tracks?: Track[];
+      history?: Track[];
+      loop?: LoopMode;
+    },
+    playback: { positionMs?: number; paused?: boolean } = {},
+  ): Promise<void> {
+    this.queue.load(snapshot);
+
+    const current = snapshot.current;
+    if (!current) {
+      this.emitState();
+      return;
+    }
+
+    await this.backend.play(this.guildId, current);
+    this.setState('playing');
+
+    const positionMs = current.isStream ? 0 : (playback.positionMs ?? 0);
+    if (positionMs > 0) await this.backend.seek(this.guildId, positionMs);
+
+    if (playback.paused) {
+      await this.backend.setPaused(this.guildId, true);
+      this.setState('paused');
+    }
+
+    this.emit('trackStart', { guildId: this.guildId, track: current });
   }
 
   /**
