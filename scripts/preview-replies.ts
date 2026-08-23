@@ -16,7 +16,12 @@ import { MusicService } from '../src/application/services/music.service';
 import { buildCommands } from '../src/commands/handlers';
 import { AUTOPLAY_REQUESTER_ID, createTrack } from '../src/domain/music';
 import { createGuildStats, recordPlay } from '../src/domain/stats';
-import { ResolverRegistry, type SourceResolver, type TrackCandidate } from '../src/resolvers';
+import {
+  LavaSrcResolver,
+  ResolverRegistry,
+  type SourceResolver,
+  type TrackCandidate,
+} from '../src/resolvers';
 import { renderSakuraNoticeCard } from '../src/ui/canvas';
 import { FakeAudioBackend } from '../tests/helpers/fake-audio-backend';
 
@@ -348,6 +353,49 @@ async function main(): Promise<void> {
   const movedTrack = context({ commandName: 'move' });
   await music.move(movedTrack.ctx, 1, 2);
   save(movedTrack, 'reply-move.png');
+
+  // A Spotify link, resolved the way the live bot does it: the node hands back
+  // a playable track carrying Spotify's own metadata.
+  const spotifyRegistry = new ResolverRegistry();
+  spotifyRegistry.register(
+    new LavaSrcResolver({
+      search: async () => [],
+      loadUrl: async () => [
+        {
+          source: 'spotify',
+          identifier: '4cOdK2wGLETKBW3PvgPWqT',
+          title: 'Chăm Hoa',
+          author: 'MONO',
+          durationMs: 245_000,
+        },
+      ],
+    }),
+  );
+
+  const spotifyMusic = new MusicService(players, spotifyRegistry, {
+    variant: 'sakura',
+    defaultVolume: 70,
+    channelName: (channelId) => CHANNEL_NAMES[channelId],
+  });
+
+  const spotifyLink = context({ commandName: 'play', guildId: 'spotify-guild' });
+  await spotifyMusic.play(spotifyLink.ctx, 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT');
+  save(spotifyLink, 'reply-play-spotify.png');
+
+  // The same link on a node with no LavaSrc plugin.
+  const noPlugin = new MusicService(
+    players,
+    (() => {
+      const registry = new ResolverRegistry();
+      registry.register(new LavaSrcResolver({ search: async () => [], loadUrl: async () => [] }));
+      return registry;
+    })(),
+    { variant: 'sakura', defaultVolume: 70 },
+  );
+
+  const spotifyOff = context({ commandName: 'play', guildId: 'spotify-off' });
+  await noPlugin.play(spotifyOff.ctx, 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT');
+  save(spotifyOff, 'reply-play-spotify-disabled.png');
 
   const searchRegistry = new ResolverRegistry();
   searchRegistry.register(fakeSearchResolver);

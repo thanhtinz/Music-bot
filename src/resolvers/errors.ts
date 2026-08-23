@@ -20,7 +20,19 @@ export class ResolverError extends Error {
   constructor(
     readonly code: ResolverErrorCode,
     message: string,
-    readonly options: { source?: string; retryAfterMs?: number; cause?: unknown } = {},
+    readonly options: {
+      source?: string;
+      retryAfterMs?: number;
+      cause?: unknown;
+      /**
+       * Whether {@link message} is already fit to show the user.
+       *
+       * The code alone cannot always say what went wrong — "unavailable"
+       * covers both a deleted track and a plugin nobody installed, and only
+       * one of those tells the reader what to do about it.
+       */
+      userFacing?: boolean;
+    } = {},
   ) {
     super(message);
     this.name = 'ResolverError';
@@ -56,6 +68,10 @@ export function describeResolverError(error: unknown): string {
   if (!(error instanceof ResolverError)) {
     return 'Could not load that track. Please try again.';
   }
+
+  // A resolver that wrote a message for this exact situation knows more than
+  // the code does.
+  if (error.options.userFacing) return error.message;
 
   switch (error.code) {
     case 'NOT_FOUND':

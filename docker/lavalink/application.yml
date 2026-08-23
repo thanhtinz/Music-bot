@@ -31,8 +31,34 @@ lavalink:
   plugins:
     - dependency: 'dev.lavalink.youtube:youtube-plugin:1.13.5'
       repository: 'https://maven.lavalink.dev/releases'
+    # Spotify links are read here rather than in the bot: LavaSrc already holds
+    # the credentials and the token cache, and a second copy in the bot would be
+    # a second thing to keep current.
+    - dependency: 'com.github.topi314.lavasrc:lavasrc-plugin:4.7.3'
+      repository: 'https://maven.lavalink.dev/releases'
 
 plugins:
+  lavasrc:
+    sources:
+      # Spotify metadata only; the audio comes from whatever `providers` below
+      # finds, which is YouTube here.
+      spotify: true
+      applemusic: false
+      deezer: false
+      yandexmusic: false
+    spotify:
+      # Supplied by docker-compose from the environment, so no secret is
+      # committed here (spec §25). Blank means Spotify links stay unsupported.
+      clientId: '${SPOTIFY_CLIENT_ID:}'
+      clientSecret: '${SPOTIFY_CLIENT_SECRET:}'
+      countryCode: 'VN'
+      playlistLoadLimit: 3
+      albumLoadLimit: 3
+    providers:
+      # How LavaSrc looks for playable audio once it knows what the link is.
+      - 'ytsearch:"%ISRC%"'
+      - 'ytsearch:%QUERY%'
+
   youtube:
     enabled: true
     # Client order matters: MUSIC and WEBEMBEDDED cope with tracks the plain

@@ -8,6 +8,7 @@ export { ResolverRegistry } from './registry';
 export type { ResolveResult, ResolverRegistryOptions } from './registry';
 export { YouTubeResolver } from './youtube.resolver';
 export { SpotifyResolver, buildSearchQuery, scoreCandidate } from './spotify.resolver';
+export { LavaSrcResolver } from './lavasrc.resolver';
 export type {
   SpotifyMetadataClient,
   SpotifyTrackMetadata,

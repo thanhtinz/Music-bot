@@ -28,7 +28,7 @@ import { JsonSessionRepository } from './infrastructure/storage/json-session-rep
 import { JsonSettingsRepository } from './infrastructure/storage/json-settings-repository';
 import { JsonStatsRepository } from './infrastructure/storage/json-stats-repository';
 import { LrclibProvider } from './lyrics';
-import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
+import { LavaSrcResolver, RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
 import { renderSakuraNoticeCard } from './ui/canvas';
 import { createBotMetrics } from './telemetry/bot-metrics';
 import { createHealthServer } from './infrastructure/http/health-server';
@@ -67,7 +67,13 @@ async function main(): Promise<void> {
 
   const resolvers = new ResolverRegistry();
   // Radio goes first so a station name is not swallowed by the search provider.
-  resolvers.registerAll([new RadioResolver(), new YouTubeResolver(backend)]);
+  // Spotify goes through the node's LavaSrc plugin rather than a second API
+  // client here; see docker/lavalink/application.yml.
+  resolvers.registerAll([
+    new RadioResolver(),
+    new LavaSrcResolver(backend),
+    new YouTubeResolver(backend),
+  ]);
 
   // Built before the players, which hold the callback that reaches it.
   const autoplay = new AutoplaySelector(resolvers);

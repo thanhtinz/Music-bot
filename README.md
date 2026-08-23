@@ -177,6 +177,20 @@ Positions count from 1 and mean the **upcoming** queue — position 1 is the nex
 
 A missing argument reads as `NaN` rather than defaulting to 1, so a mistyped position is refused instead of quietly editing the first track. What `jump` skips over goes into the history rather than being dropped, so `previous` can still reach a track somebody jumped past.
 
+## Spotify links
+
+Paste a Spotify track, album or playlist link and it plays:
+
+![](preview/reply-play-spotify.png)
+
+The reading is done by the **audio node**, not the bot. Lavalink's LavaSrc plugin already holds Spotify credentials and a token cache and hands back playable tracks carrying Spotify's own title, artist and artwork; a second copy of that in the bot would be a second set of credentials and a second thing to keep current. So `LavaSrcResolver` only decides what a link means and passes it on.
+
+Credentials go to the node, in `docker/lavalink/application.yml`, supplied from `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` by compose. Leave them blank and everything else still works — the links come back as unsupported:
+
+![](preview/reply-play-spotify-disabled.png)
+
+That message matters more than it looks. The load comes back empty whether a track was deleted or the plugin was never installed, and the second is an operator's problem; answering "that track is unavailable" would send whoever reads it looking at the wrong thing. A resolver can now mark a message as already fit for the user, and that one is.
+
 ## Search, then pick
 
 `play` takes the first result, which is right when you know what you want and wrong when the first hit is a cover, an hour-long mix, or the wrong language. `search` (also `find`, `sr`) shows what was found and lets the asker choose:
