@@ -219,6 +219,50 @@ export function buildHelpCategories(
   return rows;
 }
 
+/**
+ * Page buttons for a help category that runs past one card.
+ *
+ * The category travels in the id alongside the page, because a press has to
+ * say *which* category's page two it wants — the card is the only thing that
+ * knows, and it is a picture.
+ */
+export function buildHelpPagination(
+  category: number,
+  page: number,
+  totalPages: number,
+): ActionRowBuilder<ButtonBuilder>[] {
+  if (totalPages <= 1) return [];
+
+  const current = Math.min(Math.max(1, page), totalPages);
+  // Clamped, so a disabled edge button still carries a page that exists rather
+  // than a `0` that only works because nobody can press it.
+  const target = (wanted: number) =>
+    encodeComponentId({
+      action: 'help',
+      arg: `${category}:${Math.min(Math.max(1, wanted), totalPages)}`,
+    });
+
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(target(current - 1))
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(current === 1),
+      new ButtonBuilder()
+        .setCustomId(target(current))
+        .setLabel(`${current}/${totalPages}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId(target(current + 1))
+        .setEmoji('▶️')
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(current === totalPages),
+    ),
+  ];
+}
+
 /** Discord button labels are capped at 80 characters; a category never is. */
 function label(category: string): string {
   return category.charAt(0).toUpperCase() + category.slice(1);

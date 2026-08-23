@@ -22,6 +22,7 @@ import { dedupeNodes, parseNodes } from './config/nodes';
 import { attachHandlers, createClient } from './infrastructure/discord/bot';
 import {
   buildHelpCategories,
+  buildHelpPagination,
   buildLyricsPagination,
   buildNowPlayingControls,
   buildPlaylistPagination,
@@ -245,7 +246,11 @@ async function main(): Promise<void> {
       lyrics,
       stats,
       search,
-      helpComponents: (categories, active) => buildHelpCategories(categories, active),
+      helpComponents: (categories, active, page, totalPages) => [
+        ...buildHelpCategories(categories, active),
+        // 1-based, so a press and a typed `help 3 2` mean the same thing.
+        ...buildHelpPagination(active + 1, page, totalPages),
+      ],
     }),
   );
 

@@ -97,6 +97,12 @@ One rule (`invocationPrefix`) decides it for the help card, the settings sheet, 
 
 The card has always taken an `activeCategory`; the handler pinned it to 0, so the sidebar listed six groups and could show one. A button press is dispatched back through the router as a `help` command rather than calling the renderer directly, so it goes through the same permission checks and prefix lookup a typed one does.
 
+The template has room for eight rows, and the sidebar prints each category's real count — so once the player category passed eight commands the card said **16** and showed eight, with the rest reachable from nowhere. Categories now page, with `◀ 2/2 ▶` under the card and a `Page 2/2` marker on it:
+
+![](preview/reply-help-page2.png)
+
+The page rides in the button's id alongside the category (`mb:help:1:2`), because a press hands back nothing else and the card that raised it is a picture. `help player 2` and `/help category:player page:2` reach the same place. A test walks every category and checks that its pages add up to the number the sidebar prints, so the card cannot promise commands no page can show.
+
 Two things the picture caught: `<position>` ran straight into the description after it, because the hint was drawn from the end of the name while the description starts at a fixed column — it is clamped now. And `remove`, `move`, `jump` and `removemine` all drew a question mark, having never been given glyphs.
 
 Below, the classic help card:

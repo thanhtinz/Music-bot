@@ -24,6 +24,8 @@ import {
 } from '../src/resolvers';
 import { configureCardEncoding, renderSakuraNoticeCard } from '../src/ui/canvas';
 import {
+  buildHelpCategories,
+  buildHelpPagination,
   buildNowPlayingControls,
   buildQueuePagination,
 } from '../src/infrastructure/discord/components';
@@ -569,6 +571,12 @@ async function main(): Promise<void> {
     prefix: '!',
     botName: 'Melody',
     settings,
+    // The same rows the live bot attaches, so a page button missing from a
+    // card that needs one shows up in the log.
+    helpComponents: (categories, active, page, totalPages) => [
+      ...buildHelpCategories(categories, active),
+      ...buildHelpPagination(active + 1, page, totalPages),
+    ],
   }).find((command) => command.name === 'help');
   await helpCommand?.execute(helpAfterPrefix.ctx);
   save(helpAfterPrefix, 'reply-help-guild-prefix.png');
@@ -587,6 +595,11 @@ async function main(): Promise<void> {
   const helpFilters = context({ commandName: 'help', sourceType: 'prefix', args: ['filters'] });
   await helpCommand?.execute(helpFilters.ctx);
   save(helpFilters, 'reply-help-filters.png');
+
+  // Page two of the player category, which no longer ends at eight commands.
+  const helpPage2 = context({ commandName: 'help', sourceType: 'prefix', args: ['player', '2'] });
+  await helpCommand?.execute(helpPage2.ctx);
+  save(helpPage2, 'reply-help-page2.png');
 
   const helpQueue = context({ commandName: 'help', sourceType: 'prefix', args: ['2'] });
   await helpCommand?.execute(helpQueue.ctx);

@@ -50,6 +50,40 @@ export interface HelpSakuraCardData {
   commands: HelpSakuraCommand[];
   /** Guild prefix, shown in the header and in every usage example. */
   prefix: string;
+  /** 1-based page of the active category; only drawn when there is more than one. */
+  page?: number;
+  totalPages?: number;
+}
+
+/** How many pages a category of `count` commands takes. */
+export function helpSakuraPages(count: number): number {
+  return Math.max(1, Math.ceil(count / HELP_SAKURA_PAGE_SIZE));
+}
+
+/**
+ * The slice of a category one page shows.
+ *
+ * The card has room for eight rows, and the sidebar prints the category's real
+ * count — so a category of sixteen used to say sixteen and show eight, with the
+ * other eight reachable from nowhere.
+ */
+export function paginateHelp<T>(
+  commands: readonly T[],
+  page: number,
+): {
+  items: T[];
+  page: number;
+  totalPages: number;
+} {
+  const totalPages = helpSakuraPages(commands.length);
+  const current = Math.min(Math.max(1, Math.floor(page) || 1), totalPages);
+  const start = (current - 1) * HELP_SAKURA_PAGE_SIZE;
+
+  return {
+    items: [...commands].slice(start, start + HELP_SAKURA_PAGE_SIZE),
+    page: current,
+    totalPages,
+  };
 }
 
 // ── Geometry, measured from the template at its native 1536×1024 size ────────
@@ -81,6 +115,8 @@ const ROW = {
 
 const HEADER_PREFIX = { x: 152, baseline: 132, clear: { x: 148, y: 100, width: 250, height: 44 } };
 const FOOTER = { x: 404, baseline: 944, clear: { x: 398, y: 912, width: 400, height: 44 } };
+/** Right-aligned, clear of the mascot sitting in the bottom-right corner. */
+const PAGE_MARKER = { right: 1230, clear: { x: 1040, y: 912, width: 196, height: 44 } };
 
 const INK = '#0d0b0c';
 const INK_LABEL = '#3a2f33';
@@ -375,4 +411,29 @@ function drawFooter(ctx: SKRSContext2D, data: HelpSakuraCardData): void {
   ctx.font = font(24);
   ctx.fillStyle = INK_LABEL;
   ctx.fillText(' for more details', cursor, FOOTER.baseline);
+
+  drawPageMarker(ctx, data);
+}
+
+/**
+ * `Page 2/2`, opposite the footer hint.
+ *
+ * Only drawn when a category runs past one page: on a category that fits, a
+ * marker saying 1/1 is a question raised for no reason.
+ */
+function drawPageMarker(ctx: SKRSContext2D, data: HelpSakuraCardData): void {
+  const total = data.totalPages ?? 1;
+  if (total <= 1) return;
+
+  cover(ctx, PAGE_MARKER.clear, SAMPLE.footer);
+
+  ctx.textAlign = 'right';
+  ctx.font = font(24, 'bold');
+  ctx.fillStyle = PINK_STRONG;
+  ctx.fillText(
+    `Page ${Math.min(Math.max(1, data.page ?? 1), total)}/${total}`,
+    PAGE_MARKER.right,
+    FOOTER.baseline,
+  );
+  ctx.textAlign = 'left';
 }

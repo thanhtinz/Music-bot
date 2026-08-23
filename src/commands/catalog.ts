@@ -304,7 +304,10 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     description: 'Show every command',
     category: 'general',
     aliases: ['h', 'commands'],
-    options: [{ name: 'category', description: 'Which group to show' }],
+    options: [
+      { name: 'category', description: 'Which group to show' },
+      { name: 'page', description: 'Which page of that group' },
+    ],
   },
 ];
 

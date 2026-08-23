@@ -8,7 +8,7 @@ import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
 import { isFilterPreset } from '../infrastructure/lavalink/filters';
 import { parseTimeToSeconds } from '../resolvers';
-import { cardFile, renderSakuraHelpCard } from '../ui/canvas';
+import { cardFile, paginateHelp, renderSakuraHelpCard } from '../ui/canvas';
 
 import { catalogByCategory, COMMAND_CATALOG, type CommandMeta } from './catalog';
 
@@ -27,7 +27,12 @@ export interface HandlerOptions {
   /** Search-then-pick; without it `search` stays unregistered. */
   search?: SearchService;
   /** Builds the category buttons under a help card. */
-  helpComponents?: (categories: string[], active: number) => unknown[];
+  helpComponents?: (
+    categories: string[],
+    active: number,
+    page: number,
+    totalPages: number,
+  ) => unknown[];
 }
 
 /**
@@ -105,6 +110,28 @@ export function parsePlaylistRequest(
   }
 
   return { action, name: tokens.join(' ').trim() };
+}
+
+/**
+ * Which category and page a `help` invocation is asking for.
+ *
+ * Three ways in, and they have to agree: `/help category:player page:2`,
+ * a typed `help player 2`, and a page button, whose id carries both in one
+ * argument because that is all Discord hands back when it is pressed.
+ */
+export function helpRequest(ctx: {
+  args: readonly string[];
+  option: (name: string) => string | undefined;
+}): { category: string | undefined; page: number } {
+  const first = ctx.option('category') ?? ctx.args[0];
+  const [category, packedPage] = (first ?? '').split(':');
+
+  const page = Number(packedPage ?? ctx.option('page') ?? ctx.args[1] ?? 1);
+
+  return {
+    category: category === '' ? undefined : category,
+    page: Number.isFinite(page) ? page : 1,
+  };
 }
 
 /** How far `forward` and `rewind` go when nobody says. */
@@ -287,7 +314,9 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
 
     help: async (ctx) => {
       const grouped = [...catalogByCategory()];
-      const active = categoryIndex(grouped, ctx.option('category') ?? ctx.args[0]);
+      const asked = helpRequest(ctx);
+      const active = categoryIndex(grouped, asked.category);
+      const slice = paginateHelp(grouped[active]?.[1] ?? [], asked.page);
 
       const card = await renderSakuraHelpCard({
         // Written the way this person reached the bot, with the guild's own
@@ -302,7 +331,9 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
           count: commands.length,
           icon: category,
         })),
-        commands: (grouped[active]?.[1] ?? []).map(toHelpRow),
+        commands: slice.items.map(toHelpRow),
+        page: slice.page,
+        totalPages: slice.totalPages,
       });
 
       await ctx.reply({
@@ -312,6 +343,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
               components: options.helpComponents(
                 grouped.map(([category]) => category),
                 active,
+                slice.page,
+                slice.totalPages,
               ),
             }
           : {}),

@@ -6,6 +6,7 @@ import {
   buildVolumePicker,
   VOLUME_STEPS,
   buildHelpCategories,
+  buildHelpPagination,
   buildSearchPicks,
   decodeComponentId,
   encodeComponentId,
@@ -134,6 +135,45 @@ describe('buildVolumePicker', () => {
 
     expect(menu.placeholder).toBe('Volume: 63%');
     expect(menu.options.some((option) => option.default)).toBe(false);
+  });
+});
+
+describe('buildHelpPagination', () => {
+  /** Custom ids on the built row, in order. */
+  function ids(page: number, totalPages: number, category = 1): string[] {
+    return toJSON(buildHelpPagination(category, page, totalPages)).flatMap((row) =>
+      row.components.map((button) => (button as { custom_id: string }).custom_id),
+    );
+  }
+
+  it('carries the category alongside the page', () => {
+    // A press says only its id, and the card that raised it is a picture.
+    expect(ids(1, 3, 2)).toEqual(['mb:help:2:1', 'mb:help:2:1', 'mb:help:2:2']);
+    expect(decodeComponentId('mb:help:2:2')).toEqual({ action: 'help', arg: '2:2' });
+  });
+
+  it('offers nothing for a category that fits on one card', () => {
+    expect(buildHelpPagination(1, 1, 1)).toEqual([]);
+    expect(buildHelpPagination(1, 1, 0)).toEqual([]);
+  });
+
+  it('disables paging past either end', () => {
+    const first = toJSON(buildHelpPagination(1, 1, 2))[0]?.components ?? [];
+    expect(first[0]).toMatchObject({ disabled: true });
+    expect(first[2]).toMatchObject({ disabled: false });
+
+    const last = toJSON(buildHelpPagination(1, 2, 2))[0]?.components ?? [];
+    expect(last[0]).toMatchObject({ disabled: false });
+    expect(last[2]).toMatchObject({ disabled: true });
+  });
+
+  it('never targets a page that does not exist', () => {
+    // Even disabled, an id pointing at page 0 is a lie that only works because
+    // nobody can press it.
+    for (const id of [...ids(1, 2), ...ids(2, 2)]) {
+      expect(Number(decodeComponentId(id)?.arg?.split(':')[1])).toBeGreaterThanOrEqual(1);
+      expect(Number(decodeComponentId(id)?.arg?.split(':')[1])).toBeLessThanOrEqual(2);
+    }
   });
 });
 

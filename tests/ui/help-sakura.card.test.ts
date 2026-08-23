@@ -119,6 +119,21 @@ describe('renderSakuraHelpCard', () => {
     expect(first.equals(second)).toBe(true);
   });
 
+  it('marks which page of a category it is showing', async () => {
+    const first = await renderSakuraHelpCard(data({ page: 1, totalPages: 2 }));
+    const second = await renderSakuraHelpCard(data({ page: 2, totalPages: 2 }));
+
+    expect(first.equals(second)).toBe(false);
+  });
+
+  it('says nothing about pages when a category fits on one card', async () => {
+    // `Page 1/1` is a question raised for no reason.
+    const plain = await renderSakuraHelpCard(data());
+    const single = await renderSakuraHelpCard(data({ page: 1, totalPages: 1 }));
+
+    expect(plain.equals(single)).toBe(true);
+  });
+
   it('renders with nothing to show', async () => {
     const buffer = await renderSakuraHelpCard(data({ categories: [], commands: [] }));
     expectCardImage(buffer);

@@ -49,6 +49,8 @@ export {
   HELP_SAKURA_TEMPLATE_SIZE,
   HELP_SAKURA_PAGE_SIZE,
   HELP_SAKURA_CATEGORY_SLOTS,
+  helpSakuraPages,
+  paginateHelp,
 } from './cards/help-sakura.card';
 export type {
   HelpSakuraCardData,

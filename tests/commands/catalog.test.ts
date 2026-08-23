@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { CommandRegistry, usage } from '../../src/application/commands';
 import { catalogByCategory, COMMAND_CATALOG } from '../../src/commands/catalog';
-import { categoryIndex, positionOf } from '../../src/commands/handlers';
+import { categoryIndex, helpRequest, positionOf } from '../../src/commands/handlers';
+import { paginateHelp } from '../../src/ui/canvas';
 import { FILTER_PRESETS } from '../../src/infrastructure/lavalink/filters';
 
 describe('command catalog', () => {
@@ -131,6 +132,70 @@ describe('categoryIndex', () => {
     expect(categoryIndex(grouped, 'nonsense')).toBe(0);
     expect(categoryIndex(grouped, '99')).toBe(0);
     expect(categoryIndex(grouped, '0')).toBe(0);
+  });
+});
+
+describe('helpRequest', () => {
+  /** A context carrying only what the help handler reads. */
+  function ctx(args: string[], options: Record<string, string> = {}) {
+    return { args, option: (name: string) => options[name] };
+  }
+
+  it('reads a slash invocation', () => {
+    expect(helpRequest(ctx([], { category: 'queue', page: '2' }))).toEqual({
+      category: 'queue',
+      page: 2,
+    });
+  });
+
+  it('reads a typed one', () => {
+    expect(helpRequest(ctx(['player', '2']))).toEqual({ category: 'player', page: 2 });
+  });
+
+  it('reads a page button, which packs both into one argument', () => {
+    // Discord hands back only the custom id, so the category rides along.
+    expect(helpRequest(ctx(['3:2']))).toEqual({ category: '3', page: 2 });
+  });
+
+  it('defaults to the first page of the first category', () => {
+    expect(helpRequest(ctx([]))).toEqual({ category: undefined, page: 1 });
+    expect(helpRequest(ctx(['player']))).toEqual({ category: 'player', page: 1 });
+    expect(helpRequest(ctx(['player', 'later']))).toEqual({ category: 'player', page: 1 });
+  });
+});
+
+describe('paginateHelp', () => {
+  const commands = Array.from({ length: 16 }, (_, index) => `c${index + 1}`);
+
+  it('cuts a category into cards of eight', () => {
+    expect(paginateHelp(commands, 1)).toMatchObject({ page: 1, totalPages: 2 });
+    expect(paginateHelp(commands, 1).items).toEqual(commands.slice(0, 8));
+    expect(paginateHelp(commands, 2).items).toEqual(commands.slice(8));
+  });
+
+  it('clamps a page outside the range', () => {
+    expect(paginateHelp(commands, 99).page).toBe(2);
+    expect(paginateHelp(commands, 0).page).toBe(1);
+    expect(paginateHelp(commands, Number.NaN).page).toBe(1);
+  });
+
+  it('reports one page for a category that fits', () => {
+    expect(paginateHelp(commands.slice(0, 3), 1)).toMatchObject({ page: 1, totalPages: 1 });
+    expect(paginateHelp([], 1)).toMatchObject({ page: 1, totalPages: 1, items: [] });
+  });
+
+  it('agrees with the count printed in the sidebar', () => {
+    // The sidebar prints the category's real total; if the paging disagreed,
+    // the card would promise commands no page could show.
+    for (const [category, metas] of catalogByCategory()) {
+      const { totalPages } = paginateHelp(metas, 1);
+      const shown = Array.from(
+        { length: totalPages },
+        (_, page) => paginateHelp(metas, page + 1).items.length,
+      ).reduce((sum, count) => sum + count, 0);
+
+      expect({ category, shown }).toEqual({ category, shown: metas.length });
+    }
   });
 });
 
