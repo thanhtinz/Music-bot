@@ -7,9 +7,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { catalogByCategory } from '../src/commands/catalog';
 import { createTrack, Queue } from '../src/domain/music';
 import {
   QUEUE_PAGE_SIZE,
+  renderHelpCard,
   renderNowPlayingCard,
   renderQueueCard,
   type NowPlayingCardData,
@@ -143,7 +145,32 @@ async function main(): Promise<void> {
   const queueCard = await renderQueuePreview();
   writeFileSync(resolve(OUT_DIR, 'queue.png'), queueCard);
   console.log(`rendered queue.png (${(queueCard.byteLength / 1024).toFixed(1)} KB)`);
+
+  const helpCard = await renderHelpCard({
+    groups: [...catalogByCategory()].map(([category, commands]) => ({
+      title: CATEGORY_TITLES[category] ?? category,
+      commands: commands.map((meta) => ({
+        name: meta.name,
+        description: meta.description,
+        aliases: meta.aliases,
+      })),
+    })),
+    prefix: '!',
+    botName: 'MusicBot',
+    theme: 'midnight',
+  });
+  writeFileSync(resolve(OUT_DIR, 'help.png'), helpCard);
+  console.log(`rendered help.png (${(helpCard.byteLength / 1024).toFixed(1)} KB)`);
 }
+
+const CATEGORY_TITLES: Record<string, string> = {
+  playback: 'Playback',
+  queue: 'Queue',
+  playlist: 'Playlist & lyrics',
+  filters: 'Filters',
+  settings: 'Server settings',
+  general: 'General',
+};
 
 main().catch((error) => {
   console.error(error);

@@ -7,6 +7,8 @@ export {
   QUEUE_CARD_WIDTH,
 } from './cards/queue.card';
 export type { QueueCardData, QueueCardTrack } from './cards/queue.card';
+export { renderHelpCard, HELP_CARD_WIDTH } from './cards/help.card';
+export type { HelpCardData, HelpCardGroup, HelpCardCommand } from './cards/help.card';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';
 export type { CanvasTheme, ThemeName } from './theme';
 export { registerFonts, font, UI_FONT } from './fonts';

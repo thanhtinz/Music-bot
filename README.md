@@ -22,6 +22,10 @@ The queue is rendered the same way — a paginated list card that grows with the
 
 ![](preview/queue.png)
 
+So is help, generated straight from the command catalog:
+
+![](preview/help.png)
+
 ## Getting started
 
 ```bash
@@ -38,6 +42,8 @@ npm run typecheck
 
 ```
 src/
+├── application/     # command engine: parser, registry, router, cooldowns
+├── commands/        # command catalog — the matrix all three interfaces share
 ├── config/          # environment loading and validation (zod)
 ├── domain/music/    # Track and Queue — no Discord or Lavalink types
 ├── telemetry/       # JSON logger with secret redaction
@@ -63,7 +69,7 @@ tests/               # unit tests
 |---|---|---|
 | F1 | Project skeleton, config, logger, **canvas UI + Now Playing card** | ✅ done |
 | F2 | Domain: track and queue (loop, shuffle, history, snapshots) + queue card | ✅ done |
-| F3 | Unified command engine (slash + prefix + @mention) | ⏳ |
+| F3 | Unified command engine (slash + prefix + @mention) + help card | ✅ done |
 | F4 | Lavalink adapter + player manager | ⏳ |
 | F5 | Resolvers: YouTube / Spotify metadata / radio | ⏳ |
 | F6 | Queue / filter / stats cards, DJ permissions, playlists | ⏳ |
