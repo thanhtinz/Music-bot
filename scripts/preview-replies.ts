@@ -163,6 +163,27 @@ async function main(): Promise<void> {
   await settings.toggleStayConnected(stayOff.ctx);
   save(stayOff, 'reply-247-off.png');
 
+  // Not a command reply: the bot posts this by itself when it gives up waiting.
+  for (const [file, message] of [
+    [
+      'reply-idle-left-alone.png',
+      'Everyone left, so I stepped out too. Call me back with **join**.',
+    ],
+    [
+      'reply-idle-left-empty.png',
+      'The queue ran out, so I stepped out. Call me back with **join**.',
+    ],
+  ] as const) {
+    const card = await renderSakuraNoticeCard({
+      title: 'Left the channel',
+      message,
+      icon: 'stop',
+      tone: 'info',
+    });
+    writeFileSync(resolve(OUT_DIR, file), card);
+    console.log(`rendered ${file} (${(card.byteLength / 1024).toFixed(1)} KB)`);
+  }
+
   const left = context({ commandName: 'leave' });
   await music.leave(left.ctx);
   save(left, 'reply-leave.png');

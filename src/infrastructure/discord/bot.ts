@@ -7,6 +7,7 @@ import {
   type GuildMember,
   type Interaction,
   type Message,
+  type VoiceState,
 } from 'discord.js';
 
 import {
@@ -83,6 +84,29 @@ export function attachHandlers(
 ): Client {
   const router = new CommandRouter(registry, {
     prefixFor: (ctx) => (ctx.sourceType === 'slash' ? '/' : options.prefix),
+  });
+
+  // The bot leaves a channel it is alone in, so it has to know when that
+  // becomes true — including when the last person leaves mid-track.
+  client.on(Events.VoiceStateUpdate, (before: VoiceState, after: VoiceState) => {
+    const guildId = after.guild?.id ?? before.guild?.id;
+    if (!guildId) return;
+
+    const player = players.get(guildId);
+    if (!player) return;
+
+    // Only states touching the bot's own channel can change whether it is
+    // alone; anything else is somebody else's room.
+    const channelId = player.voiceChannelId;
+    if (before.channelId !== channelId && after.channelId !== channelId) return;
+
+    const channel = client.channels.cache.get(channelId);
+    if (!channel || !channel.isVoiceBased()) return;
+
+    const humans = channel.members.filter((member) => !member.user.bot).size;
+    void players.setAlone(guildId, humans === 0).catch((error) => {
+      logger.warn({ err: error, guildId }, 'could not update the idle watch');
+    });
   });
 
   client.on(Events.InteractionCreate, (interaction) => {

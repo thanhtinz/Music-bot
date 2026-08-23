@@ -2,7 +2,7 @@ import type { Client } from 'discord.js';
 import { Connectors, Shoukaku } from 'shoukaku';
 
 import { CommandRegistry } from './application/commands';
-import { PlayerManager, type Player } from './application/player';
+import { IdleMonitor, PlayerManager, type Player } from './application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { InMemorySettingsRepository, SettingsService } from './application/settings';
 import { MusicService } from './application/services/music.service';
@@ -40,9 +40,40 @@ async function main(): Promise<void> {
     shardIdFor: (guildId) => client.guilds.cache.get(guildId)?.shardId ?? 0,
   });
 
-  const players = new PlayerManager(backend, {
+  // Built before the settings service so the manager can hold it, and given
+  // its policy lookup afterwards — the two need each other.
+  let readPolicy: (guildId: string) => Promise<{
+    stayConnected: boolean;
+    idleTimeoutMs: number;
+  }> = async () => ({ stayConnected: false, idleTimeoutMs: env.IDLE_TIMEOUT_MS });
+
+  const idle = new IdleMonitor({
+    policyFor: (guildId) => readPolicy(guildId),
+    onTimeout: (guildId, reason) => players.leaveIdle(guildId, reason),
+  });
+
+  const players: PlayerManager = new PlayerManager(backend, {
     defaultVolume: env.DEFAULT_VOLUME,
     maxQueueSize: env.MAX_QUEUE_SIZE,
+    idle,
+    onIdleLeave: async (player, reason) => {
+      const channel = client.channels.cache.get(player.textChannelId ?? '');
+      if (!channel?.isSendable()) return;
+
+      const card = await renderSakuraNoticeCard({
+        title: 'Left the channel',
+        message:
+          reason === 'alone'
+            ? 'Everyone left, so I stepped out too. Call me back with **join**.'
+            : 'The queue ran out, so I stepped out. Call me back with **join**.',
+        icon: 'stop',
+        tone: 'info',
+      });
+
+      await channel
+        .send({ files: [{ attachment: card, name: 'notice.png' }] })
+        .catch(() => undefined);
+    },
   });
 
   const resolvers = new ResolverRegistry();
@@ -97,6 +128,11 @@ async function main(): Promise<void> {
       guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
     },
   );
+
+  readPolicy = async (guildId) => {
+    const guild = await settings.forGuild(guildId);
+    return { stayConnected: guild.stayConnected, idleTimeoutMs: guild.idleTimeoutMs };
+  };
 
   const registry = new CommandRegistry();
   registry.registerAll(

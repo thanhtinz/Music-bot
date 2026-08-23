@@ -1,11 +1,21 @@
 import { createLogger } from '../../telemetry/logger';
 import type { AudioBackend } from '../../infrastructure/audio/audio-backend';
 
+import type { IdleMonitor, IdleReason } from './idle-monitor';
 import { Player, type PlayerOptions } from './player';
 
 export interface PlayerManagerOptions {
   defaultVolume?: number;
   maxQueueSize?: number;
+  /**
+   * Leaves a channel that has gone quiet.
+   *
+   * Optional: without one the bot stays connected until told otherwise, which
+   * is what the tests that are not about idling want.
+   */
+  idle?: IdleMonitor;
+  /** Told which player is being dropped for going idle, to announce it. */
+  onIdleLeave?: (player: Player, reason: IdleReason) => Promise<void> | void;
 }
 
 const logger = createLogger('player-manager');
@@ -97,6 +107,15 @@ export class PlayerManager {
       maxQueueSize: options.maxQueueSize ?? this.options.maxQueueSize,
     });
 
+    // A player that has just been created has nothing playing yet, so the
+    // countdown starts here rather than waiting for a queue that never fills.
+    player.on('queueEnd', () => {
+      void this.options.idle?.idle(options.guildId);
+    });
+    player.on('trackStart', () => {
+      this.options.idle?.active(options.guildId);
+    });
+
     this.players.set(options.guildId, player);
 
     try {
@@ -106,7 +125,24 @@ export class PlayerManager {
       throw error;
     }
 
+    void this.options.idle?.idle(options.guildId);
     return player;
+  }
+
+  /** Whether the bot is alone in its channel, from the voice-state watcher. */
+  async setAlone(guildId: string, alone: boolean): Promise<void> {
+    if (!this.players.has(guildId)) return;
+    await this.options.idle?.setAlone(guildId, alone);
+  }
+
+  /** Drops a guild's player because it has been idle too long. */
+  async leaveIdle(guildId: string, reason: IdleReason): Promise<void> {
+    const player = this.players.get(guildId);
+    if (!player) return;
+
+    logger.info({ guildId, reason }, 'leaving after being idle');
+    await this.options.onIdleLeave?.(player, reason);
+    await this.destroy(guildId);
   }
 
   /** Stops a guild's player and forgets it. */
@@ -115,6 +151,8 @@ export class PlayerManager {
     if (!player) return;
 
     this.players.delete(guildId);
+    this.options.idle?.forget(guildId);
+
     await player.stop().catch((error) => {
       logger.warn({ err: error, guildId }, 'failed to stop player cleanly');
     });
@@ -122,6 +160,7 @@ export class PlayerManager {
 
   /** Stops every player — used on graceful shutdown (spec §31). */
   async destroyAll(): Promise<void> {
+    this.options.idle?.stop();
     await Promise.all([...this.players.keys()].map((guildId) => this.destroy(guildId)));
   }
 
