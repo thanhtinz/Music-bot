@@ -208,6 +208,51 @@ async function renderPlayerPreview(): Promise<Buffer> {
   });
 }
 
+/**
+ * Illustrated queue card, also built from a real {@link Queue} so the row
+ * numbering and durations come from the domain rather than from literals.
+ */
+async function renderSakuraQueuePreview(): Promise<Buffer> {
+  const queue = new Queue({ maxSize: 50 });
+  queue.add(
+    SAMPLE_QUEUE.slice(0, 5).map(([title, author, durationMs, requesterId]) =>
+      createTrack({
+        source: 'youtube',
+        identifier: title.toLowerCase().replace(/\s+/g, '-'),
+        title,
+        author,
+        durationMs,
+        requesterId,
+      }),
+    ),
+  );
+
+  const current = queue.next();
+
+  return renderQueueCard({
+    current: current && {
+      title: current.title,
+      author: current.author,
+      durationMs: current.durationMs,
+      positionMs: 42_000,
+    },
+    tracks: queue.tracks.map((track, index) => ({
+      position: index + 2,
+      title: track.title,
+      author: track.author,
+      durationMs: track.durationMs,
+      isStream: track.isStream,
+      requesterName: track.requesterId,
+    })),
+    page: 1,
+    totalPages: 1,
+    totalTracks: queue.size,
+    totalDurationMs: queue.totalDurationMs,
+    loop: queue.loop,
+    variant: 'sakura',
+  });
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
 
@@ -221,6 +266,10 @@ async function main(): Promise<void> {
   const queueCard = await renderQueuePreview();
   writeFileSync(resolve(OUT_DIR, 'queue.png'), queueCard);
   console.log(`rendered queue.png (${(queueCard.byteLength / 1024).toFixed(1)} KB)`);
+
+  const sakuraQueue = await renderSakuraQueuePreview();
+  writeFileSync(resolve(OUT_DIR, 'queue-sakura.png'), sakuraQueue);
+  console.log(`rendered queue-sakura.png (${(sakuraQueue.byteLength / 1024).toFixed(1)} KB)`);
 
   const helpCard = await renderHelpCard({
     groups: [...catalogByCategory()].map(([category, commands]) => ({

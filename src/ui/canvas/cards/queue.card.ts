@@ -47,6 +47,11 @@ export interface QueueCardData {
   totalDurationMs: number;
   loop: LoopMode;
   theme?: string;
+  /**
+   * Card style. `classic` is the themeable dark list; `sakura` composites onto
+   * the illustrated pastel template.
+   */
+  variant?: 'classic' | 'sakura';
 }
 
 const WIDTH = 1000;

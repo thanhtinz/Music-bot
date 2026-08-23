@@ -12,11 +12,16 @@ The `sakura` variant composites live player state onto an illustrated pastel tem
 | ----------------------------------- | ------------------------------------------ |
 | ![](preview/now-playing-sakura.png) | ![](preview/now-playing-sakura-paused.png) |
 
+The queue has a template too. Its five rows are filled from the live queue — cover art, titles, real positions (so page 2 shows 6–10, not the template's baked 2–5), and durations — and any rows the page does not fill are cleared:
+
+![](preview/queue-sakura.png)
+
 ```ts
 await renderNowPlayingCard({ ...playerState, variant: 'sakura' });
+await renderQueueCard({ ...queueState, variant: 'sakura' });
 ```
 
-Swapping the template means re-measuring the region coordinates in `src/ui/canvas/cards/now-playing-sakura.card.ts`; they are pixel measurements of that specific image.
+Swapping either template means re-measuring the region coordinates in `src/ui/canvas/cards/now-playing-sakura.card.ts` and `queue-sakura.card.ts`; they are pixel measurements of those specific images. Note the two queue variants page differently — the classic list fits 10 rows, the illustrated one 5.
 
 ## The classic variant: a canvas-rendered UI
 
