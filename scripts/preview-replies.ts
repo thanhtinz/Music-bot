@@ -232,11 +232,17 @@ async function main(): Promise<void> {
     displayName: (userId) => NAMES[userId],
   });
 
-  const statsCard = context({ commandName: 'stats', userId: PEOPLE.me });
+  // `stats server` — the whole guild.
+  const statsCard = context({ commandName: 'stats', userId: PEOPLE.me, args: ['server'] });
   await stats.show(statsCard.ctx);
   save(statsCard, 'reply-stats.png');
 
-  // `stats @linh` — one person's own listening, not the server's.
+  // `stats` on its own — your own listening.
+  const myStats = context({ commandName: 'stats', userId: PEOPLE.me });
+  await stats.show(myStats.ctx);
+  save(myStats, 'reply-stats-me.png');
+
+  // `stats @linh` — somebody else's.
   const memberStats = context({
     commandName: 'stats',
     userId: PEOPLE.me,

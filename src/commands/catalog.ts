@@ -205,10 +205,10 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
 
   {
     name: 'stats',
-    description: 'What this server, or one person in it, listens to',
+    description: 'What you listen to; add a name, or `server`',
     category: 'general',
     aliases: ['activity', 'top'],
-    options: [{ name: 'user', description: 'Whose stats to show' }],
+    options: [{ name: 'target', description: 'server, or someone to look up' }],
     deferred: true,
   },
   {

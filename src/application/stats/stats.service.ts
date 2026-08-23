@@ -29,6 +29,14 @@ export interface StatsServiceOptions {
   guildName?: (guildId: string) => string | undefined;
 }
 
+/** The words that ask for the whole server rather than one person. */
+const SERVER_WORDS = new Set(['server', 'guild', 'all', 'everyone']);
+
+/** Whether an argument asks for the server's stats. */
+export function isServerWord(value: string): boolean {
+  return SERVER_WORDS.has(value.trim().toLowerCase());
+}
+
 /** A user id, from a raw snowflake or from the `<@id>` a mention pastes as. */
 export function parseUserId(value: string | undefined): string | undefined {
   const id = value?.trim().replace(/^<@!?/, '').replace(/>$/, '');
@@ -49,13 +57,17 @@ export class StatsService {
   ) {}
 
   async show(ctx: CommandContext): Promise<void> {
-    // `stats @someone` and `/stats user:@someone` are the same request.
-    const argument = ctx.option('user') ?? ctx.args[0];
-    const target = parseUserId(argument);
+    // `stats @someone` and `/stats target:@someone` are the same request.
+    const argument = (ctx.option('target') ?? ctx.args[0])?.trim();
 
-    if (argument && !target) {
+    // Asked for nobody in particular, the answer is your own listening: it is
+    // what someone running the command on themselves usually wants, and the
+    // server's is a word away.
+    const target = argument ? parseUserId(argument) : ctx.userId;
+
+    if (argument && !target && !isServerWord(argument)) {
       await ctx.reply({
-        content: `I do not know who **${argument}** is. Mention someone, or run **stats** on its own.`,
+        content: `I do not know who **${argument}** is. Mention someone, or say **server**.`,
         title: 'Who?',
         icon: 'warning',
         tone: 'warning',
@@ -96,12 +108,17 @@ export class StatsService {
 
   private async showMember(ctx: CommandContext, stats: GuildStats, userId: string): Promise<void> {
     const theirs = statsFor(stats, userId);
-    const name = this.nameFor(userId);
+    // "Someone" is a fair stand-in for a stranger, but not for the person
+    // reading their own card.
+    const name = this.options.displayName?.(userId) ?? (userId === ctx.userId ? 'You' : 'Someone');
 
     if (!theirs) {
       // A card of empty columns says less than the sentence does.
+      const mine = userId === ctx.userId;
       await ctx.reply({
-        content: `**${name}** has not queued anything here yet.`,
+        content: mine
+          ? 'You have not queued anything here yet. Play something, then ask again.'
+          : `**${name}** has not queued anything here yet.`,
         title: 'Nothing to show',
         icon: 'list',
         tone: 'info',

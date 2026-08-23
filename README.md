@@ -223,15 +223,21 @@ Storage is the same port-and-JSON-file arrangement the playlists use; both now s
 
 ## Listening stats
 
-`stats` (also `activity` or `top`) shows what a server actually listens to:
+`stats` (also `activity` or `top`) answers about **you**: your own top tracks and artists, how much of the server's listening is yours, and where you come among its listeners — with your row picked out of the list.
+
+![](preview/reply-stats-me.png)
+
+| Command          | Who it reports on |
+| ---------------- | ----------------- |
+| `stats`          | You               |
+| `stats @someone` | That person       |
+| `stats server`   | The whole server  |
+
+Your own numbers are what you usually want, so they are what a bare `stats` gives; the server is a word away. `guild`, `all` and `everyone` are taken the same as `server`, because those are the words people reach for.
 
 ![](preview/reply-stats.png)
 
-`stats @someone` (or `/stats user:@someone`) narrows it to one person: their own top tracks and artists, how much of the server's listening is theirs, and where they come among its listeners — with their row picked out of the list.
-
-![](preview/reply-stats-member.png)
-
-That needs per-user track counts, so each person's own list is kept alongside the guild's, capped tighter at 50 tracks each: three hundred songs across three hundred people is a file nobody wants, and the guild list is the one that keeps the long tail. A record written before per-user tracks existed starts collecting them rather than failing to load.
+The per-person view needs per-user track counts, so each person's own list is kept alongside the guild's, capped tighter at 50 tracks each: three hundred songs across three hundred people is a file nobody wants, and the guild list is the one that keeps the long tail. A record written before per-user tracks existed starts collecting them rather than failing to load.
 
 A play is counted when a track **ends**, not when it starts, and with the time it was up for — queueing forty songs and skipping thirty-nine of them should not read as forty songs listened to. The measure is wall time between start and end, capped at the track's own length; that counts a pause as listening, which overstates a little, and the cap is what stops it overstating a lot. A live stream has no length to cap against, so wall time is all there is.
 

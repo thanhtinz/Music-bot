@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CommandContext, ReplyPayload } from '../../src/application/commands';
-import { InMemoryStatsRepository, parseUserId, StatsService } from '../../src/application/stats';
+import {
+  InMemoryStatsRepository,
+  isServerWord,
+  parseUserId,
+  StatsService,
+} from '../../src/application/stats';
 import { createTrack, type Track } from '../../src/domain/music';
 import { createGuildStats, recordPlay, type GuildStats } from '../../src/domain/stats';
 
@@ -81,7 +86,7 @@ function seeded(): GuildStats {
   return stats;
 }
 
-describe('StatsService', () => {
+describe('StatsService, for the server', () => {
   let repository: InMemoryStatsRepository;
   let service: StatsService;
 
@@ -95,7 +100,7 @@ describe('StatsService', () => {
 
   it('sends a card once there is something to show', async () => {
     await repository.save(seeded());
-    const { ctx, replies } = harness();
+    const { ctx, replies } = harness({ args: ['server'] });
 
     await service.show(ctx);
 
@@ -105,7 +110,7 @@ describe('StatsService', () => {
   });
 
   it('says so plainly when nothing has been played', async () => {
-    const { ctx, replies } = harness();
+    const { ctx, replies } = harness({ args: ['server'] });
 
     await service.show(ctx);
 
@@ -116,7 +121,7 @@ describe('StatsService', () => {
   });
 
   it('treats a guild nobody has played in as empty rather than failing', async () => {
-    const { ctx, replies } = harness({ guildId: 'never-seen' });
+    const { ctx, replies } = harness({ guildId: 'never-seen', args: ['server'] });
 
     await service.show(ctx);
 
@@ -126,8 +131,8 @@ describe('StatsService', () => {
   it('renders a different card for a caller with their own numbers', async () => {
     await repository.save(seeded());
 
-    const mine = harness({ userId: IDS.me });
-    const theirs = harness({ userId: '900000000000000009' });
+    const mine = harness({ userId: IDS.me, args: ['server'] });
+    const theirs = harness({ userId: '900000000000000009', args: ['server'] });
     await service.show(mine.ctx);
     await service.show(theirs.ctx);
 
@@ -140,7 +145,7 @@ describe('StatsService', () => {
   it('renders without a display-name resolver', async () => {
     await repository.save(seeded());
     const anonymous = new StatsService(repository);
-    const { ctx, replies } = harness();
+    const { ctx, replies } = harness({ args: ['server'] });
 
     await service.show(ctx);
     await anonymous.show(ctx);
@@ -157,7 +162,7 @@ describe('StatsService', () => {
     const before = seeded();
     await repository.save(before);
 
-    await service.show(harness().ctx);
+    await service.show(harness({ args: ['server'] }).ctx);
 
     expect(await repository.find('guild')).toEqual(before);
   });
@@ -185,7 +190,9 @@ describe('StatsService, for one person', () => {
   });
 
   it('reads the slash option and the message argument the same way', async () => {
-    const slash = harness({ option: (name) => (name === 'user' ? `<@${IDS.linh}>` : undefined) });
+    const slash = harness({
+      option: (name) => (name === 'target' ? `<@${IDS.linh}>` : undefined),
+    });
     const prefix = harness({ args: [`<@!${IDS.linh}>`] });
 
     await service.show(slash.ctx);
@@ -198,7 +205,7 @@ describe('StatsService, for one person', () => {
 
   it('shows that person, not the server', async () => {
     const member = harness({ args: [IDS.linh] });
-    const guild = harness();
+    const guild = harness({ args: ['server'] });
 
     await service.show(member.ctx);
     await service.show(guild.ctx);
@@ -252,5 +259,88 @@ describe('parseUserId', () => {
     expect(parseUserId('linh')).toBeUndefined();
     expect(parseUserId('<@&100000000000000001>')).toBeUndefined();
     expect(parseUserId('123')).toBeUndefined();
+  });
+});
+
+describe('StatsService, choosing who to report on', () => {
+  let repository: InMemoryStatsRepository;
+  let service: StatsService;
+
+  beforeEach(async () => {
+    repository = new InMemoryStatsRepository();
+    service = new StatsService(repository, {
+      guildName: () => 'Melody Test Server',
+      displayName: (userId) => NAMES[userId],
+    });
+    await repository.save(seeded());
+  });
+
+  /** The card a given invocation produces. */
+  async function card(overrides: Parameters<typeof harness>[0]): Promise<Buffer> {
+    const { ctx, replies } = harness(overrides);
+    await service.show(ctx);
+
+    const data = replies[0]?.attachments?.[0]?.data;
+    if (!data) throw new Error(`no card: ${JSON.stringify(replies[0]?.title)}`);
+    return data;
+  }
+
+  it('answers with your own listening when asked for nobody in particular', async () => {
+    const [bare, mine] = await Promise.all([
+      card({ userId: IDS.me }),
+      card({ userId: IDS.me, args: [IDS.me] }),
+    ]);
+
+    // `stats` and `stats @yourself` are the same question.
+    expect(bare.equals(mine)).toBe(true);
+  });
+
+  it('answers for the server only when asked for it by name', async () => {
+    const [bare, server] = await Promise.all([
+      card({ userId: IDS.me }),
+      card({ userId: IDS.me, args: ['server'] }),
+    ]);
+
+    expect(bare.equals(server)).toBe(false);
+  });
+
+  it('takes the server by any of the words people reach for', async () => {
+    const server = await card({ userId: IDS.me, args: ['server'] });
+
+    for (const word of ['guild', 'all', 'everyone', 'SERVER', ' Server ']) {
+      expect((await card({ userId: IDS.me, args: [word] })).equals(server)).toBe(true);
+    }
+  });
+
+  it('reads the server word from the slash option too', async () => {
+    const option = await card({
+      userId: IDS.me,
+      option: (name) => (name === 'target' ? 'server' : undefined),
+    });
+
+    expect(option.equals(await card({ userId: IDS.me, args: ['server'] }))).toBe(true);
+  });
+
+  it('tells you it is you who has queued nothing, not "Someone"', async () => {
+    const { ctx, replies } = harness({ userId: '900000000000000009' });
+
+    await service.show(ctx);
+
+    expect(replies[0]?.title).toBe('Nothing to show');
+    expect(replies[0]?.content).toContain('You have not queued');
+  });
+});
+
+describe('isServerWord', () => {
+  it('takes the words people reach for, however they type them', () => {
+    for (const word of ['server', 'Server', ' GUILD ', 'all', 'everyone']) {
+      expect(isServerWord(word)).toBe(true);
+    }
+  });
+
+  it('leaves anything else to be read as a person', () => {
+    expect(isServerWord('linh')).toBe(false);
+    expect(isServerWord('')).toBe(false);
+    expect(isServerWord('servers')).toBe(false);
   });
 });
