@@ -43,9 +43,9 @@ describe('command wiring', () => {
     const pending = unimplementedCommands().map((meta) => meta.name);
 
     // These are honestly not built yet; the list exists so that stays visible.
-    expect(pending).toContain('playlist');
     expect(pending).toContain('lyrics');
     expect(pending).not.toContain('play');
+    expect(pending).not.toContain('playlist');
   });
 });
 

@@ -16,6 +16,7 @@ import {
   type CommandRegistry,
   type ReplyPayload,
 } from '../../application/commands';
+import type { PlaylistService } from '../../application/playlist';
 import type { MusicService } from '../../application/services/music.service';
 import type { PlayerManager } from '../../application/player';
 import { createLogger } from '../../telemetry/logger';
@@ -34,6 +35,8 @@ const logger = createLogger('discord-bot');
 export interface BotOptions {
   prefix: string;
   permissions: GuildPermissionSettings;
+  /** Saved playlists; without it the library's page buttons say so. */
+  playlists?: PlaylistService;
 }
 
 /**
@@ -217,6 +220,9 @@ async function handleButton(
       return;
     case 'page':
       await service.queue(context, Number(id.arg) || 1);
+      return;
+    case 'plpage':
+      await options.playlists?.list(context, Number(id.arg) || 1);
       return;
     case 'favorite':
       await context.reply({ content: 'Favorites are coming in a later phase.', ephemeral: true });

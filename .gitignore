@@ -1,6 +1,9 @@
 node_modules/
 dist/
 coverage/
+
+# Saved playlists, written at runtime
+data/
 *.log
 .env
 .env.*

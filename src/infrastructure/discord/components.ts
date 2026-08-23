@@ -2,7 +2,16 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 /** Actions a component can carry back to the bot. */
 export type ComponentAction =
-  'previous' | 'playpause' | 'skip' | 'shuffle' | 'loop' | 'queue' | 'favorite' | 'stop' | 'page';
+  | 'previous'
+  | 'playpause'
+  | 'skip'
+  | 'shuffle'
+  | 'loop'
+  | 'queue'
+  | 'favorite'
+  | 'stop'
+  | 'page'
+  | 'plpage';
 
 export interface ComponentId {
   action: ComponentAction;
@@ -53,6 +62,7 @@ const ACTIONS: readonly ComponentAction[] = [
   'favorite',
   'stop',
   'page',
+  'plpage',
 ];
 
 function isComponentAction(value: string): value is ComponentAction {
@@ -132,32 +142,53 @@ export function buildQueuePagination(
   page: number,
   totalPages: number,
 ): ActionRowBuilder<ButtonBuilder>[] {
+  return buildPagination('page', page, totalPages);
+}
+
+/**
+ * Pagination row for the playlist library card.
+ *
+ * Its own action, so a press on a library card cannot be answered with a page
+ * of the queue when both are on screen.
+ */
+export function buildPlaylistPagination(
+  page: number,
+  totalPages: number,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return buildPagination('plpage', page, totalPages);
+}
+
+function buildPagination(
+  action: ComponentAction,
+  page: number,
+  totalPages: number,
+): ActionRowBuilder<ButtonBuilder>[] {
   const total = Math.max(1, totalPages);
   const current = Math.min(Math.max(1, page), total);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'page', arg: '1' }))
+      .setCustomId(encodeComponentId({ action, arg: '1' }))
       .setEmoji('⏮️')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(current === 1),
     new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'page', arg: String(current - 1) }))
+      .setCustomId(encodeComponentId({ action, arg: String(current - 1) }))
       .setEmoji('◀️')
       .setStyle(ButtonStyle.Primary)
       .setDisabled(current === 1),
     new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'page', arg: String(current) }))
+      .setCustomId(encodeComponentId({ action, arg: String(current) }))
       .setLabel(`${current}/${total}`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true),
     new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'page', arg: String(current + 1) }))
+      .setCustomId(encodeComponentId({ action, arg: String(current + 1) }))
       .setEmoji('▶️')
       .setStyle(ButtonStyle.Primary)
       .setDisabled(current === total),
     new ButtonBuilder()
-      .setCustomId(encodeComponentId({ action: 'page', arg: String(total) }))
+      .setCustomId(encodeComponentId({ action, arg: String(total) }))
       .setEmoji('⏭️')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(current === total),

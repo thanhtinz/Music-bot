@@ -136,7 +136,14 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     description: 'Create, edit, and play saved playlists',
     category: 'playlist',
     aliases: ['pl'],
-    options: [{ name: 'action', description: 'create | play | add | remove | list' }],
+    options: [
+      {
+        name: 'action',
+        description: 'list | create | play | add | remove | delete | public | private',
+      },
+      { name: 'name', description: 'Playlist name', rest: true },
+      { name: 'position', description: 'Track number, for remove' },
+    ],
     deferred: true,
   },
   {

@@ -138,6 +138,26 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Saved playlists
+
+`playlist` works over slash, prefix and the library card's page buttons:
+
+| Action                            | What it does                                         |
+| --------------------------------- | ---------------------------------------------------- |
+| `playlist list`                   | Renders your library as a card, paged by its buttons |
+| `playlist create <name>`          | Creates an empty playlist                            |
+| `playlist add <name>`             | Adds the current track, creating the playlist if new |
+| `playlist play <name>`            | Queues every track in it                             |
+| `playlist remove <name> <n>`      | Removes track `n`, counting from 1                   |
+| `playlist delete <name>`          | Deletes the playlist                                 |
+| `playlist public\|private <name>` | Changes who can see it                               |
+
+Names are matched case- and whitespace-insensitively, so `chill vibes` finds `Chill  Vibes`. Limits are 25 playlists per person per guild and 500 tracks each.
+
+A playlist stores what it takes to rebuild a track, not the track object — the per-enqueue id and the original requester do not survive being saved, so a replayed track is attributed to whoever played it.
+
+Storage is behind a port (`PlaylistRepository`), so it can move to PostgreSQL in F8 without the command layer changing. Until then `PLAYLIST_STORE_PATH` writes a JSON file — whole-file writes, moved into place with a rename, so a crash cannot leave half a library. Blank the variable to keep playlists in memory instead and lose them on restart.
+
 ## Customising the look
 
 - **Fonts:** drop a `.ttf`/`.otf` into `assets/fonts/` — no code change needed.
@@ -154,7 +174,7 @@ tests/               # unit tests
 | F4    | Player, player manager, audio-backend seam, node balancing               | ✅ done |
 | F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker      | ✅ done |
 | F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
-| F7    | Playlists, favorites, lyrics, vote-skip                                  | ⏳      |
+| F7    | **Saved playlists**; favorites, lyrics, vote-skip                        | 🚧      |
 | F8    | PostgreSQL + Redis, 24/7, state recovery                                 | ⏳      |
 | F9    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
 

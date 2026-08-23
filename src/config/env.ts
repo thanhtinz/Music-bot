@@ -24,6 +24,15 @@ const envSchema = z.object({
   /** Card style: the illustrated templates or the themeable dark panels. */
   CARD_VARIANT: z.enum(['classic', 'sakura']).default('sakura'),
 
+  /**
+   * Where saved playlists are written.
+   *
+   * Left empty, playlists are kept in memory and lost on restart — which is the
+   * right default for a first run with nothing mounted, and the wrong one for
+   * anybody who means to keep them.
+   */
+  PLAYLIST_STORE_PATH: z.string().default('data/playlists.json'),
+
   // ── Lavalink ──────────────────────────────────────────────────────────────
   LAVALINK_HOST: z.string().default('127.0.0.1'),
   LAVALINK_PORT: z.coerce.number().int().min(1).max(65_535).default(2333),

@@ -1,4 +1,4 @@
-import { createTrack, type LoopMode, type Track } from '../../domain/music';
+import { createTrack, type LoopMode, type Track, type TrackInput } from '../../domain/music';
 import {
   describeResolverError,
   ResolverError,
@@ -322,6 +322,47 @@ export class MusicService {
       theme: this.options.theme,
       variant: this.options.variant,
     };
+  }
+
+  /**
+   * Queues tracks that are already resolved.
+   *
+   * A saved playlist has nothing to look up — the tracks were resolved when
+   * they were saved — so it enters the queue here rather than through
+   * {@link play}, and still under the guild lock like every other mutation.
+   */
+  async enqueueResolved(ctx: CommandContext, inputs: TrackInput[], label: string): Promise<void> {
+    if (inputs.length === 0) {
+      await ctx.reply({ content: `**${label}** has no tracks in it yet.`, ephemeral: true });
+      return;
+    }
+
+    const player = await this.players.getOrCreate({
+      guildId: ctx.guildId,
+      voiceChannelId: ctx.voiceChannelId!,
+      textChannelId: ctx.channelId,
+      volume: this.options.defaultVolume,
+      maxQueueSize: this.options.maxQueueSize,
+    });
+
+    try {
+      const tracks = inputs.map((input) => createTrack(input));
+      const { started, added } = await this.players.withLock(ctx.guildId, () =>
+        player.enqueue(tracks),
+      );
+
+      const suffix = added < tracks.length ? ` (the queue took ${added} of ${tracks.length})` : '';
+      await ctx.reply({ content: `Queued **${added}** tracks from **${label}**${suffix}.` });
+
+      if (started) await this.sendNowPlaying(ctx, player);
+    } catch (error) {
+      await this.replyWithError(ctx, error, 'playlist play');
+    }
+  }
+
+  /** The track playing right now, if there is one. */
+  currentTrack(guildId: string): Track | undefined {
+    return this.players.get(guildId)?.queue.current;
   }
 
   private toTrack(candidate: TrackCandidate, requesterId: string): Track {

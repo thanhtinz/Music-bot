@@ -1,4 +1,5 @@
 import type { Command } from '../application/commands';
+import type { PlaylistService } from '../application/playlist';
 import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
 import { isFilterPreset } from '../infrastructure/lavalink/filters';
@@ -11,6 +12,49 @@ export interface HandlerOptions {
   /** Prefix shown on the help card. */
   prefix: string;
   botName: string;
+  /** Saved playlists; without it the playlist command stays unregistered. */
+  playlists?: PlaylistService;
+}
+
+/** What `playlist` was asked to do, however it was invoked. */
+export interface PlaylistRequest {
+  action: string;
+  name: string;
+  position?: number;
+}
+
+/**
+ * Reads a playlist invocation from either interface.
+ *
+ * Slash supplies named options. Prefix supplies positional tokens, where the
+ * name runs to the end of the line — so for `remove` the position is taken from
+ * the last token, which is why it is written `playlist remove Chill 3`.
+ */
+export function parsePlaylistRequest(
+  args: readonly string[],
+  option: (name: string) => string | undefined,
+): PlaylistRequest {
+  if (args.length === 0) {
+    const position = Number(option('position'));
+
+    return {
+      action: (option('action') ?? 'list').toLowerCase(),
+      name: option('name')?.trim() ?? '',
+      ...(Number.isInteger(position) && position > 0 ? { position } : {}),
+    };
+  }
+
+  const action = (args[0] ?? 'list').toLowerCase();
+  const tokens = args.slice(1);
+
+  if (action === 'remove' && tokens.length > 1) {
+    const last = Number(tokens[tokens.length - 1]);
+    if (Number.isInteger(last) && last > 0) {
+      return { action, name: tokens.slice(0, -1).join(' ').trim(), position: last };
+    }
+  }
+
+  return { action, name: tokens.join(' ').trim() };
 }
 
 /** Human-facing names for the catalog's category keys. */
@@ -106,6 +150,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       await service.setFilter(ctx, preset);
     },
 
+    ...(options.playlists ? { playlist: playlistExecutor(options.playlists) } : {}),
+
     help: async (ctx) => {
       const grouped = [...catalogByCategory()];
       const card = await renderSakuraHelpCard({
@@ -127,6 +173,69 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     ...meta,
     execute: executors[meta.name] as Command['execute'],
   }));
+}
+
+/**
+ * The `playlist` subcommand router.
+ *
+ * Every branch needs a name except `list`, so the check is made once here
+ * rather than repeated — and an unknown action says what the options are
+ * instead of failing silently.
+ */
+function playlistExecutor(playlists: PlaylistService): Command['execute'] {
+  return async (ctx) => {
+    const request = parsePlaylistRequest(ctx.args, (name) => ctx.option(name));
+
+    if (request.action === 'list' || request.action === 'library') {
+      const page = Number(request.name);
+      await playlists.list(ctx, Number.isInteger(page) && page > 0 ? page : 1);
+      return;
+    }
+
+    if (!request.name) {
+      await ctx.reply({
+        content: `Which playlist? Try \`${ctx.sourceType === 'slash' ? '/' : ''}playlist ${request.action} <name>\`.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    switch (request.action) {
+      case 'create':
+      case 'new':
+        return playlists.create(ctx, request.name);
+      case 'delete':
+      case 'destroy':
+        return playlists.delete(ctx, request.name);
+      case 'add':
+      case 'save':
+        return playlists.addCurrent(ctx, request.name);
+      case 'play':
+      case 'load':
+        return playlists.play(ctx, request.name);
+      case 'public':
+        return playlists.setVisibility(ctx, request.name, 'public');
+      case 'private':
+        return playlists.setVisibility(ctx, request.name, 'private');
+      case 'remove':
+      case 'rm': {
+        if (request.position === undefined) {
+          await ctx.reply({
+            content: 'Which track? Give its number, e.g. `playlist remove Chill 3`.',
+            ephemeral: true,
+          });
+          return;
+        }
+        return playlists.removeTrack(ctx, request.name, request.position);
+      }
+      default:
+        await ctx.reply({
+          content:
+            'Playlist actions: `list`, `create`, `play`, `add`, `remove`, `delete`, `public`, `private`.',
+          ephemeral: true,
+        });
+    }
+  };
 }
 
 /** Commands in the catalog that have no implementation yet. */
@@ -165,4 +274,8 @@ function toLoopMode(raw: string | undefined): LoopMode | undefined {
  * asking it with a dummy service avoids maintaining a second list by hand.
  */
 const FAKE_SERVICE = {} as MusicService;
-const FAKE_OPTIONS: HandlerOptions = { prefix: '!', botName: 'bot' };
+const FAKE_OPTIONS: HandlerOptions = {
+  prefix: '!',
+  botName: 'bot',
+  playlists: {} as PlaylistService,
+};

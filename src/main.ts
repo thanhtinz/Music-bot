@@ -3,13 +3,19 @@ import { Connectors, Shoukaku } from 'shoukaku';
 
 import { CommandRegistry } from './application/commands';
 import { PlayerManager, type Player } from './application/player';
+import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { MusicService } from './application/services/music.service';
 import { buildCommands } from './commands/handlers';
 import { loadEnv } from './config/env';
 import { attachHandlers, createClient } from './infrastructure/discord/bot';
-import { buildNowPlayingControls, buildQueuePagination } from './infrastructure/discord/components';
+import {
+  buildNowPlayingControls,
+  buildPlaylistPagination,
+  buildQueuePagination,
+} from './infrastructure/discord/components';
 import { registerSlashCommands } from './infrastructure/discord/register-commands';
 import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
+import { JsonPlaylistRepository } from './infrastructure/storage/json-playlist-repository';
 import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
 import { createLogger, logger } from './telemetry/logger';
 
@@ -56,11 +62,28 @@ async function main(): Promise<void> {
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
   });
 
+  // A file store when one is configured, memory otherwise: playlists that do
+  // not survive a restart still beat a playlist command that reports an outage.
+  const playlists = new PlaylistService(
+    env.PLAYLIST_STORE_PATH
+      ? new JsonPlaylistRepository(env.PLAYLIST_STORE_PATH)
+      : new InMemoryPlaylistRepository(),
+    service,
+    {
+      prefix: env.DEFAULT_PREFIX,
+      displayName: (userId) => client.users.cache.get(userId)?.displayName,
+      libraryComponents: (page, totalPages) => buildPlaylistPagination(page, totalPages),
+    },
+  );
+
   const registry = new CommandRegistry();
-  registry.registerAll(buildCommands(service, { prefix: env.DEFAULT_PREFIX, botName: 'MusicBot' }));
+  registry.registerAll(
+    buildCommands(service, { prefix: env.DEFAULT_PREFIX, botName: 'MusicBot', playlists }),
+  );
 
   attachHandlers(client, registry, service, players, {
     prefix: env.DEFAULT_PREFIX,
+    playlists,
     permissions: {
       botOwnerIds: env.BOT_OWNER_IDS,
       everyoneIsDj: env.EVERYONE_IS_DJ,
