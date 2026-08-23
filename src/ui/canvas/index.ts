@@ -55,6 +55,12 @@ export type {
   HelpSakuraCategory,
   HelpSakuraCommand,
 } from './cards/help-sakura.card';
+export {
+  renderSakuraPlaylistCard,
+  PLAYLIST_SAKURA_PAGE_SIZE,
+  PLAYLIST_SAKURA_SIZE,
+} from './cards/playlist-sakura.card';
+export type { PlaylistCardData, PlaylistCardEntry } from './cards/playlist-sakura.card';
 export { drawGlyph, glyphFor } from './glyphs';
 export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';

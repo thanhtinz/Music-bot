@@ -35,10 +35,15 @@ The command list too. Its sidebar, highlight, rows and every icon come from the 
 
 ![](preview/help-sakura.png)
 
+The playlist library is drawn entirely in code — no template behind it — with its own pastel stickers, so it sits alongside the template-backed cards without one:
+
+![](preview/playlist-sakura.png)
+
 ```ts
 await renderNowPlayingCard({ ...playerState, variant: 'sakura' });
 await renderQueueCard({ ...queueState, variant: 'sakura' });
 await renderSakuraHelpCard({ categories, activeCategory, commands, prefix });
+await renderSakuraPlaylistCard({ entries, ownerName, page, totalPages, prefix });
 ```
 
 Swapping either template means re-measuring the region coordinates in `src/ui/canvas/cards/now-playing-sakura.card.ts` and `queue-sakura.card.ts`; they are pixel measurements of those specific images. Note the two queue variants page differently — the classic list fits 10 rows, the illustrated one 5.
@@ -126,6 +131,8 @@ src/
     ├── fonts.ts        # font registration (bundled → system)
     ├── primitives.ts   # rounded rects, gradients, text truncation/wrapping, durations
     ├── artwork.ts      # artwork loading (host allowlist) + generated placeholder
+    ├── glyphs.ts       # line-art command icons drawn from paths
+    ├── stickers.ts     # pastel decorations for the code-drawn cards
     └── cards/          # one module per card
 scripts/             # dev tooling (canvas preview)
 tests/               # unit tests

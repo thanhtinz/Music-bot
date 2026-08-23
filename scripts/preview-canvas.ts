@@ -18,6 +18,7 @@ import {
   renderHelpCard,
   renderNowPlayingCard,
   renderSakuraHelpCard,
+  renderSakuraPlaylistCard,
   paginateSakuraQueue,
   renderQueueCard,
   type NowPlayingCardData,
@@ -358,6 +359,41 @@ async function main(): Promise<void> {
   const sakuraHelp = await renderSakuraHelpPreview();
   writeFileSync(resolve(OUT_DIR, 'help-sakura.png'), sakuraHelp);
   console.log(`rendered help-sakura.png (${(sakuraHelp.byteLength / 1024).toFixed(1)} KB)`);
+
+  const playlistCard = await renderSakuraPlaylistCard({
+    ownerName: 'thanhtinz',
+    totalCount: 9,
+    page: 1,
+    totalPages: 2,
+    prefix: '/',
+    entries: [
+      {
+        name: 'Chill Tối Muộn',
+        trackCount: 42,
+        totalDurationMs: 9_240_000,
+        ownerName: 'thanhtinz',
+      },
+      { name: 'V-Pop Hits', trackCount: 18, totalDurationMs: 4_020_000, ownerName: 'thanhtinz' },
+      {
+        name: 'Lo-fi Study',
+        trackCount: 120,
+        totalDurationMs: 24_600_000,
+        ownerName: 'thanhtinz',
+        visibility: 'private',
+      },
+      { name: 'Workout Energy', trackCount: 27, totalDurationMs: 6_300_000, ownerName: 'minh' },
+      { name: 'Sơn Tùng M-TP', trackCount: 33, totalDurationMs: 7_800_000, ownerName: 'linh' },
+      {
+        name: 'Anime OST Collection',
+        trackCount: 8,
+        totalDurationMs: 1_980_000,
+        ownerName: 'khanh',
+        visibility: 'private',
+      },
+    ],
+  });
+  writeFileSync(resolve(OUT_DIR, 'playlist-sakura.png'), playlistCard);
+  console.log(`rendered playlist-sakura.png (${(playlistCard.byteLength / 1024).toFixed(1)} KB)`);
 
   const playerCard = await renderPlayerPreview();
   writeFileSync(resolve(OUT_DIR, 'now-playing-live-player.png'), playerCard);
