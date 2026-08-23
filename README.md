@@ -299,6 +299,26 @@ A live stream has no position to jump to. The player quietly ignores the attempt
 
 ![](preview/reply-forward-stream.png)
 
+## Cleaning up a queue
+
+Two commands for a queue that has drifted from what the room wants:
+
+| Command        | What it drops                                            |
+| -------------- | -------------------------------------------------------- |
+| `removedupes`  | Repeats, keeping the earliest copy of each               |
+| `leavecleanup` | Tracks queued by people who have left the channel        |
+| `removemine`   | Everything you queued — yours only, no permission needed |
+
+![](preview/reply-remove-dupes.png)
+
+`removedupes` matches a track by source and identifier rather than by queue entry: the same song added twice is two entries with two ids, so matching by entry would find nothing. What is playing counts as already queued, because a long playlist looping back onto the current track is the usual way a queue fills with repeats.
+
+`leavecleanup` needs the voice channel to be readable, and refuses when it is not — an unknown room and an empty one mean very different things, and guessing would throw away the queue of everybody present. It never withdraws the track already playing: that one is already sounding in the channel.
+
+![](preview/reply-leave-cleanup.png)
+
+One reader answers "who is listening" for both the skip vote and the cleanup, so the two cannot disagree about who is in the room.
+
 ## Voting to skip
 
 `skip` (also `voteskip`, `vs`) is open to everyone now, and gated by a vote:

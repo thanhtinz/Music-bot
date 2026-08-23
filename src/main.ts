@@ -164,13 +164,8 @@ async function main(): Promise<void> {
     startingVolumeFor: async (guildId) => (await settings.forGuild(guildId)).defaultVolume,
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
     guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
-    listenerCount: (guildId) => {
-      const channelId = players.get(guildId)?.voiceChannelId;
-      const channel = channelId ? client.channels.cache.get(channelId) : undefined;
-      if (!channel?.isVoiceBased()) return undefined;
-
-      return channel.members.filter((member) => !member.user.bot).size;
-    },
+    listenerCount: (guildId) => listenersOf(client, players, guildId)?.size,
+    listenerIds: (guildId) => listenersOf(client, players, guildId),
     channelName: (channelId) => {
       const channel = client.channels.cache.get(channelId);
       return channel && 'name' in channel ? (channel.name ?? undefined) : undefined;
@@ -398,6 +393,25 @@ async function main(): Promise<void> {
 }
 
 /** Connects the audio node pool and logs its lifecycle (spec §8). */
+/**
+ * Who is listening in a guild's voice channel, bots excluded.
+ *
+ * `undefined` when the channel cannot be read — an unknown room and an empty
+ * one mean different things to a skip vote and to `leavecleanup`, and both ask
+ * this same question, so they cannot disagree about the answer.
+ */
+function listenersOf(
+  client: Client,
+  players: PlayerManager,
+  guildId: string,
+): Set<string> | undefined {
+  const channelId = players.get(guildId)?.voiceChannelId;
+  const channel = channelId ? client.channels.cache.get(channelId) : undefined;
+  if (!channel?.isVoiceBased()) return undefined;
+
+  return new Set(channel.members.filter((member) => !member.user.bot).map((member) => member.id));
+}
+
 function createShoukaku(client: Client, env: ReturnType<typeof loadEnv>): Shoukaku {
   const extra = parseNodes(env.LAVALINK_NODES);
   for (const entry of extra.rejected) {

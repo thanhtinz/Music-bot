@@ -28,6 +28,11 @@ import type { Player, PlayerManager, ProgressTicker } from '../player';
 
 const logger = createLogger('music-service');
 
+/** `1 track` / `2 tracks`, so a reply does not have to say "track(s)". */
+function plural(count: number, noun: string): string {
+  return count === 1 ? noun : `${noun}s`;
+}
+
 export interface MusicServiceOptions {
   /** Card style used for every panel. */
   variant?: 'classic' | 'sakura';
@@ -65,6 +70,14 @@ export interface MusicServiceOptions {
    * than skipping too easily.
    */
   listenerCount?: (guildId: string) => number | undefined;
+  /**
+   * Who is in the guild's voice channel right now.
+   *
+   * Undefined means the channel cannot be read, which `leavecleanup` treats as
+   * a refusal rather than as an empty room: guessing would throw away the queue
+   * of everybody present.
+   */
+  listenerIds?: (guildId: string) => ReadonlySet<string> | undefined;
   /**
    * Resolves a channel's name.
    *
@@ -663,6 +676,88 @@ export class MusicService {
     await ctx.reply({
       content: `Removed **${removed}** ${removed === 1 ? 'track' : 'tracks'} you queued.`,
       title: 'Removed yours',
+      icon: 'stop',
+    });
+  }
+
+  /**
+   * Drops repeats, keeping the earliest copy of each track.
+   *
+   * A long playlist queued twice, or a room where three people added the same
+   * song, leaves a queue that plays the same thing over and over — and finding
+   * each repeat by eye and removing it by position is a job nobody does.
+   */
+  async removeDuplicates(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const removed = await this.players.withLock(ctx.guildId, () => player.queue.removeDuplicates());
+
+    if (removed.length === 0) {
+      await ctx.reply({
+        content: 'No duplicates in the queue.',
+        title: 'Nothing to clean up',
+        icon: 'queue',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    logger.info({ guildId: ctx.guildId, removed: removed.length }, 'removed duplicate tracks');
+
+    await ctx.reply({
+      content: `Removed **${removed.length}** duplicate ${plural(removed.length, 'track')}, keeping the first of each.`,
+      title: 'Duplicates removed',
+      icon: 'stop',
+    });
+  }
+
+  /**
+   * Drops tracks queued by people who have left the voice channel.
+   *
+   * For the room that has emptied out with an hour of somebody else's queue
+   * still in it. Needs the listener list to be readable — without it there is
+   * no way to tell who left from who is simply quiet, and guessing would throw
+   * away the queue of everybody present.
+   */
+  async removeAbsent(ctx: CommandContext): Promise<void> {
+    const player = this.require(ctx);
+    if (!player) return;
+
+    const present = this.options.listenerIds?.(ctx.guildId);
+
+    if (!present) {
+      await ctx.reply({
+        content: 'I cannot see who is in the channel right now, so I left the queue alone.',
+        title: 'Cleanup',
+        icon: 'queue',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const removed = await this.players.withLock(ctx.guildId, () =>
+      player.queue.removeAbsent(present),
+    );
+
+    if (removed.length === 0) {
+      await ctx.reply({
+        content: 'Everything queued belongs to somebody still here.',
+        title: 'Nothing to clean up',
+        icon: 'queue',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    logger.info(
+      { guildId: ctx.guildId, removed: removed.length },
+      'removed tracks of absent users',
+    );
+
+    await ctx.reply({
+      content: `Removed **${removed.length}** ${plural(removed.length, 'track')} queued by people who left.`,
+      title: 'Cleaned up',
       icon: 'stop',
     });
   }

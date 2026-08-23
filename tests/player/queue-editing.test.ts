@@ -387,3 +387,95 @@ describe('history', () => {
     expect(players.get('guild')?.queue.history.map((track) => track.title)).toEqual(['First']);
   });
 });
+
+describe('cleaning up the queue', () => {
+  let backend: FakeAudioBackend;
+  let players: PlayerManager;
+
+  /** A service that can or cannot read who is in the channel. */
+  function service(present?: string[]): MusicService {
+    return new MusicService(players, new ResolverRegistry(), {
+      ...(present ? { listenerIds: () => new Set(present) } : {}),
+    });
+  }
+
+  /** Titles of the upcoming tracks. */
+  function upcoming(): string[] {
+    return players.get('guild')?.queue.tracks.map((track) => track.title) ?? [];
+  }
+
+  beforeEach(async () => {
+    backend = new FakeAudioBackend();
+    players = new PlayerManager(backend, { maxQueueSize: 20 });
+
+    const player = await players.getOrCreate({ guildId: 'guild', voiceChannelId: 'voice' });
+    await player.enqueue([
+      song('Playing', 'host'),
+      song('One', 'host'),
+      song('Two', 'guest'),
+      song('One', 'guest'),
+    ]);
+  });
+
+  describe('removedupes', () => {
+    it('keeps the first copy and says how many went', async () => {
+      const { ctx, replies } = harness({ commandName: 'removedupes' });
+
+      await service().removeDuplicates(ctx);
+
+      expect(upcoming()).toEqual(['One', 'Two']);
+      expect(replies[0]?.content).toContain('**1**');
+    });
+
+    it('answers privately when there is nothing to do', async () => {
+      const clean = harness({ commandName: 'removedupes' });
+      await service().removeDuplicates(clean.ctx);
+
+      const again = harness({ commandName: 'removedupes' });
+      await service().removeDuplicates(again.ctx);
+
+      expect(again.replies[0]?.content).toMatch(/no duplicates/i);
+      expect(again.replies[0]?.ephemeral).toBe(true);
+    });
+  });
+
+  describe('leavecleanup', () => {
+    it('drops what the people who left had queued', async () => {
+      const { ctx, replies } = harness({ commandName: 'leavecleanup' });
+
+      await service(['host']).removeAbsent(ctx);
+
+      expect(upcoming()).toEqual(['One']);
+      expect(replies[0]?.content).toContain('**2**');
+    });
+
+    it('leaves the queue alone when the channel cannot be read', async () => {
+      // Guessing would throw away the queue of everybody still present.
+      const { ctx, replies } = harness({ commandName: 'leavecleanup' });
+
+      await service().removeAbsent(ctx);
+
+      expect(upcoming()).toEqual(['One', 'Two', 'One']);
+      expect(replies[0]?.content).toMatch(/cannot see/i);
+      expect(replies[0]?.ephemeral).toBe(true);
+    });
+
+    it('says so when everybody who queued something is still here', async () => {
+      const { ctx, replies } = harness({ commandName: 'leavecleanup' });
+
+      await service(['host', 'guest']).removeAbsent(ctx);
+
+      expect(upcoming()).toHaveLength(3);
+      expect(replies[0]?.content).toMatch(/still here/i);
+    });
+
+    it('never withdraws the track already playing', async () => {
+      const { ctx } = harness({ commandName: 'leavecleanup' });
+
+      await service(['nobody-who-queued-anything']).removeAbsent(ctx);
+
+      expect(players.get('guild')?.queue.current?.title).toBe('Playing');
+      expect(upcoming()).toEqual([]);
+    });
+  });
+});

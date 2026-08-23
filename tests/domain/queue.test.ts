@@ -277,6 +277,78 @@ describe('Queue bulk operations', () => {
   });
 });
 
+describe('Queue cleanup', () => {
+  it('keeps the first copy of a track and drops the rest', () => {
+    const queue = new Queue();
+    queue.add([track('A'), track('B'), track('A'), track('C'), track('B')]);
+
+    const removed = queue.removeDuplicates();
+
+    expect(removed.map((t) => t.title)).toEqual(['A', 'B']);
+    expect(queue.tracks.map((t) => t.title)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('counts the playing track as already queued', () => {
+    // A long playlist looping back onto what is playing is the usual way a
+    // queue fills with repeats.
+    const queue = new Queue();
+    queue.add([track('A'), track('B'), track('A')]);
+    queue.next();
+
+    queue.removeDuplicates();
+
+    expect(queue.current?.title).toBe('A');
+    expect(queue.tracks.map((t) => t.title)).toEqual(['B']);
+  });
+
+  it('matches a track by what it is, not by who queued it', () => {
+    // The same song added by two people is one song twice.
+    const queue = new Queue();
+    queue.add([track('A', 'u1'), track('A', 'u2')]);
+
+    expect(queue.removeDuplicates()).toHaveLength(1);
+    expect(queue.tracks[0]?.requesterId).toBe('u1');
+  });
+
+  it('removes nothing from a queue with no repeats', () => {
+    const queue = new Queue();
+    queue.add([track('A'), track('B')]);
+
+    expect(queue.removeDuplicates()).toEqual([]);
+    expect(queue.size).toBe(2);
+  });
+
+  it('drops tracks queued by anybody who has left', () => {
+    const queue = new Queue();
+    queue.add([track('A', 'stayed'), track('B', 'left'), track('C', 'stayed')]);
+
+    const removed = queue.removeAbsent(new Set(['stayed']));
+
+    expect(removed.map((t) => t.title)).toEqual(['B']);
+    expect(queue.tracks.map((t) => t.title)).toEqual(['A', 'C']);
+  });
+
+  it('leaves the playing track alone even when its requester left', () => {
+    // Withdrawing a track already sounding in the channel is not a cleanup.
+    const queue = new Queue();
+    queue.add([track('Playing', 'left'), track('B', 'left')]);
+    queue.next();
+
+    queue.removeAbsent(new Set(['stayed']));
+
+    expect(queue.current?.title).toBe('Playing');
+    expect(queue.tracks).toEqual([]);
+  });
+
+  it('empties the queue when nobody who queued anything is left', () => {
+    const queue = new Queue();
+    queue.add([track('A', 'left'), track('B', 'gone')]);
+
+    expect(queue.removeAbsent(new Set())).toHaveLength(2);
+    expect(queue.size).toBe(0);
+  });
+});
+
 describe('Queue snapshots', () => {
   it('round-trips through JSON', () => {
     const queue = new Queue({ maxSize: 10 });

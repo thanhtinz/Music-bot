@@ -1,4 +1,4 @@
-import { totalDurationMs, type Track } from './track';
+import { totalDurationMs, trackKey, type Track } from './track';
 
 export type LoopMode = 'off' | 'song' | 'queue';
 
@@ -236,6 +236,54 @@ export class Queue {
     const before = this.upcoming.length;
     this.upcoming = this.upcoming.filter((track) => track.requesterId !== requesterId);
     return before - this.upcoming.length;
+  }
+
+  /**
+   * Drops repeats of a track already queued, keeping the earliest of each.
+   *
+   * Identity is the source and identifier, not the queue entry: the same song
+   * added twice is two entries with two ids, and dropping by entry id would
+   * find nothing. The current track counts as already queued — the usual way a
+   * queue fills with repeats is a long playlist looping back onto what is
+   * playing.
+   */
+  removeDuplicates(): Track[] {
+    const seen = new Set<string>();
+    if (this.currentTrack) seen.add(trackKey(this.currentTrack));
+
+    const removed: Track[] = [];
+    this.upcoming = this.upcoming.filter((track) => {
+      const identity = trackKey(track);
+      if (!seen.has(identity)) {
+        seen.add(identity);
+        return true;
+      }
+
+      removed.push(track);
+      return false;
+    });
+
+    return removed;
+  }
+
+  /**
+   * Drops tracks queued by anybody outside `present`.
+   *
+   * For the room that has emptied out with an hour of somebody else's queue
+   * still in it. What is playing is left alone: a track already sounding in the
+   * channel is not something to withdraw under the people still listening.
+   */
+  removeAbsent(present: ReadonlySet<string>): Track[] {
+    const removed: Track[] = [];
+
+    this.upcoming = this.upcoming.filter((track) => {
+      if (present.has(track.requesterId)) return true;
+
+      removed.push(track);
+      return false;
+    });
+
+    return removed;
   }
 
   /** Serialisable snapshot for Redis-backed recovery (spec §21). */

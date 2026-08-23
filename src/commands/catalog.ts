@@ -227,6 +227,20 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     aliases: ['rmmine', 'cleanup'],
   },
   {
+    name: 'removedupes',
+    description: 'Drop repeats, keeping the first of each',
+    category: 'queue',
+    aliases: ['rmdupes', 'dedupe'],
+    tier: 'dj',
+  },
+  {
+    name: 'leavecleanup',
+    description: 'Drop tracks queued by people who left',
+    category: 'queue',
+    aliases: ['lc', 'leaveclean'],
+    tier: 'dj',
+  },
+  {
     name: 'clear',
     description: 'Remove every upcoming track',
     category: 'queue',

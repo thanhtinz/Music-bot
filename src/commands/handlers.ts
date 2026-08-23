@@ -209,6 +209,8 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     },
 
     replay: async (ctx) => service.replay(ctx),
+    removedupes: async (ctx) => service.removeDuplicates(ctx),
+    leavecleanup: async (ctx) => service.removeAbsent(ctx),
     forward: async (ctx) => nudge(ctx, 1),
     rewind: async (ctx) => nudge(ctx, -1),
 

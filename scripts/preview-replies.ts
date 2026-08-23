@@ -441,6 +441,32 @@ async function main(): Promise<void> {
   await music.remove(badPosition.ctx, 99);
   save(badPosition, 'reply-remove-out-of-range.png');
 
+  // Cleanup, on a queue seeded with a repeat and a track from somebody who
+  // has since left the channel.
+  const cleanupPlayers = new PlayerManager(backend, { defaultVolume: 70, maxQueueSize: 100 });
+  const cleanupMusic = new MusicService(cleanupPlayers, new ResolverRegistry(), {
+    ...MUSIC_OPTIONS,
+    listenerIds: () => new Set(['owner']),
+  });
+  const cleanupPlayer = await cleanupPlayers.getOrCreate({
+    guildId: 'cleanup-guild',
+    voiceChannelId: 'voice-a',
+  });
+  await cleanupPlayer.enqueue([
+    song('Chăm Hoa', 'MONO'),
+    song('Lạc Trôi', 'Sơn Tùng M-TP'),
+    song('Chăm Hoa', 'MONO'),
+    { ...song('Waiting For You', 'MONO'), requesterId: 'someone-who-left' },
+  ]);
+
+  const dupes = context({ commandName: 'removedupes', guildId: 'cleanup-guild' });
+  await cleanupMusic.removeDuplicates(dupes.ctx);
+  save(dupes, 'reply-remove-dupes.png');
+
+  const leftBehind = context({ commandName: 'leavecleanup', guildId: 'cleanup-guild' });
+  await cleanupMusic.removeAbsent(leftBehind.ctx);
+  save(leftBehind, 'reply-leave-cleanup.png');
+
   const mineGone = context({ commandName: 'removemine' });
   await music.removeMine(mineGone.ctx);
   save(mineGone, 'reply-remove-mine.png');
