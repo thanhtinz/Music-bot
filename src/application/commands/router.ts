@@ -26,6 +26,13 @@ export interface RouterOptions {
   cooldown?: CooldownTracker;
   /** Prefix shown in error messages so hints match how the user typed it. */
   prefixFor?: (ctx: CommandContext) => string;
+  /**
+   * Told the outcome of every dispatch and how long it took.
+   *
+   * Reported here rather than at each call site because this is the one place
+   * every invocation passes through, whichever interface it came from.
+   */
+  onDispatched?: (result: DispatchResult, seconds: number) => void;
 }
 
 const logger = createLogger('command-router');
@@ -48,6 +55,15 @@ export class CommandRouter {
   }
 
   async dispatch(ctx: CommandContext): Promise<DispatchResult> {
+    const started = Date.now();
+
+    const result = await this.route(ctx);
+    this.options.onDispatched?.(result, (Date.now() - started) / 1000);
+
+    return result;
+  }
+
+  private async route(ctx: CommandContext): Promise<DispatchResult> {
     const command = this.registry.get(ctx.commandName);
 
     if (!command) {

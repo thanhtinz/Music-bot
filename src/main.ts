@@ -25,6 +25,8 @@ import { JsonSettingsRepository } from './infrastructure/storage/json-settings-r
 import { LrclibProvider } from './lyrics';
 import { RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
 import { renderSakuraNoticeCard } from './ui/canvas';
+import { createBotMetrics } from './telemetry/bot-metrics';
+import { createHealthServer } from './infrastructure/http/health-server';
 import { createLogger, logger } from './telemetry/logger';
 
 const log = createLogger('main');
@@ -39,6 +41,7 @@ const log = createLogger('main');
 async function main(): Promise<void> {
   const env = loadEnv();
 
+  const metrics = createBotMetrics();
   const client = createClient();
   const shoukaku = createShoukaku(client, env);
   const backend = new LavalinkBackend(shoukaku, {
@@ -173,6 +176,11 @@ async function main(): Promise<void> {
     prefix: env.DEFAULT_PREFIX,
     playlists,
     lyrics,
+    onDispatched: (result, seconds) => {
+      const name = result.command?.name ?? 'unknown';
+      metrics.commands.increment({ command: name, status: result.status });
+      metrics.commandDuration.observe(seconds, { command: name });
+    },
     // Every text reply comes back as a panel in the same style as the Now
     // Playing and queue cards, rather than as a bare line of chat.
     ...(env.CARD_VARIANT === 'sakura' ? { notices: renderSakuraNoticeCard } : {}),
@@ -193,6 +201,43 @@ async function main(): Promise<void> {
     }).catch((error) => log.error({ err: error }, 'slash registration failed'));
   });
 
+  const health = env.METRICS_PORT
+    ? createHealthServer({
+        port: env.METRICS_PORT,
+        ...(env.METRICS_HOST ? { host: env.METRICS_HOST } : {}),
+        registry: metrics.registry,
+        report: () => ({
+          // Alive means the process is running; readiness is what says whether
+          // it can actually play anything, so a dead audio node does not get
+          // the container restarted.
+          alive: true,
+          ready: client.isReady() && shoukaku.nodes.size > 0,
+          details: {
+            gateway: client.isReady(),
+            nodes: shoukaku.nodes.size,
+            players: players.size,
+          },
+        }),
+        collect: () => {
+          metrics.players.set(players.size);
+          metrics.guilds.set(client.guilds.cache.size);
+          metrics.gatewayLatency.set(Math.max(0, Math.round(client.ws.ping)));
+
+          for (const [name, node] of shoukaku.nodes) {
+            metrics.nodeUp.set(node.state === 2 ? 1 : 0, { node: name });
+            metrics.nodePlayers.set(node.stats?.players ?? 0, { node: name });
+          }
+        },
+      })
+    : undefined;
+
+  if (health) {
+    await health.start().catch((error) => {
+      // A missing metrics endpoint is not a reason to refuse to play music.
+      log.warn({ err: error, port: env.METRICS_PORT }, 'could not start the health endpoint');
+    });
+  }
+
   installShutdownHandlers(async () => {
     log.info('shutting down');
     // Written before the players are torn down: destroying them first would
@@ -203,6 +248,7 @@ async function main(): Promise<void> {
     sessions.stop();
 
     await players.destroyAll().catch(() => undefined);
+    await health?.stop().catch(() => undefined);
     await client.destroy();
   });
 

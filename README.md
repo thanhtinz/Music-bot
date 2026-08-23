@@ -162,6 +162,22 @@ It gets the same treatment as the track resolvers: a 6-second timeout and a circ
 
 The lookup is remembered per guild so a page button turns the page instead of spending another request.
 
+## Health and metrics
+
+Set `METRICS_PORT` and the bot serves three endpoints (on loopback by default, so it is not exposed by accident):
+
+| Path       | Answers                                                     |
+| ---------- | ----------------------------------------------------------- |
+| `/healthz` | Is the process alive?                                       |
+| `/readyz`  | Can it actually play — gateway up, at least one audio node? |
+| `/metrics` | Prometheus text format                                      |
+
+Liveness and readiness are separate on purpose: an orchestrator restarting the container on a failed liveness check must not do so merely because Lavalink is down, which is what readiness reports. `/readyz` names the failing check in its body rather than just saying no.
+
+Metrics cover commands (by name and outcome, with a duration histogram), active players, guilds, gateway latency, and each audio node's state and player count. Gauges are refreshed at scrape time, so a scrape never reports whatever happened to be true when the last command ran.
+
+The registry is hand-rolled — the bot needs four metric shapes and the text format is a dozen lines to emit, so a dependency here would be more code to keep current than the thing it replaces.
+
 ## Surviving a restart
 
 A deploy in the middle of a set should cost the listeners a few seconds, not their queue. Each guild's session — voice channel, queue, history, loop, autoplay, filter, and where the current track had got to — is written to `SESSION_STORE_PATH` and picked back up when the bot returns.
@@ -268,7 +284,7 @@ Storage is behind a port (`PlaylistRepository`), so it can move to PostgreSQL in
 | F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
 | F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                    | 🚧      |
 | F8    | **24/7, state recovery**; PostgreSQL + Redis                             | 🚧      |
-| F9    | Lavalink cluster, failover, metrics, dashboard                           | ⏳      |
+| F9    | **Metrics and health**; Lavalink cluster, failover, dashboard            | 🚧      |
 
 ## License
 

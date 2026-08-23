@@ -17,7 +17,11 @@ import {
   type CommandRegistry,
   type ReplyPayload,
 } from '../../application/commands';
-import { withNoticeCards, type NoticeRenderer } from '../../application/commands';
+import {
+  withNoticeCards,
+  type NoticeRenderer,
+  type RouterOptions,
+} from '../../application/commands';
 import type { PlaylistService } from '../../application/playlist';
 import type { LyricsService } from '../../application/services/lyrics.service';
 import type { MusicService } from '../../application/services/music.service';
@@ -42,6 +46,8 @@ export interface BotOptions {
   playlists?: PlaylistService;
   /** Lyrics, for the page buttons on a lyrics card. */
   lyrics?: LyricsService;
+  /** Told the outcome of every dispatch, for metrics. */
+  onDispatched?: RouterOptions['onDispatched'];
   /**
    * Draws text replies as notice panels.
    *
@@ -87,6 +93,7 @@ export function attachHandlers(
 ): Client {
   const router = new CommandRouter(registry, {
     prefixFor: (ctx) => (ctx.sourceType === 'slash' ? '/' : options.prefix),
+    ...(options.onDispatched ? { onDispatched: options.onDispatched } : {}),
   });
 
   // The bot leaves a channel it is alone in, so it has to know when that
