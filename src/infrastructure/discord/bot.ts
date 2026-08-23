@@ -24,6 +24,7 @@ import {
 } from '../../application/commands';
 import type { PlaylistService } from '../../application/playlist';
 import type { SearchService } from '../../application/search';
+import type { SettingsService } from '../../application/settings';
 import type { LyricsService } from '../../application/services/lyrics.service';
 import type { MusicService } from '../../application/services/music.service';
 import type { PlayerManager } from '../../application/player';
@@ -41,8 +42,18 @@ import { missingVoicePermissions, resolveTier, type GuildPermissionSettings } fr
 const logger = createLogger('discord-bot');
 
 export interface BotOptions {
+  /** Fallback prefix, for a guild that has not set one of its own. */
   prefix: string;
   permissions: GuildPermissionSettings;
+  /**
+   * A guild's own settings, read before a message is parsed.
+   *
+   * Without it every guild uses the environment's prefix and DJ role, which
+   * is what the tests want and what a deployment gets with storage turned
+   * off — but it also means `settings prefix` would change nothing, so the
+   * live bot always passes this.
+   */
+  settings?: SettingsService;
   /** Saved playlists; without it the library's page buttons say so. */
   playlists?: PlaylistService;
   /** Lyrics, for the page buttons on a lyrics card. */
@@ -94,8 +105,15 @@ export function attachHandlers(
   players: PlayerManager,
   options: BotOptions,
 ): Client {
+  // What each guild's prefix turned out to be, filled in as messages arrive.
+  // The router asks for it synchronously, and a guild whose settings have not
+  // been read yet falls back to the environment's — one usage hint showing the
+  // default prefix is a smaller wrong than blocking every dispatch on a read.
+  const prefixes = new Map<string, string>();
+
   const router = new CommandRouter(registry, {
-    prefixFor: (ctx) => (ctx.sourceType === 'slash' ? '/' : options.prefix),
+    prefixFor: (ctx) =>
+      ctx.sourceType === 'slash' ? '/' : (prefixes.get(ctx.guildId) ?? options.prefix),
     ...(options.onDispatched ? { onDispatched: options.onDispatched } : {}),
   });
 
@@ -129,7 +147,7 @@ export function attachHandlers(
   });
 
   client.on(Events.MessageCreate, (message) => {
-    void handleMessage(message, registry, router, client, options).catch((error) => {
+    void handleMessage(message, registry, router, client, options, prefixes).catch((error) => {
       logger.error({ err: error }, 'message handler failed');
     });
   });
@@ -174,7 +192,9 @@ async function handleInteraction(
   const command = registry.get(interaction.commandName);
   const context = decorate(
     createInteractionContext(interaction, {
-      tier: member ? resolveTier(member, options.permissions) : 'everyone',
+      tier: member
+        ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
+        : 'everyone',
       voiceChannelId,
     }),
     options,
@@ -194,13 +214,17 @@ async function handleMessage(
   router: CommandRouter,
   client: Client,
   options: BotOptions,
+  prefixes: Map<string, string>,
 ): Promise<void> {
   if (message.author.bot || !message.inGuild() || !client.user) return;
 
-  const parsed = parseMessage(message.content, {
-    prefix: options.prefix,
-    botUserId: client.user.id,
-  });
+  // A guild's own prefix and DJ role, which is the whole point of having
+  // settings: parsing with the environment's would make `settings prefix` a
+  // switch wired to nothing.
+  const { prefix, permissions } = await guildDefaults(options, message.guildId);
+  prefixes.set(message.guildId, prefix);
+
+  const parsed = parseMessage(message.content, { prefix, botUserId: client.user.id });
   if (!parsed) return;
 
   const member = message.member;
@@ -209,7 +233,7 @@ async function handleMessage(
 
   const context = decorate(
     createMessageContext(message, parsed, command, {
-      tier: member ? resolveTier(member, options.permissions) : 'everyone',
+      tier: member ? resolveTier(member, permissions) : 'everyone',
       voiceChannelId,
     }),
     options,
@@ -244,7 +268,9 @@ async function handleButton(
   const member = interaction.member as GuildMember | null;
   const context = decorate(
     createButtonContext(interaction, {
-      tier: member ? resolveTier(member, options.permissions) : 'everyone',
+      tier: member
+        ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
+        : 'everyone',
       voiceChannelId: voiceChannelOf(member),
     }),
     options,
@@ -290,6 +316,29 @@ async function handleButton(
     default:
       return;
   }
+}
+
+/**
+ * What a guild's own settings say, over the environment's defaults.
+ *
+ * A prefix or DJ role that can be configured and is then ignored is worse
+ * than not offering the setting at all, so every path that parses a message
+ * or decides a tier comes through here. A settings read that fails falls back
+ * to the defaults rather than dropping the command.
+ */
+export async function guildDefaults(
+  options: Pick<BotOptions, 'prefix' | 'permissions' | 'settings'>,
+  guildId: string,
+): Promise<{ prefix: string; permissions: GuildPermissionSettings }> {
+  const guild = await options.settings?.forGuild(guildId).catch(() => undefined);
+
+  return {
+    prefix: guild?.prefix ?? options.prefix,
+    permissions: {
+      ...options.permissions,
+      ...(guild?.djRoleId === undefined ? {} : { djRoleId: guild.djRoleId }),
+    },
+  };
 }
 
 /** Applies the notice-card wrapper, when one is configured. */

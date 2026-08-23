@@ -154,6 +154,7 @@ async function main(): Promise<void> {
     service,
     {
       prefix: env.DEFAULT_PREFIX,
+      prefixFor: async (guildId) => (await settings.forGuild(guildId)).prefix,
       displayName: (userId) => client.users.cache.get(userId)?.displayName,
       libraryComponents: (page, totalPages) => buildPlaylistPagination(page, totalPages),
     },
@@ -207,6 +208,7 @@ async function main(): Promise<void> {
 
   attachHandlers(client, registry, service, players, {
     prefix: env.DEFAULT_PREFIX,
+    settings,
     playlists,
     lyrics,
     search,

@@ -30,6 +30,13 @@ const logger = createLogger('playlist-service');
 export interface PlaylistServiceOptions {
   /** Guild prefix, shown in the card's hints. */
   prefix?: string;
+  /**
+   * That guild's own prefix, when it has set one.
+   *
+   * A hint telling people to type `!playlist` on a server using `?` is wrong
+   * twice, so the card asks rather than assuming the environment's.
+   */
+  prefixFor?: (guildId: string) => Promise<string | undefined>;
   /** Resolves a display name for a user id. */
   displayName?: (userId: string) => string | undefined;
   /** Builds the button rows attached to a library card. */
@@ -72,7 +79,7 @@ export class PlaylistService {
       page: current,
       totalPages,
       totalCount: playlists.length,
-      prefix: this.options.prefix,
+      prefix: await this.prefixFor(ctx.guildId),
     });
 
     await ctx.reply({
@@ -289,15 +296,17 @@ export class PlaylistService {
     if (!playlist) {
       throw new PlaylistError(
         'not-found',
-        `You have no playlist called **${cleaned}**. See them with \`${this.prefix}playlist list\`.`,
+        `You have no playlist called **${cleaned}**. See them with \`${await this.prefixFor(ctx.guildId)}playlist list\`.`,
       );
     }
 
     return playlist;
   }
 
-  private get prefix(): string {
-    return this.options.prefix ?? '/';
+  /** The guild's prefix, falling back to the configured one. */
+  private async prefixFor(guildId: string): Promise<string> {
+    const guild = await this.options.prefixFor?.(guildId).catch(() => undefined);
+    return guild ?? this.options.prefix ?? '/';
   }
 
   private nameFor(userId: string): string {

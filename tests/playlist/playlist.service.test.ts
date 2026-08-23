@@ -375,3 +375,34 @@ describe('PlaylistService', () => {
     });
   });
 });
+
+describe('prefix hints', () => {
+  it('uses the guild’s own prefix, not the configured default', async () => {
+    const repository = new InMemoryPlaylistRepository();
+    const service = new PlaylistService(repository, {} as MusicService, {
+      prefix: '!',
+      prefixFor: async () => '?',
+    });
+
+    const { ctx, replies } = harness();
+    await service.play(ctx, 'Nope');
+
+    // A hint telling people to type `!playlist` on a server using `?` is
+    // wrong twice.
+    expect(replies[0]?.content).toContain('?playlist list');
+  });
+
+  it('falls back to the configured prefix when the lookup fails', async () => {
+    const service = new PlaylistService(new InMemoryPlaylistRepository(), {} as MusicService, {
+      prefix: '!',
+      prefixFor: async () => {
+        throw new Error('settings are down');
+      },
+    });
+
+    const { ctx, replies } = harness();
+    await service.play(ctx, 'Nope');
+
+    expect(replies[0]?.content).toContain('!playlist list');
+  });
+});

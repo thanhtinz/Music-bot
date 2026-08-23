@@ -230,7 +230,12 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     help: async (ctx) => {
       const grouped = [...catalogByCategory()];
       const card = await renderSakuraHelpCard({
-        prefix: ctx.sourceType === 'slash' ? '/' : options.prefix,
+        // The guild's own prefix, not the environment's: a help card that
+        // tells people to type `!play` on a server using `?` is wrong twice.
+        prefix:
+          ctx.sourceType === 'slash'
+            ? '/'
+            : ((await options.settings?.forGuild(ctx.guildId))?.prefix ?? options.prefix),
         activeCategory: 0,
         categories: grouped.map(([category, commands]) => ({
           title: CATEGORY_TITLES[category] ?? category,
