@@ -7,8 +7,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { EventEmitter } from 'node:events';
+
+import { Player } from '../src/application/player';
 import { catalogByCategory } from '../src/commands/catalog';
-import { createTrack, Queue } from '../src/domain/music';
+import { createTrack, Queue, type Track } from '../src/domain/music';
+import type { AudioBackend, AudioBackendEmitter } from '../src/infrastructure/audio/audio-backend';
 import {
   QUEUE_PAGE_SIZE,
   renderHelpCard,
@@ -132,6 +136,78 @@ async function renderQueuePreview(): Promise<Buffer> {
   });
 }
 
+/**
+ * Minimal backend that accepts every call and reports a fixed position.
+ *
+ * Enough to drive a real {@link Player} through a real session so the preview
+ * renders from `player.snapshot()` rather than from hand-written card data.
+ */
+class PreviewAudioBackend implements AudioBackend {
+  readonly events: AudioBackendEmitter = new EventEmitter();
+  private positionMs = 0;
+
+  async connect(): Promise<void> {}
+  async disconnect(): Promise<void> {}
+  async play(_guildId: string, _track: Track): Promise<void> {
+    this.positionMs = 0;
+  }
+  async stop(): Promise<void> {}
+  async setPaused(): Promise<void> {}
+  async seek(_guildId: string, positionMs: number): Promise<void> {
+    this.positionMs = positionMs;
+  }
+  async setVolume(): Promise<void> {}
+  async setFilter(): Promise<void> {}
+  position(): number {
+    return this.positionMs;
+  }
+}
+
+/** Renders the Now Playing card straight from a live player snapshot. */
+async function renderPlayerPreview(): Promise<Buffer> {
+  const player = new Player(new PreviewAudioBackend(), {
+    guildId: 'preview',
+    voiceChannelId: 'voice',
+    volume: 85,
+  });
+
+  await player.connect();
+  await player.enqueue(
+    SAMPLE_QUEUE.slice(0, 6).map(([title, author, durationMs, requesterId]) =>
+      createTrack({
+        source: 'youtube',
+        identifier: title.toLowerCase(),
+        title,
+        author,
+        durationMs,
+        requesterId,
+      }),
+    ),
+  );
+  player.loop = 'queue';
+  player.autoplay = true;
+  await player.seek(96_000);
+
+  const snapshot = player.snapshot();
+
+  return renderNowPlayingCard({
+    title: snapshot.current?.title ?? 'Nothing playing',
+    author: snapshot.current?.author ?? '',
+    durationMs: snapshot.current?.durationMs ?? 0,
+    positionMs: snapshot.positionMs,
+    isStream: snapshot.current?.isStream,
+    paused: snapshot.status === 'paused',
+    requesterName: snapshot.current?.requesterId ?? 'unknown',
+    volume: snapshot.volume,
+    loop: snapshot.loop,
+    autoplay: snapshot.autoplay,
+    queueLength: snapshot.queueLength,
+    filterPreset: snapshot.filterPreset,
+    source: snapshot.current?.source,
+    theme: 'midnight',
+  });
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
 
@@ -161,6 +237,12 @@ async function main(): Promise<void> {
   });
   writeFileSync(resolve(OUT_DIR, 'help.png'), helpCard);
   console.log(`rendered help.png (${(helpCard.byteLength / 1024).toFixed(1)} KB)`);
+
+  const playerCard = await renderPlayerPreview();
+  writeFileSync(resolve(OUT_DIR, 'now-playing-live-player.png'), playerCard);
+  console.log(
+    `rendered now-playing-live-player.png (${(playerCard.byteLength / 1024).toFixed(1)} KB)`,
+  );
 }
 
 const CATEGORY_TITLES: Record<string, string> = {

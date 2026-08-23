@@ -22,7 +22,11 @@ The queue is rendered the same way — a paginated list card that grows with the
 
 ![](preview/queue.png)
 
-So is help, generated straight from the command catalog:
+Cards render straight from a live `player.snapshot()`, so what you see is real player state:
+
+![](preview/now-playing-live-player.png)
+
+Help is generated straight from the command catalog:
 
 ![](preview/help.png)
 
@@ -42,10 +46,15 @@ npm run typecheck
 
 ```
 src/
-├── application/     # command engine: parser, registry, router, cooldowns
+├── application/
+│   ├── commands/    # command engine: parser, registry, router, cooldowns
+│   └── player/      # per-guild Player and the PlayerManager that serialises it
 ├── commands/        # command catalog — the matrix all three interfaces share
 ├── config/          # environment loading and validation (zod)
 ├── domain/music/    # Track and Queue — no Discord or Lavalink types
+├── infrastructure/
+│   ├── audio/       # AudioBackend seam — the audio engine behind an interface
+│   └── lavalink/    # node pool, load-balancing score, reconnect backoff
 ├── telemetry/       # JSON logger with secret redaction
 └── ui/canvas/       # canvas UI engine
     ├── theme.ts        # color tokens and themes
@@ -70,7 +79,7 @@ tests/               # unit tests
 | F1    | Project skeleton, config, logger, **canvas UI + Now Playing card**       | ✅ done |
 | F2    | Domain: track and queue (loop, shuffle, history, snapshots) + queue card | ✅ done |
 | F3    | Unified command engine (slash + prefix + @mention) + help card           | ✅ done |
-| F4    | Lavalink adapter + player manager                                        | ⏳      |
+| F4    | Player, player manager, audio-backend seam, node balancing               | ✅ done |
 | F5    | Resolvers: YouTube / Spotify metadata / radio                            | ⏳      |
 | F6    | Queue / filter / stats cards, DJ permissions, playlists                  | ⏳      |
 | F7    | PostgreSQL + Redis, 24/7, autoplay, state recovery                       | ⏳      |
