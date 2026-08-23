@@ -131,6 +131,7 @@ async function main(): Promise<void> {
         loop: player.loop,
       }),
     queueComponents: (page, totalPages) => buildQueuePagination(page, totalPages),
+    startingVolumeFor: async (guildId) => (await settings.forGuild(guildId)).defaultVolume,
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
     listenerCount: (guildId) => {
       const channelId = players.get(guildId)?.voiceChannelId;

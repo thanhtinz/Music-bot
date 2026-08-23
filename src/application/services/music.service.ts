@@ -35,6 +35,13 @@ export interface MusicServiceOptions {
   nowPlayingComponents?: (player: Player) => unknown[];
   /** Builds the button rows attached to a queue panel. */
   queueComponents?: (page: number, totalPages: number) => unknown[];
+  /**
+   * The volume a guild's players should start at.
+   *
+   * Without it every guild starts at the environment's default, which would
+   * make the `volume` setting a value nothing reads.
+   */
+  startingVolumeFor?: (guildId: string) => Promise<number | undefined>;
   /** Resolves a display name for a requester id. */
   displayName?: (userId: string) => string | undefined;
   /**
@@ -96,13 +103,7 @@ export class MusicService {
     query: string,
     position: 'end' | 'next',
   ): Promise<void> {
-    const player = await this.players.getOrCreate({
-      guildId: ctx.guildId,
-      voiceChannelId: ctx.voiceChannelId!,
-      textChannelId: ctx.channelId,
-      volume: this.options.defaultVolume,
-      maxQueueSize: this.options.maxQueueSize,
-    });
+    const player = await this.playerFor(ctx);
 
     try {
       const result = await this.resolvers.resolve(query, {
@@ -157,13 +158,7 @@ export class MusicService {
    */
   async playCandidate(ctx: CommandContext, candidate: TrackCandidate): Promise<void> {
     try {
-      const player = await this.players.getOrCreate({
-        guildId: ctx.guildId,
-        voiceChannelId: ctx.voiceChannelId!,
-        textChannelId: ctx.channelId,
-        volume: this.options.defaultVolume,
-        maxQueueSize: this.options.maxQueueSize,
-      });
+      const player = await this.playerFor(ctx);
 
       await this.enqueueCandidate(ctx, player, candidate);
     } catch (error) {
@@ -242,13 +237,7 @@ export class MusicService {
         return;
       }
 
-      await this.players.getOrCreate({
-        guildId: ctx.guildId,
-        voiceChannelId: ctx.voiceChannelId,
-        textChannelId: ctx.channelId,
-        volume: this.options.defaultVolume,
-        maxQueueSize: this.options.maxQueueSize,
-      });
+      await this.playerFor(ctx, ctx.voiceChannelId);
 
       await ctx.reply({
         content: `Joined **${this.channelLabel(ctx.voiceChannelId)}**. Queue something with \`play\`.`,
@@ -596,6 +585,29 @@ export class MusicService {
   }
 
   /**
+   * The guild's player, made if it does not exist yet.
+   *
+   * Every path that might create one comes through here, so a guild's own
+   * starting volume and queue size cannot apply on some commands and not
+   * others.
+   */
+  private async playerFor(ctx: CommandContext, voiceChannelId?: string): Promise<Player> {
+    const volume =
+      (await this.options.startingVolumeFor?.(ctx.guildId).catch(() => undefined)) ??
+      this.options.defaultVolume;
+
+    return this.players.getOrCreate({
+      guildId: ctx.guildId,
+      voiceChannelId: voiceChannelId ?? ctx.voiceChannelId!,
+      textChannelId: ctx.channelId,
+      ...(volume === undefined ? {} : { volume }),
+      ...(this.options.maxQueueSize === undefined
+        ? {}
+        : { maxQueueSize: this.options.maxQueueSize }),
+    });
+  }
+
+  /**
    * The upcoming track at a 1-based position, or a complaint about the number.
    *
    * Every queue-editing command needs the same range check, and answering it
@@ -739,13 +751,7 @@ export class MusicService {
       return;
     }
 
-    const player = await this.players.getOrCreate({
-      guildId: ctx.guildId,
-      voiceChannelId: ctx.voiceChannelId!,
-      textChannelId: ctx.channelId,
-      volume: this.options.defaultVolume,
-      maxQueueSize: this.options.maxQueueSize,
-    });
+    const player = await this.playerFor(ctx);
 
     try {
       const tracks = inputs.map((input) => createTrack(input));
