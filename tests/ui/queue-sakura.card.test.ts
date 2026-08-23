@@ -2,8 +2,10 @@ import { loadImage } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
 
 import {
+  paginateSakuraQueue,
   QUEUE_SAKURA_PAGE_SIZE,
   QUEUE_SAKURA_TEMPLATE_SIZE,
+  QUEUE_SAKURA_UPCOMING_PER_PAGE,
   renderQueueCard,
   renderSakuraQueueCard,
   type QueueCardData,
@@ -135,6 +137,24 @@ describe('renderSakuraQueueCard', () => {
     expect(first.equals(second)).toBe(true);
   });
 
+  it('shows a page indicator only once there is more than one page', async () => {
+    const [single, paged] = await Promise.all([
+      renderSakuraQueueCard(data({ page: 1, totalPages: 1 })),
+      renderSakuraQueueCard(data({ page: 1, totalPages: 4 })),
+    ]);
+
+    expect(single.equals(paged)).toBe(false);
+  });
+
+  it('shows which page it is on', async () => {
+    const [second, third] = await Promise.all([
+      renderSakuraQueueCard(data({ page: 2, totalPages: 4 })),
+      renderSakuraQueueCard(data({ page: 3, totalPages: 4 })),
+    ]);
+
+    expect(second.equals(third)).toBe(false);
+  });
+
   it('survives degenerate rows', async () => {
     const buffer = await renderSakuraQueueCard(
       data({
@@ -152,5 +172,53 @@ describe('renderSakuraQueueCard', () => {
     );
 
     expect(buffer.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
+  });
+});
+
+describe('paginateSakuraQueue', () => {
+  const items = Array.from({ length: 11 }, (_, index) => index + 1);
+
+  it('splits into pages of four by default', () => {
+    expect(QUEUE_SAKURA_UPCOMING_PER_PAGE).toBe(4);
+
+    const first = paginateSakuraQueue(items, 1);
+    expect(first.items).toEqual([1, 2, 3, 4]);
+    expect(first.totalPages).toBe(3);
+    expect(first.firstPosition).toBe(1);
+  });
+
+  it('continues positions across pages', () => {
+    const second = paginateSakuraQueue(items, 2);
+    expect(second.items).toEqual([5, 6, 7, 8]);
+    expect(second.firstPosition).toBe(5);
+
+    const third = paginateSakuraQueue(items, 3);
+    expect(third.items).toEqual([9, 10, 11]);
+    expect(third.firstPosition).toBe(9);
+  });
+
+  it('clamps a page past either end', () => {
+    expect(paginateSakuraQueue(items, 0).page).toBe(1);
+    expect(paginateSakuraQueue(items, -5).page).toBe(1);
+    expect(paginateSakuraQueue(items, 99).page).toBe(3);
+    expect(paginateSakuraQueue(items, Number.NaN).page).toBe(1);
+  });
+
+  it('reports one page for an empty queue', () => {
+    const empty = paginateSakuraQueue([], 1);
+    expect(empty.items).toEqual([]);
+    expect(empty.totalPages).toBe(1);
+    expect(empty.firstPosition).toBe(1);
+  });
+
+  it('honours a custom page size', () => {
+    const slice = paginateSakuraQueue(items, 2, 5);
+    expect(slice.items).toEqual([6, 7, 8, 9, 10]);
+    expect(slice.totalPages).toBe(3);
+  });
+
+  it('refuses a nonsensical page size rather than dividing by zero', () => {
+    expect(paginateSakuraQueue(items, 1, 0).items).toEqual([1]);
+    expect(paginateSakuraQueue(items, 1, -3).items).toEqual([1]);
   });
 });

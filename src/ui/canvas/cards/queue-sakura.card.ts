@@ -25,8 +25,50 @@ const TEMPLATE_PATH = resolve(__dirname, '../../../../assets/templates/queue-sak
 
 export const QUEUE_SAKURA_TEMPLATE_SIZE = { width: 1548, height: 1016 } as const;
 
-/** The template draws exactly five rows, so a page holds five entries. */
+/** The template draws exactly five rows. */
 export const QUEUE_SAKURA_PAGE_SIZE = 5;
+
+/**
+ * Upcoming tracks per page.
+ *
+ * The current track keeps the highlighted first row on every page — it is what
+ * that row means — so pagination moves through the other four.
+ */
+export const QUEUE_SAKURA_UPCOMING_PER_PAGE = 4;
+
+export interface QueuePageSlice<T> {
+  /** The items to render on this page. */
+  items: T[];
+  /** Clamped page number, 1-based. */
+  page: number;
+  totalPages: number;
+  /** 1-based queue position of the first item on this page. */
+  firstPosition: number;
+}
+
+/**
+ * Slices upcoming tracks for one page of the illustrated card.
+ *
+ * Owning the arithmetic here keeps the button handler from having to redo the
+ * off-by-one dance every time someone pages forward.
+ */
+export function paginateSakuraQueue<T>(
+  items: readonly T[],
+  page: number,
+  perPage = QUEUE_SAKURA_UPCOMING_PER_PAGE,
+): QueuePageSlice<T> {
+  const size = Math.max(1, Math.floor(perPage));
+  const totalPages = Math.max(1, Math.ceil(items.length / size));
+  const current = Math.min(Math.max(1, Math.floor(page) || 1), totalPages);
+  const start = (current - 1) * size;
+
+  return {
+    items: items.slice(start, start + size),
+    page: current,
+    totalPages,
+    firstPosition: start + 1,
+  };
+}
 
 interface RowGeometry {
   /** Cover art tile. */
@@ -109,6 +151,13 @@ const TILE_RADIUS = 16;
 
 /** Header count, e.g. the `(5)` in `QUEUE (5)`. */
 const COUNT = { x: 283, baseline: 116, clear: { x: 276, y: 80, width: 90, height: 46 } };
+
+/**
+ * Page indicator, drawn in the empty stretch of header between the count and
+ * the sticker. Only appears once there is more than one page.
+ */
+const PAGE_LABEL = { x: 372, baseline: 116 };
+const PAGE_INK = '#9b8388';
 
 const TITLE_INK = '#111011';
 const ARTIST_INK = '#635456';
@@ -234,6 +283,15 @@ function drawHeaderCount(ctx: SKRSContext2D, data: QueueCardData, visibleRows: n
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(label, COUNT.x, COUNT.baseline);
+
+  // Without this, paging through a long queue gives no clue where you are.
+  const totalPages = Math.max(1, Math.floor(data.totalPages) || 1);
+  if (totalPages > 1) {
+    const page = Math.min(Math.max(1, Math.floor(data.page) || 1), totalPages);
+    ctx.font = font(26, 'bold');
+    ctx.fillStyle = PAGE_INK;
+    ctx.fillText(`Page ${page}/${totalPages}`, PAGE_LABEL.x, PAGE_LABEL.baseline);
+  }
 }
 
 /** Clears the template rows this page does not fill. */

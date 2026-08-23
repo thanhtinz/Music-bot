@@ -18,6 +18,7 @@ import {
   renderHelpCard,
   renderNowPlayingCard,
   renderSakuraHelpCard,
+  paginateSakuraQueue,
   renderQueueCard,
   type NowPlayingCardData,
 } from '../src/ui/canvas';
@@ -213,10 +214,10 @@ async function renderPlayerPreview(): Promise<Buffer> {
  * Illustrated queue card, also built from a real {@link Queue} so the row
  * numbering and durations come from the domain rather than from literals.
  */
-async function renderSakuraQueuePreview(): Promise<Buffer> {
+async function renderSakuraQueuePreview(page = 1): Promise<Buffer> {
   const queue = new Queue({ maxSize: 50 });
   queue.add(
-    SAMPLE_QUEUE.slice(0, 5).map(([title, author, durationMs, requesterId]) =>
+    SAMPLE_QUEUE.map(([title, author, durationMs, requesterId]) =>
       createTrack({
         source: 'youtube',
         identifier: title.toLowerCase().replace(/\s+/g, '-'),
@@ -229,6 +230,7 @@ async function renderSakuraQueuePreview(): Promise<Buffer> {
   );
 
   const current = queue.next();
+  const slice = paginateSakuraQueue(queue.tracks, page);
 
   return renderQueueCard({
     current: current && {
@@ -237,16 +239,17 @@ async function renderSakuraQueuePreview(): Promise<Buffer> {
       durationMs: current.durationMs,
       positionMs: 42_000,
     },
-    tracks: queue.tracks.map((track, index) => ({
-      position: index + 2,
+    tracks: slice.items.map((track, index) => ({
+      // Positions continue across pages: page 2 starts at 5, not at 1.
+      position: slice.firstPosition + index + 1,
       title: track.title,
       author: track.author,
       durationMs: track.durationMs,
       isStream: track.isStream,
       requesterName: track.requesterId,
     })),
-    page: 1,
-    totalPages: 1,
+    page: slice.page,
+    totalPages: slice.totalPages,
     totalTracks: queue.size,
     totalDurationMs: queue.totalDurationMs,
     loop: queue.loop,
@@ -344,6 +347,12 @@ async function main(): Promise<void> {
   writeFileSync(resolve(OUT_DIR, 'now-playing-sakura-paused.png'), sakuraPaused);
   console.log(
     `rendered now-playing-sakura-paused.png (${(sakuraPaused.byteLength / 1024).toFixed(1)} KB)`,
+  );
+
+  const sakuraQueuePage3 = await renderSakuraQueuePreview(3);
+  writeFileSync(resolve(OUT_DIR, 'queue-sakura-page3.png'), sakuraQueuePage3);
+  console.log(
+    `rendered queue-sakura-page3.png (${(sakuraQueuePage3.byteLength / 1024).toFixed(1)} KB)`,
   );
 
   const sakuraHelp = await renderSakuraHelpPreview();

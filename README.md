@@ -12,9 +12,24 @@ The `sakura` variant composites live player state onto an illustrated pastel tem
 | ----------------------------------- | ------------------------------------------ |
 | ![](preview/now-playing-sakura.png) | ![](preview/now-playing-sakura-paused.png) |
 
-The queue has a template too. Its five rows are filled from the live queue — cover art, titles, real positions (so page 2 shows 6–10, not the template's baked 2–5), and durations — and any rows the page does not fill are cleared:
+The queue has a template too. Its five rows are filled from the live queue — cover art, titles, real positions, and durations — and any rows the page does not fill are cleared:
 
 ![](preview/queue-sakura.png)
+
+Long queues page through it. The current track keeps the highlighted first row on every page and the other four rows advance, so a button handler re-renders the image for the new page:
+
+```ts
+const slice = paginateSakuraQueue(queue.tracks, page); // 4 upcoming per page
+await renderQueueCard({
+  current,
+  tracks: slice.items.map((track, i) => ({ position: slice.firstPosition + i + 1, ...track })),
+  page: slice.page,
+  totalPages: slice.totalPages,
+  variant: 'sakura',
+});
+```
+
+![](preview/queue-sakura-page3.png)
 
 The command list too. Its sidebar, highlight, rows and every icon come from the catalog — the icons are drawn, not taken from the artwork, so `/shuffle` never inherits a pause symbol:
 

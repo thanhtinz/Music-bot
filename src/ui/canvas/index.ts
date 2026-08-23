@@ -34,7 +34,13 @@ export { SAKURA_TEMPLATE_SIZE } from './cards/now-playing-sakura.card';
 export type { NowPlayingCardData, LoopMode } from './cards/now-playing.card';
 export { renderClassicQueueCard, renderSakuraQueueCard };
 export { queueCardHeight, QUEUE_PAGE_SIZE, QUEUE_CARD_WIDTH } from './cards/queue.card';
-export { QUEUE_SAKURA_PAGE_SIZE, QUEUE_SAKURA_TEMPLATE_SIZE } from './cards/queue-sakura.card';
+export {
+  QUEUE_SAKURA_PAGE_SIZE,
+  QUEUE_SAKURA_UPCOMING_PER_PAGE,
+  QUEUE_SAKURA_TEMPLATE_SIZE,
+  paginateSakuraQueue,
+} from './cards/queue-sakura.card';
+export type { QueuePageSlice } from './cards/queue-sakura.card';
 export type { QueueCardData, QueueCardTrack } from './cards/queue.card';
 export { renderHelpCard, HELP_CARD_WIDTH } from './cards/help.card';
 export type { HelpCardData, HelpCardGroup, HelpCardCommand } from './cards/help.card';
