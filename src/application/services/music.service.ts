@@ -116,20 +116,51 @@ export class MusicService {
         return;
       }
 
-      const track = this.toTrack(result.track, ctx.userId);
-      const { started } = await this.players.withLock(ctx.guildId, () => player.enqueue(track));
-
-      if (started) {
-        await this.sendNowPlaying(ctx, player);
-      } else {
-        await ctx.reply({
-          content: `Added **${track.title}** to the queue.`,
-          title: 'Added to queue',
-          icon: 'plus',
-        });
-      }
+      await this.enqueueCandidate(ctx, player, result.track);
     } catch (error) {
       await this.replyWithError(ctx, error, 'play');
+    }
+  }
+
+  /**
+   * Queues a track the caller has already picked out.
+   *
+   * The search command resolves its own candidates, but what happens to the
+   * chosen one — connect, lock, enqueue, announce — must be what `play` does,
+   * so it is this same path rather than a second copy of it.
+   */
+  async playCandidate(ctx: CommandContext, candidate: TrackCandidate): Promise<void> {
+    try {
+      const player = await this.players.getOrCreate({
+        guildId: ctx.guildId,
+        voiceChannelId: ctx.voiceChannelId!,
+        textChannelId: ctx.channelId,
+        volume: this.options.defaultVolume,
+        maxQueueSize: this.options.maxQueueSize,
+      });
+
+      await this.enqueueCandidate(ctx, player, candidate);
+    } catch (error) {
+      await this.replyWithError(ctx, error, 'play');
+    }
+  }
+
+  private async enqueueCandidate(
+    ctx: CommandContext,
+    player: Player,
+    candidate: TrackCandidate,
+  ): Promise<void> {
+    const track = this.toTrack(candidate, ctx.userId);
+    const { started } = await this.players.withLock(ctx.guildId, () => player.enqueue(track));
+
+    if (started) {
+      await this.sendNowPlaying(ctx, player);
+    } else {
+      await ctx.reply({
+        content: `Added **${track.title}** to the queue.`,
+        title: 'Added to queue',
+        icon: 'plus',
+      });
     }
   }
 

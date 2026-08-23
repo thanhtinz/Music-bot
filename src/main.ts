@@ -7,6 +7,7 @@ import { InMemorySessionRepository, restoreSessions, SessionRecorder } from './a
 import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
 import { InMemorySettingsRepository, SettingsService } from './application/settings';
 import { InMemoryStatsRepository, StatsRecorder, StatsService } from './application/stats';
+import { SearchService } from './application/search';
 import { LyricsService } from './application/services/lyrics.service';
 import { MusicService } from './application/services/music.service';
 import { buildCommands } from './commands/handlers';
@@ -18,6 +19,7 @@ import {
   buildNowPlayingControls,
   buildPlaylistPagination,
   buildQueuePagination,
+  buildSearchPicks,
 } from './infrastructure/discord/components';
 import { registerSlashCommands } from './infrastructure/discord/register-commands';
 import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
@@ -172,6 +174,10 @@ async function main(): Promise<void> {
     pageComponents: (page, totalPages) => buildLyricsPagination(page, totalPages),
   });
 
+  const search = new SearchService(resolvers, service, {
+    searchComponents: (count) => buildSearchPicks(count),
+  });
+
   const stats = new StatsService(statsStore, {
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
     guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
@@ -186,6 +192,7 @@ async function main(): Promise<void> {
       settings,
       lyrics,
       stats,
+      search,
     }),
   );
 
@@ -193,6 +200,7 @@ async function main(): Promise<void> {
     prefix: env.DEFAULT_PREFIX,
     playlists,
     lyrics,
+    search,
     onDispatched: (result, seconds) => {
       const name = result.command?.name ?? 'unknown';
       metrics.commands.increment({ command: name, status: result.status });

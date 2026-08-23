@@ -38,6 +38,15 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     deferred: true,
   },
   {
+    name: 'search',
+    description: 'Search, then pick what to play',
+    category: 'playback',
+    aliases: ['find', 'sr'],
+    options: [QUERY],
+    requiresVoice: true,
+    deferred: true,
+  },
+  {
     name: 'pause',
     description: 'Pause playback',
     category: 'playback',

@@ -9,12 +9,13 @@ import {
 import { PlayerManager } from '../src/application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from '../src/application/playlist';
 import { InMemorySettingsRepository, SettingsService } from '../src/application/settings';
+import { SearchService } from '../src/application/search';
 import { InMemoryStatsRepository, StatsService } from '../src/application/stats';
 import { LyricsService } from '../src/application/services/lyrics.service';
 import { MusicService } from '../src/application/services/music.service';
 import { createTrack } from '../src/domain/music';
 import { createGuildStats, recordPlay } from '../src/domain/stats';
-import { ResolverRegistry } from '../src/resolvers';
+import { ResolverRegistry, type SourceResolver, type TrackCandidate } from '../src/resolvers';
 import { renderSakuraNoticeCard } from '../src/ui/canvas';
 import { FakeAudioBackend } from '../tests/helpers/fake-audio-backend';
 
@@ -84,6 +85,49 @@ function save(capture: Capture, file: string): void {
 const CHANNEL_NAMES: Record<string, string> = {
   'voice-a': 'general-voice',
   'voice-b': 'music-room',
+};
+
+/** Canned results, so the preview needs no network. */
+const SEARCH_RESULTS: TrackCandidate[] = [
+  { source: 'youtube', identifier: 's1', title: 'Chăm Hoa', author: 'MONO', durationMs: 245_000 },
+  {
+    source: 'youtube',
+    identifier: 's2',
+    title: 'Chăm Hoa (Live at Đại Nhạc Hội)',
+    author: 'MONO',
+    durationMs: 302_000,
+  },
+  {
+    source: 'spotify',
+    identifier: 's3',
+    title: 'Chăm Hoa - Lofi Version',
+    author: 'Bảo Anh Remix',
+    durationMs: 198_000,
+  },
+  {
+    source: 'youtube',
+    identifier: 's4',
+    title: 'Chăm Hoa | Piano Cover',
+    author: 'An Coong Piano',
+    durationMs: 176_000,
+  },
+  {
+    source: 'radio',
+    identifier: 's5',
+    title: 'V-Pop Radio · non-stop',
+    author: 'Melody FM',
+    durationMs: 0,
+    isStream: true,
+  },
+];
+
+/** A search provider with no network behind it. */
+const fakeSearchResolver: SourceResolver = {
+  name: 'preview',
+  source: 'youtube',
+  canHandle: () => true,
+  search: async () => SEARCH_RESULTS,
+  resolveTrack: async () => SEARCH_RESULTS[0]!,
 };
 
 async function main(): Promise<void> {
@@ -250,6 +294,22 @@ async function main(): Promise<void> {
   });
   await stats.show(memberStats.ctx);
   save(memberStats, 'reply-stats-member.png');
+
+  const searchRegistry = new ResolverRegistry();
+  searchRegistry.register(fakeSearchResolver);
+  const search = new SearchService(searchRegistry, music);
+
+  const searched = context({ commandName: 'search' });
+  await search.search(searched.ctx, 'chăm hoa');
+  save(searched, 'reply-search.png');
+
+  const searchedNothing = context({ commandName: 'search' });
+  await new SearchService(new ResolverRegistry(), music).search(searchedNothing.ctx, 'zzzzz');
+  save(searchedNothing, 'reply-search-empty.png');
+
+  const pickedStale = context({ commandName: 'button', userId: 'someone-else' });
+  await search.pick(pickedStale.ctx, 2);
+  save(pickedStale, 'reply-search-expired.png');
 
   const statsUnknown = context({ commandName: 'stats', args: ['nobody'] });
   await stats.show(statsUnknown.ctx);

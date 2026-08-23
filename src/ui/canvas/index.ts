@@ -87,6 +87,12 @@ export {
   STATS_SAKURA_SIZE,
 } from './cards/stats-sakura.card';
 export type { StatsCardData, StatsCardEntry } from './cards/stats-sakura.card';
+export {
+  renderSakuraSearchCard,
+  SEARCH_SAKURA_ROWS,
+  SEARCH_SAKURA_SIZE,
+} from './cards/search-sakura.card';
+export type { SearchCardData, SearchCardResult } from './cards/search-sakura.card';
 export { drawGlyph, glyphFor } from './glyphs';
 export type { GlyphName } from './glyphs';
 export { THEMES, DEFAULT_THEME, resolveTheme } from './theme';

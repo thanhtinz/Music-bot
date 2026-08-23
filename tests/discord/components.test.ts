@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildNowPlayingControls,
   buildQueuePagination,
+  buildSearchPicks,
   decodeComponentId,
   encodeComponentId,
   toJSON,
@@ -118,5 +119,30 @@ describe('buildQueuePagination', () => {
     for (const index of [0, 1, 3, 4]) {
       expect(buttons[index]).toMatchObject({ disabled: true });
     }
+  });
+});
+
+describe('buildSearchPicks', () => {
+  /** The custom ids on a built row, in order. */
+  function ids(rows: ReturnType<typeof buildSearchPicks>): unknown[] {
+    return toJSON(rows).flatMap((row) =>
+      row.components.map((button) => (button as { custom_id?: string }).custom_id),
+    );
+  }
+
+  it('numbers one button per result, counting from 1', () => {
+    expect(ids(buildSearchPicks(3))).toEqual(['mb:pick:1', 'mb:pick:2', 'mb:pick:3']);
+  });
+
+  it('decodes back to the position that was pressed', () => {
+    expect(decodeComponentId('mb:pick:4')).toEqual({ action: 'pick', arg: '4' });
+  });
+
+  it('offers nothing when there is nothing to pick', () => {
+    expect(buildSearchPicks(0)).toEqual([]);
+  });
+
+  it('stops at five, which is what fits on a row', () => {
+    expect(ids(buildSearchPicks(9))).toHaveLength(5);
   });
 });

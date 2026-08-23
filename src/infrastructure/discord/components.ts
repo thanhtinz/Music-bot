@@ -12,7 +12,8 @@ export type ComponentAction =
   | 'stop'
   | 'page'
   | 'plpage'
-  | 'lypage';
+  | 'lypage'
+  | 'pick';
 
 export interface ComponentId {
   action: ComponentAction;
@@ -65,6 +66,7 @@ const ACTIONS: readonly ComponentAction[] = [
   'page',
   'plpage',
   'lypage',
+  'pick',
 ];
 
 function isComponentAction(value: string): value is ComponentAction {
@@ -158,6 +160,28 @@ export function buildPlaylistPagination(
   totalPages: number,
 ): ActionRowBuilder<ButtonBuilder>[] {
   return buildPagination('plpage', page, totalPages);
+}
+
+/**
+ * The numbered pick buttons under a search card.
+ *
+ * One button per result, numbered as the card is: the row is the same list,
+ * so a press cannot mean a position that is not on screen.
+ */
+export function buildSearchPicks(count: number): ActionRowBuilder<ButtonBuilder>[] {
+  const capped = Math.max(0, Math.min(count, 5));
+  if (capped === 0) return [];
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    ...Array.from({ length: capped }, (_, index) =>
+      new ButtonBuilder()
+        .setCustomId(encodeComponentId({ action: 'pick', arg: String(index + 1) }))
+        .setLabel(String(index + 1))
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  );
+
+  return [row];
 }
 
 /** Pagination row for a page of lyrics, with its own action. */

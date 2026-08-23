@@ -138,6 +138,18 @@ scripts/             # dev tooling (canvas preview)
 tests/               # unit tests
 ```
 
+## Search, then pick
+
+`play` takes the first result, which is right when you know what you want and wrong when the first hit is a cover, an hour-long mix, or the wrong language. `search` (also `find`, `sr`) shows what was found and lets the asker choose:
+
+![](preview/reply-search.png)
+
+Five results, because that is what fits on one row of Discord buttons — a row on the card that no button can pick would be a lie about what is on offer, so the card draws five whatever came back. Pressing a number queues that track through exactly the same path as `play`: same connect, same guild lock, same Now Playing panel.
+
+A pending choice belongs to one person in one guild, so two people searching at once do not pick from each other's lists, and pressing a number on somebody else's card queues nothing. Choices expire after two minutes, and a used one is spent — one search queues one track. Everything that can go wrong (the wrong person, a stale card, a number off the end, not being in a voice channel) is answered privately, so a mis-press does not put a notice in front of the channel; a number off the end or a missing voice channel keeps the list, because losing a whole search to a typo is the harsher answer.
+
+One thing to know about the failure case: the resolver registry catches a provider's own failure and drops its results so one dead source cannot empty the whole list, which leaves nothing here to tell an outage apart from a query that matches nothing. Both read as **No results**.
+
 ## Voting to skip
 
 `skip` (also `voteskip`, `vs`) is open to everyone now, and gated by a vote:

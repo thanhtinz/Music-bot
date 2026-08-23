@@ -2,6 +2,7 @@ import type { Command } from '../application/commands';
 import type { PlaylistService } from '../application/playlist';
 import type { LyricsService } from '../application/services/lyrics.service';
 import type { SettingsService } from '../application/settings';
+import type { SearchService } from '../application/search';
 import type { StatsService } from '../application/stats';
 import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
@@ -23,6 +24,8 @@ export interface HandlerOptions {
   lyrics?: LyricsService;
   /** Listening stats; without it `stats` stays unregistered. */
   stats?: StatsService;
+  /** Search-then-pick; without it `search` stays unregistered. */
+  search?: SearchService;
 }
 
 /** What `playlist` was asked to do, however it was invoked. */
@@ -176,6 +179,10 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     },
 
     ...(options.stats ? { stats: async (ctx) => options.stats!.show(ctx) } : {}),
+
+    ...(options.search
+      ? { search: async (ctx) => options.search!.search(ctx, ctx.option('query') ?? ctx.rest) }
+      : {}),
 
     ...(options.lyrics
       ? { lyrics: async (ctx) => options.lyrics!.show(ctx, ctx.option('query') ?? ctx.rest) }
@@ -338,4 +345,5 @@ const FAKE_OPTIONS: HandlerOptions = {
   settings: {} as SettingsService,
   lyrics: {} as LyricsService,
   stats: {} as StatsService,
+  search: {} as SearchService,
 };

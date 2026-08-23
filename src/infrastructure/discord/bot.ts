@@ -23,6 +23,7 @@ import {
   type RouterOptions,
 } from '../../application/commands';
 import type { PlaylistService } from '../../application/playlist';
+import type { SearchService } from '../../application/search';
 import type { LyricsService } from '../../application/services/lyrics.service';
 import type { MusicService } from '../../application/services/music.service';
 import type { PlayerManager } from '../../application/player';
@@ -46,6 +47,8 @@ export interface BotOptions {
   playlists?: PlaylistService;
   /** Lyrics, for the page buttons on a lyrics card. */
   lyrics?: LyricsService;
+  /** Search, for the numbered pick buttons on a results card. */
+  search?: SearchService;
   /** Told the outcome of every dispatch, for metrics. */
   onDispatched?: RouterOptions['onDispatched'];
   /**
@@ -280,6 +283,9 @@ async function handleButton(
       return;
     case 'favorite':
       await options.playlists?.toggleFavorite(context);
+      return;
+    case 'pick':
+      await options.search?.pick(context, Number(id.arg) || 0);
       return;
     default:
       return;
