@@ -59,6 +59,12 @@ await renderSakuraHelpCard({ categories, activeCategory, commands, prefix });
 await renderSakuraPlaylistCard({ entries, ownerName, page, totalPages, prefix });
 ```
 
+The cover fills its frame edge to edge, which took measuring the template rather than guessing at it: the frame's stroke runs 90–92 on the left, 160–162 on top, 550–552 on the right and 640–642 at the bottom, so the cover occupies 93–549 by 163–639 with a 40px radius to match the frame's own corners.
+
+![](preview/artwork-fit.png)
+
+The old box stopped seven pixels short on the right and eight at the bottom — a picture too small for its frame. Filling the box without matching its radius then made the corners bulge past the arc, which looked worse than the gap. Two tests hold it: one walks the inside of each edge and fails on a strip of pale ground between frame and cover, the other compares the corners against the template's own pixels, since outside the arc the card must be exactly what the artwork drew.
+
 Swapping either template means re-measuring the region coordinates in `src/ui/canvas/cards/now-playing-sakura.card.ts` and `queue-sakura.card.ts`; they are pixel measurements of those specific images. Note the two queue variants page differently — the classic list fits 10 rows, the illustrated one 5.
 
 ## The classic variant: a canvas-rendered UI

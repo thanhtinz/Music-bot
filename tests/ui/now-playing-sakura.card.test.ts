@@ -1,4 +1,7 @@
-import { loadImage } from '@napi-rs/canvas';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -21,6 +24,21 @@ const BASE: NowPlayingCardData = {
   source: 'youtube',
   variant: 'sakura',
 };
+
+/** Reads an image into a pixel lookup, for comparing one card against another. */
+async function pixelsOf(source: Buffer): Promise<(x: number, y: number) => number[]> {
+  const image = await loadImage(source);
+  const canvas = createCanvas(image.width, image.height);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0);
+
+  const { data, width } = ctx.getImageData(0, 0, image.width, image.height);
+
+  return (x: number, y: number) => {
+    const i = (y * width + x) * 4;
+    return [data[i]!, data[i + 1]!, data[i + 2]!];
+  };
+}
 
 describe('renderSakuraNowPlayingCard', () => {
   it('renders a PNG at the template size', async () => {
@@ -79,6 +97,61 @@ describe('renderSakuraNowPlayingCard', () => {
           `${sources[i]} and ${sources[j]} render the same badge`,
         ).toBe(false);
       }
+    }
+  });
+
+  it('fills its frame with the cover, edge to edge', async () => {
+    // The cover used to stop seven pixels short on the right and eight at the
+    // bottom, which read as a picture too small for the frame around it.
+    const image = await loadImage(await renderSakuraNowPlayingCard(BASE));
+    const canvas = createCanvas(image.width, image.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0);
+
+    const { data, width } = ctx.getImageData(0, 0, image.width, image.height);
+    /** The template's pale ground — what a gap inside the frame looks like. */
+    const isGround = (x: number, y: number) => {
+      const i = (y * width + x) * 4;
+      return data[i]! > 235 && data[i + 1]! > 200 && data[i + 2]! > 205;
+    };
+
+    // The frame's stroke, measured from the template.
+    const frame = { left: 90, right: 552, top: 160, bottom: 642 };
+
+    for (let y = 260; y <= 540; y += 40) {
+      expect(isGround(frame.left + 4, y), `gap on the left at y=${y}`).toBe(false);
+      expect(isGround(frame.right - 4, y), `gap on the right at y=${y}`).toBe(false);
+    }
+
+    for (let x = 160; x <= 480; x += 40) {
+      expect(isGround(x, frame.top + 4), `gap at the top at x=${x}`).toBe(false);
+      expect(isGround(x, frame.bottom - 4), `gap at the bottom at x=${x}`).toBe(false);
+    }
+  });
+
+  it('rounds the cover to the frame’s own corners', async () => {
+    // Filling the box without matching its radius makes the cover bulge past
+    // the frame's arc, which looks worse than the gap it replaced. Outside the
+    // arc the card has to be exactly what the template drew.
+    const [rendered, template] = await Promise.all([
+      pixelsOf(await renderSakuraNowPlayingCard(BASE)),
+      pixelsOf(await readFile(resolve(__dirname, '../../assets/templates/now-playing-sakura.png'))),
+    ]);
+
+    for (const [x, y] of [
+      [95, 165],
+      [547, 165],
+      [95, 637],
+      [547, 637],
+    ] as const) {
+      // Within a few levels rather than exactly: cards ship as WebP, and a
+      // lossy encoder moves a flat colour by a level or two. A bulge would be
+      // cover art against pale ground — a difference of a hundred.
+      const [r, g, b] = rendered(x, y);
+      const [tr, tg, tb] = template(x, y);
+      const drift = Math.max(Math.abs(r! - tr!), Math.abs(g! - tg!), Math.abs(b! - tb!));
+
+      expect(drift, `the cover bulges past the corner at ${x},${y}`).toBeLessThan(20);
     }
   });
 
