@@ -19,7 +19,7 @@ function candidate(title: string, index = 0): TrackCandidate {
 }
 
 /** A node that answers with a canned load and records what it was asked. */
-function node(responses: { loadUrl?: TrackCandidate[] } = {}): {
+function node(responses: { loadUrl?: TrackCandidate[]; fails?: Error } = {}): {
   client: ConstructorParameters<typeof LavaSrcResolver>[0];
   urls: string[];
 } {
@@ -31,6 +31,7 @@ function node(responses: { loadUrl?: TrackCandidate[] } = {}): {
       search: async () => [],
       loadUrl: async (url: string) => {
         urls.push(url);
+        if (responses.fails) throw responses.fails;
         return (responses.loadUrl ?? []) as TrackCandidate[];
       },
     },
@@ -76,7 +77,39 @@ describe('LavaSrcResolver', () => {
       new LavaSrcResolver(client).resolveTrack(parseInput(TRACK_URL)),
     ).rejects.toThrowError(ResolverError);
     await expect(new LavaSrcResolver(client).resolveTrack(parseInput(TRACK_URL))).rejects.toThrow(
-      /not enabled on the audio node/i,
+      /not working on the audio node/i,
+    );
+  });
+
+  it('says the same when the node fails the load instead of finding nothing', async () => {
+    // What a real node actually does: with no LavaSrc plugin there is no source
+    // manager that recognises the URL, so the load fails rather than coming
+    // back empty, and Lavaplayer's own words for it are "Something went wrong
+    // while looking up the track." Found by running against a real node — the
+    // fake had been answering `empty`, the one case already handled.
+    const { client } = node({
+      fails: new ResolverError(
+        'PROVIDER_ERROR',
+        'Something went wrong while looking up the track.',
+        {
+          source: 'lavalink',
+        },
+      ),
+    });
+
+    await expect(new LavaSrcResolver(client).resolveTrack(parseInput(TRACK_URL))).rejects.toThrow(
+      /not working on the audio node/i,
+    );
+  });
+
+  it('leaves a rate limit alone, because that one clears on its own', async () => {
+    const limited = new ResolverError('RATE_LIMITED', 'Spotify is rate limiting us.', {
+      source: 'lavalink',
+    });
+    const { client } = node({ fails: limited });
+
+    await expect(new LavaSrcResolver(client).resolveTrack(parseInput(TRACK_URL))).rejects.toBe(
+      limited,
     );
   });
 
@@ -146,7 +179,7 @@ describe('LavaSrcResolver', () => {
 
       await expect(
         new LavaSrcResolver(client).resolvePlaylist(parseInput(ALBUM_URL)),
-      ).rejects.toThrow(/not enabled on the audio node/i);
+      ).rejects.toThrow(/not working on the audio node/i);
     });
 
     it('leaves a single track to resolveTrack', async () => {
@@ -233,7 +266,7 @@ describe('describeResolverError', () => {
     await expect(resolver.resolveTrack(parseInput(TRACK_URL))).rejects.toSatisfy(
       (error: unknown) =>
         error instanceof ResolverError &&
-        describeResolverError(error).includes('not enabled on the audio node'),
+        describeResolverError(error).includes('not working on the audio node'),
     );
   });
 });

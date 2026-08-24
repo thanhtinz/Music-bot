@@ -628,6 +628,29 @@ A playlist stores what it takes to rebuild a track, not the track object — the
 
 Storage is behind a port (`PlaylistRepository`), so where a library lives is not the command layer's business — see [Keeping things in Postgres](#keeping-things-in-postgres). `PLAYLIST_STORE_PATH` writes a JSON file — whole-file writes, moved into place with a rename, so a crash cannot leave half a library. Blank the variable to keep playlists in memory instead and lose them on restart.
 
+## Running it against a real node
+
+Everything else in this repo runs against a fake audio backend, which is right for a unit test and proves nothing about the wire. `npm run smoke:lavalink` asks an **actual** Lavalink node to load **actual** audio and draws the card from what comes back:
+
+```
+LAVALINK_HOST=127.0.0.1 SMOKE_AUDIO_URL=http://127.0.0.1:8099/song.wav npm run smoke:lavalink
+
+  ok    node — connected to 127.0.0.1:2333
+  ok    load a file — "Chăm Hoa MONO" · 6s
+  ok    draw the card — now-playing.png · 959.3 KB
+  ok    spotify without the plugin — Spotify links are not working on the audio node. Ask an admin.
+```
+
+That card is drawn from what the node actually returned — the six seconds on it are the length Lavalink read out of the file, not a fixture:
+
+![](preview/smoke-now-playing.png)
+
+It plays nothing into a voice channel: that needs Discord, a token and somebody in a channel. What it covers is everything up to that point — the websocket handshake, node selection, `loadtracks`, the load types, the resolver that claims the URL, and the card at the end of it.
+
+**It found a bug on its first run.** A node with no LavaSrc plugin does not answer "nothing found" for a Spotify link — it has no source manager that recognises the URL, so it _fails_ the load, and Lavaplayer's own words for that are "Something went wrong while looking up the track." The resolver only handled the empty case, so the one message written specifically to send an operator to the right place never fired; what reached the card was a sentence that tells nobody anything. Load failures on a plugin source now say the same thing as an empty one, with the node's own words kept in the log. Rate limits and timeouts are left alone — those clear on their own, and calling them "not working" would be wrong the moment they did.
+
+A fake had been answering `empty`, which was the one case already covered. Nothing but a real node was going to show it.
+
 ## Keeping things in Postgres
 
 Playlists, guild settings, listening stats and live sessions are each behind a port, and there are now two implementations of every one: JSON files and Postgres. Set `DATABASE_URL` and all four move:

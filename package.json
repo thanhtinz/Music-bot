@@ -22,7 +22,8 @@
     "test:watch": "vitest",
     "preview:canvas": "tsx scripts/preview-canvas.ts",
     "preview:replies": "tsx scripts/preview-replies.ts",
-    "sync:icons": "tsx scripts/sync-icons.ts"
+    "sync:icons": "tsx scripts/sync-icons.ts",
+    "smoke:lavalink": "tsx scripts/smoke-lavalink.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.61",
