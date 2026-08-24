@@ -557,15 +557,32 @@ The conversion happens once, in `withNoticeCards`, which wraps the command conte
 
 `playlist` works over slash, prefix and the library card's page buttons:
 
-| Action                            | What it does                                         |
-| --------------------------------- | ---------------------------------------------------- |
-| `playlist list`                   | Renders your library as a card, paged by its buttons |
-| `playlist create <name>`          | Creates an empty playlist                            |
-| `playlist add <name>`             | Adds the current track, creating the playlist if new |
-| `playlist play <name>`            | Queues every track in it                             |
-| `playlist remove <name> <n>`      | Removes track `n`, counting from 1                   |
-| `playlist delete <name>`          | Deletes the playlist                                 |
-| `playlist public\|private <name>` | Changes who can see it                               |
+| Action                            | What it does                                                |
+| --------------------------------- | ----------------------------------------------------------- |
+| `playlist list`                   | Renders your library as a card, paged by its buttons        |
+| `playlist create <name>`          | Creates an empty playlist                                   |
+| `playlist add <name>`             | Adds the current track, creating the playlist if new        |
+| `playlist savequeue <name>`       | Saves the whole queue — what is playing and what is waiting |
+| `playlist play <name>`            | Queues every track in it                                    |
+| `playlist remove <name> <n>`      | Removes track `n`, counting from 1                          |
+| `playlist delete <name>`          | Deletes the playlist                                        |
+| `playlist public\|private <name>` | Changes who can see it                                      |
+
+### Saving a whole evening
+
+`add` keeps one song; `savequeue` keeps the session. A room that has spent an hour building a queue should not have to save it a track at a time — the alternative people reach for otherwise is leaving the bot connected so the queue survives.
+
+![](preview/reply-playlist-savequeue.png)
+
+It saves what is playing and everything waiting, in the order a listener would hear them. History is left out; a playlist of what has already been played is a different thing, and `history` is where that lives.
+
+Saving into a playlist that already exists appends rather than replaces, and tracks already in it are skipped — so saving the same queue twice leaves one copy, and says so instead of claiming a save it did not make:
+
+![](preview/reply-playlist-savequeue-again.png)
+
+The batch append is its own domain function rather than a loop over the single-track one, which throws at the 500-track cap: that is right for one track and wrong for forty. A long queue going into a nearly full playlist keeps what fits and is told what did not, instead of losing the lot to an error on track thirty-one.
+
+`playlist saveall` and `playlist snapshot` reach the same place.
 
 `favorite` (or the heart on the Now Playing panel) toggles the current track in a playlist called **Favorites** — pressing it again takes the song back out. Favorites are a playlist rather than a second store, so they show up in the library and behave like any other one, and there is only one implementation to keep right. A song is matched by source and identifier, not by queue entry, so favoriting the same track twice cannot leave two copies.
 

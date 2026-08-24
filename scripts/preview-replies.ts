@@ -316,6 +316,14 @@ async function main(): Promise<void> {
   await playlists.addCurrent(addedToPlaylist.ctx, 'Chill Tối Muộn');
   save(addedToPlaylist, 'reply-playlist-added.png');
 
+  const savedQueue = context({ commandName: 'playlist' });
+  await playlists.saveQueue(savedQueue.ctx, 'Tối Thứ Sáu');
+  save(savedQueue, 'reply-playlist-savequeue.png');
+
+  const savedAgain = context({ commandName: 'playlist' });
+  await playlists.saveQueue(savedAgain.ctx, 'Tối Thứ Sáu');
+  save(savedAgain, 'reply-playlist-savequeue-again.png');
+
   const missing = context({ commandName: 'playlist' });
   await playlists.play(missing.ctx, 'Nope');
   save(missing, 'reply-playlist-missing.png');

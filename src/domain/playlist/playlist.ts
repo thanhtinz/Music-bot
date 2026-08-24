@@ -162,6 +162,66 @@ export function appendTrack(playlist: Playlist, track: SavedTrack, now = Date.no
   return { ...playlist, tracks: [...playlist.tracks, track], updatedAt: now };
 }
 
+/** What happened to each track when a batch was appended. */
+export interface AppendedTracks {
+  playlist: Playlist;
+  /** How many were written. */
+  added: number;
+  /** Already in the playlist, so left alone. */
+  duplicates: number;
+  /** Dropped because the playlist filled up. */
+  dropped: number;
+}
+
+/**
+ * Appends many tracks at once, reporting rather than refusing.
+ *
+ * {@link appendTrack} throws at the cap, which is right for one track and wrong
+ * for forty: somebody saving a long queue into a nearly full playlist should
+ * keep what fits and be told what did not, instead of losing the lot to an
+ * error on track thirty-one.
+ *
+ * Tracks already in the playlist are skipped, so saving the same queue twice
+ * leaves one copy rather than two.
+ */
+export function appendTracks(
+  playlist: Playlist,
+  tracks: readonly SavedTrack[],
+  now = Date.now(),
+): AppendedTracks {
+  const seen = new Set(playlist.tracks.map(savedTrackKey));
+  const kept: SavedTrack[] = [];
+  let duplicates = 0;
+  let dropped = 0;
+
+  for (const track of tracks) {
+    const key = savedTrackKey(track);
+
+    if (seen.has(key)) {
+      duplicates += 1;
+      continue;
+    }
+
+    if (playlist.tracks.length + kept.length >= MAX_TRACKS_PER_PLAYLIST) {
+      dropped += 1;
+      continue;
+    }
+
+    seen.add(key);
+    kept.push(track);
+  }
+
+  return {
+    playlist:
+      kept.length === 0
+        ? playlist
+        : { ...playlist, tracks: [...playlist.tracks, ...kept], updatedAt: now },
+    added: kept.length,
+    duplicates,
+    dropped,
+  };
+}
+
 /** Removes the track at a 1-based position, as the card and messages show it. */
 export function removeTrackAt(
   playlist: Playlist,

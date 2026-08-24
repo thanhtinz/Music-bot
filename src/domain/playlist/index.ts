@@ -1,5 +1,6 @@
 export {
   appendTrack,
+  appendTracks,
   assertValidPlaylistName,
   cleanPlaylistName,
   createPlaylist,
@@ -20,6 +21,7 @@ export {
   toTrackInput,
 } from './playlist';
 export type {
+  AppendedTracks,
   CreatePlaylistInput,
   Playlist,
   PlaylistErrorCode,

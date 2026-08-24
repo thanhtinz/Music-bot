@@ -1,16 +1,19 @@
 import {
   appendTrack,
+  appendTracks,
   assertValidPlaylistName,
   createPlaylist,
   FAVORITES_NAME,
   indexOfTrack,
   MAX_PLAYLISTS_PER_OWNER,
+  MAX_TRACKS_PER_PLAYLIST,
   playlistDurationMs,
   PlaylistError,
   removeTrackAt,
   setVisibility,
   toSavedTrack,
   toTrackInput,
+  type AppendedTracks,
   type Playlist,
   type PlaylistVisibility,
 } from '../../domain/playlist';
@@ -27,6 +30,38 @@ import type { MusicService } from '../services/music.service';
 import type { PlaylistRepository } from './playlist-repository';
 
 const logger = createLogger('playlist-service');
+
+/** `1 track` / `2 tracks`, so a reply does not have to say "track(s)". */
+function tracks(count: number): string {
+  return count === 1 ? '1 track' : `${count} tracks`;
+}
+
+/**
+ * What saving a queue actually did, in the two lines a notice card holds.
+ *
+ * Every outcome is worth saying: a save that skipped everything as duplicates
+ * and a save that wrote nothing because the playlist is full look identical
+ * from the outside, and "saved" would be a lie in both.
+ */
+function describeSave(result: AppendedTracks, existed: boolean): string {
+  const { playlist, added, duplicates, dropped } = result;
+
+  if (added === 0) {
+    if (dropped > 0) {
+      return `**${playlist.name}** is full at ${MAX_TRACKS_PER_PLAYLIST} tracks — nothing was added.`;
+    }
+    return `**${playlist.name}** already had all ${tracks(duplicates)}.`;
+  }
+
+  const notes: string[] = [];
+  if (duplicates > 0) notes.push(`${duplicates} already there`);
+  if (dropped > 0) notes.push(`${dropped} did not fit`);
+
+  const tail = existed ? ` — ${tracks(playlist.tracks.length)} in it now` : ' — a new playlist';
+  const skipped = notes.length > 0 ? ` (${notes.join(', ')})` : '';
+
+  return `Saved ${tracks(added)} to **${playlist.name}**${tail}${skipped}.`;
+}
 
 export interface PlaylistServiceOptions {
   /** Guild prefix, shown in the card's hints. */
@@ -170,6 +205,57 @@ export class PlaylistService {
       });
     } catch (error) {
       await this.replyWithError(ctx, error, 'add');
+    }
+  }
+
+  /**
+   * Saves the whole queue — what is playing and everything waiting.
+   *
+   * `add` keeps one song; this keeps the evening. A room that has spent an hour
+   * building a queue should not have to save it a track at a time, and the
+   * alternative people reach for otherwise is leaving the bot connected so the
+   * queue survives.
+   */
+  async saveQueue(ctx: CommandContext, name: string): Promise<void> {
+    try {
+      const tracks = this.music.sessionTracks(ctx.guildId);
+
+      if (tracks.length === 0) {
+        await ctx.reply({
+          content: 'The queue is empty, so there is nothing to save.',
+          title: 'Nothing queued',
+          icon: 'note',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const cleaned = assertValidPlaylistName(name);
+      const existing = await this.repository.findByName(ctx.guildId, ctx.userId, cleaned);
+
+      if (!existing) {
+        const owned = await this.repository.listByOwner(ctx.guildId, ctx.userId);
+        if (owned.length >= MAX_PLAYLISTS_PER_OWNER) {
+          throw new PlaylistError(
+            'playlist-limit',
+            `You are at the limit of ${MAX_PLAYLISTS_PER_OWNER} playlists. Delete one first.`,
+          );
+        }
+      }
+
+      const playlist =
+        existing ?? createPlaylist({ guildId: ctx.guildId, ownerId: ctx.userId, name: cleaned });
+
+      const result = appendTracks(playlist, tracks.map(toSavedTrack));
+      await this.repository.save(result.playlist);
+
+      await ctx.reply({
+        content: describeSave(result, existing !== undefined),
+        title: result.added > 0 ? 'Queue saved' : 'Nothing to save',
+        icon: 'playlist',
+      });
+    } catch (error) {
+      await this.replyWithError(ctx, error, 'save the queue');
     }
   }
 

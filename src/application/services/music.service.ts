@@ -1247,6 +1247,22 @@ export class MusicService {
   }
 
   /**
+   * Everything the guild has lined up: what is playing, then what is waiting.
+   *
+   * The order a listener would hear them in, because that is the order somebody
+   * saving the session wants it back in. History is left out — a playlist of
+   * what has already been played is a different thing, and `history` is where
+   * that lives.
+   */
+  sessionTracks(guildId: string): readonly Track[] {
+    const player = this.players.get(guildId);
+    if (!player) return [];
+
+    const current = player.queue.current;
+    return current ? [current, ...player.queue.tracks] : [...player.queue.tracks];
+  }
+
+  /**
    * How far into that track the guild is, or `undefined` when nothing plays.
    *
    * Read rather than exposed as a player, so a lyrics card can open on the line

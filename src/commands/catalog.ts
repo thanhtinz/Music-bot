@@ -269,7 +269,7 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     options: [
       {
         name: 'action',
-        description: 'list | create | play | add | remove | delete | public | private',
+        description: 'list | create | play | add | savequeue | remove | delete | public | private',
       },
       { name: 'name', description: 'Playlist name', rest: true },
       { name: 'position', description: 'Track number, for remove' },

@@ -402,6 +402,10 @@ function playlistExecutor(playlists: PlaylistService, options: HandlerOptions): 
       case 'add':
       case 'save':
         return playlists.addCurrent(ctx, request.name);
+      case 'savequeue':
+      case 'saveall':
+      case 'snapshot':
+        return playlists.saveQueue(ctx, request.name);
       case 'play':
       case 'load':
         return playlists.play(ctx, request.name);
@@ -425,7 +429,7 @@ function playlistExecutor(playlists: PlaylistService, options: HandlerOptions): 
       default:
         await ctx.reply({
           content:
-            'Playlist actions: `list`, `create`, `play`, `add`, `remove`, `delete`, `public`, `private`.',
+            'Playlist actions: `list`, `create`, `play`, `add`, `savequeue`, `remove`, `delete`, `public`, `private`.',
           title: 'Playlist',
           icon: 'playlist',
           ephemeral: true,
