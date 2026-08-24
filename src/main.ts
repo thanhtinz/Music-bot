@@ -110,7 +110,7 @@ async function main(): Promise<void> {
           reason === 'alone'
             ? 'Everyone left, so I stepped out too. Call me back with **join**.'
             : 'The queue ran out, so I stepped out. Call me back with **join**.',
-        icon: 'stop',
+        icon: 'exit',
         tone: 'info',
       });
 

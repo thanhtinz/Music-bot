@@ -1,7 +1,20 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
 import { createCanvas } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
 
+import { COMMAND_CATALOG } from '../../src/commands/catalog';
 import { drawGlyph, glyphFor, type GlyphName } from '../../src/ui/canvas';
+
+/** Every TypeScript file under a directory, recursively. */
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return sourceFiles(path);
+    return entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
 
 const ALL_GLYPHS: GlyphName[] = [
   'play',
@@ -22,6 +35,12 @@ const ALL_GLYPHS: GlyphName[] = [
   'sliders',
   'clock',
   'volume',
+  'trash',
+  'broom',
+  'exit',
+  'chart',
+  'history',
+  'warning',
   'question',
 ];
 
@@ -54,6 +73,48 @@ describe('glyphFor', () => {
   it('is case-insensitive', () => {
     expect(glyphFor('PLAY')).toBe('play');
     expect(glyphFor('Settings')).toBe('gear');
+  });
+
+  it('draws taking a track out as a bin and tidying up as a broom', () => {
+    // A rounded square meant "stop" on every one of these.
+    expect(glyphFor('remove')).toBe('trash');
+    expect(glyphFor('removemine')).toBe('trash');
+    expect(glyphFor('clear')).toBe('trash');
+    expect(glyphFor('removedupes')).toBe('broom');
+    expect(glyphFor('leavecleanup')).toBe('broom');
+  });
+
+  it('draws leaving as a door and stats as a chart', () => {
+    expect(glyphFor('leave')).toBe('exit');
+    expect(glyphFor('disconnect')).toBe('exit');
+    expect(glyphFor('stats')).toBe('chart');
+  });
+
+  it('has one for every command and alias in the catalog', () => {
+    // `remove`, `move`, `jump` and `history` each drew a question mark for a
+    // while, having never been given one; this is what catches the next.
+    for (const meta of COMMAND_CATALOG) {
+      for (const name of [meta.name, ...(meta.aliases ?? [])]) {
+        expect(glyphFor(name), `${name} has no glyph`).not.toBe('question');
+      }
+    }
+  });
+
+  it('has one for every icon a reply asks for', () => {
+    // Reply payloads name their icon as a bare string, which nothing typed
+    // checks — so the source is read and every name asked for is resolved.
+    const asked = new Set<string>();
+
+    for (const file of sourceFiles(resolve(__dirname, '../../src'))) {
+      for (const match of readFileSync(file, 'utf8').matchAll(/icon: '([a-z-]+)'/g)) {
+        asked.add(match[1] as string);
+      }
+    }
+
+    expect(asked.size).toBeGreaterThan(5);
+    for (const icon of asked) {
+      expect(glyphFor(icon), `a reply asks for the ${icon} icon`).not.toBe('question');
+    }
   });
 
   it('falls back to a question mark for anything unknown', () => {

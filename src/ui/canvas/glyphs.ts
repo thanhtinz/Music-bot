@@ -28,6 +28,12 @@ export type GlyphName =
   | 'sliders'
   | 'clock'
   | 'volume'
+  | 'trash'
+  | 'broom'
+  | 'exit'
+  | 'chart'
+  | 'history'
+  | 'warning'
   | 'question';
 
 /** Command and category names mapped onto a glyph. */
@@ -41,7 +47,6 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
   fav: 'heart',
   pause: 'pause',
   stop: 'stop',
-  clear: 'stop',
   skip: 'skip',
   next: 'skip',
   previous: 'previous',
@@ -81,26 +86,60 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
   '247': 'clock',
   nowplaying: 'note',
   np: 'note',
-  // Queue editing: taking a track out is a stop, rearranging is a list.
-  remove: 'stop',
-  removemine: 'stop',
-  cleanup: 'stop',
-  removedupes: 'stop',
-  rmdupes: 'stop',
-  dedupe: 'stop',
-  leavecleanup: 'stop',
-  leaveclean: 'stop',
+  // Queue editing: taking tracks out is a bin, tidying a queue is a broom,
+  // and rearranging is a list. A square said "stop" for all of them.
+  remove: 'trash',
+  removemine: 'trash',
+  clear: 'trash',
+  cleanup: 'broom',
+  removedupes: 'broom',
+  rmdupes: 'broom',
+  dedupe: 'broom',
+  leavecleanup: 'broom',
+  leaveclean: 'broom',
+  lc: 'broom',
   move: 'list',
   jump: 'skip',
   skipto: 'skip',
   join: 'play',
   summon: 'play',
   connect: 'play',
-  leave: 'stop',
-  disconnect: 'stop',
-  stats: 'list',
-  activity: 'list',
-  top: 'list',
+  // Leaving is a departure, not a stop.
+  leave: 'exit',
+  disconnect: 'exit',
+  dc: 'exit',
+  // Counts, not a list.
+  stats: 'chart',
+  activity: 'chart',
+  top: 'chart',
+  // These two drew a question mark, having never been given a glyph.
+  history: 'history',
+  played: 'history',
+  recent: 'history',
+  warning: 'warning',
+  error: 'warning',
+  // Short aliases, so a card built from an alias rather than a command name
+  // cannot fall through to a question mark. A test walks the catalog and fails
+  // when a new one is added without a glyph.
+  p: 'play',
+  pn: 'plus',
+  playtop: 'plus',
+  find: 'search',
+  sr: 'search',
+  unpause: 'play',
+  s: 'skip',
+  voteskip: 'skip',
+  vs: 'skip',
+  prev: 'previous',
+  q: 'list',
+  rm: 'trash',
+  delete: 'trash',
+  rmmine: 'trash',
+  mv: 'list',
+  jumpto: 'skip',
+  pl: 'playlist',
+  h: 'info',
+  commands: 'info',
 };
 
 /** Resolves a command or category name to a glyph, falling back to a question mark. */
@@ -130,6 +169,12 @@ const GLYPH_NAMES = new Set<string>([
   'sliders',
   'clock',
   'volume',
+  'trash',
+  'broom',
+  'exit',
+  'chart',
+  'history',
+  'warning',
   'question',
 ]);
 
@@ -377,6 +422,137 @@ export function drawGlyph(
       ctx.beginPath();
       ctx.arc(px(0.56), py(0.5), w * 0.18, -Math.PI * 0.35, Math.PI * 0.35);
       ctx.stroke();
+      break;
+    }
+    case 'trash': {
+      // Lid, then a tapered bin with two ribs: a plain square says nothing
+      // about taking something away.
+      ctx.beginPath();
+      ctx.moveTo(px(0.16), py(0.28));
+      ctx.lineTo(px(0.84), py(0.28));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(px(0.38), py(0.28));
+      ctx.lineTo(px(0.42), py(0.16));
+      ctx.lineTo(px(0.58), py(0.16));
+      ctx.lineTo(px(0.62), py(0.28));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(px(0.24), py(0.28));
+      ctx.lineTo(px(0.31), py(0.84));
+      ctx.lineTo(px(0.69), py(0.84));
+      ctx.lineTo(px(0.76), py(0.28));
+      ctx.stroke();
+
+      for (const u of [0.42, 0.58]) {
+        ctx.beginPath();
+        ctx.moveTo(px(u), py(0.4));
+        ctx.lineTo(px(u + (u < 0.5 ? 0.02 : -0.02)), py(0.72));
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'broom': {
+      // A handle down the diagonal, a band across it, and a head of bristles
+      // fanning out past the band — the whole thing lives on one axis, so the
+      // parts line up the way a real broom's do.
+      ctx.beginPath();
+      ctx.moveTo(px(0.84), py(0.12));
+      ctx.lineTo(px(0.44), py(0.52));
+      ctx.stroke();
+
+      // Across the handle, where the bristles are bound.
+      ctx.beginPath();
+      ctx.moveTo(px(0.33), py(0.47));
+      ctx.lineTo(px(0.5), py(0.64));
+      ctx.stroke();
+
+      // The head, splayed a little wider at the tips than at the band.
+      ctx.beginPath();
+      ctx.moveTo(px(0.33), py(0.47));
+      ctx.lineTo(px(0.12), py(0.66));
+      ctx.lineTo(px(0.32), py(0.86));
+      ctx.lineTo(px(0.5), py(0.64));
+      ctx.closePath();
+      ctx.stroke();
+
+      for (const offset of [0.06, 0.12]) {
+        ctx.beginPath();
+        ctx.moveTo(px(0.33 + offset), py(0.47 + offset));
+        ctx.lineTo(px(0.16 + offset), py(0.68 + offset));
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'exit': {
+      // A doorway with an arrow leaving it: `leave` is a departure, not a stop.
+      ctx.beginPath();
+      ctx.moveTo(px(0.56), py(0.14));
+      ctx.lineTo(px(0.22), py(0.14));
+      ctx.lineTo(px(0.22), py(0.86));
+      ctx.lineTo(px(0.56), py(0.86));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(px(0.44), py(0.5));
+      ctx.lineTo(px(0.8), py(0.5));
+      ctx.stroke();
+      arrowHead(ctx, px(0.86), py(0.5), px(0.66), py(0.5), w * 0.15);
+      break;
+    }
+    case 'chart': {
+      // Three bars on a baseline — listening stats are counts, not a list.
+      ctx.beginPath();
+      ctx.moveTo(px(0.16), py(0.84));
+      ctx.lineTo(px(0.86), py(0.84));
+      ctx.stroke();
+
+      const bars = [
+        [0.28, 0.56],
+        [0.5, 0.32],
+        [0.72, 0.46],
+      ] as const;
+      for (const [u, top] of bars) {
+        ctx.beginPath();
+        ctx.moveTo(px(u), py(0.84));
+        ctx.lineTo(px(u), py(top));
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'history': {
+      // A clock with its hand wound backwards: what has already played.
+      ctx.beginPath();
+      ctx.arc(px(0.54), py(0.54), Math.min(w, h) * 0.34, Math.PI * 0.75, Math.PI * 2.6);
+      ctx.stroke();
+      arrowHead(ctx, px(0.2), py(0.42), px(0.3), py(0.24), w * 0.15);
+
+      ctx.beginPath();
+      ctx.moveTo(px(0.54), py(0.36));
+      ctx.lineTo(px(0.54), py(0.56));
+      ctx.lineTo(px(0.7), py(0.64));
+      ctx.stroke();
+      break;
+    }
+    case 'warning': {
+      // A triangle with a bang: a refusal should not draw a question mark.
+      ctx.beginPath();
+      ctx.moveTo(px(0.5), py(0.16));
+      ctx.lineTo(px(0.88), py(0.82));
+      ctx.lineTo(px(0.12), py(0.82));
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(px(0.5), py(0.42));
+      ctx.lineTo(px(0.5), py(0.62));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(px(0.5), py(0.72), lineWidth * 0.55, 0, Math.PI * 2);
+      ctx.fill();
       break;
     }
     case 'question':

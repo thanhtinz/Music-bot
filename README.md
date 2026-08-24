@@ -103,6 +103,12 @@ The template has room for eight rows, and the sidebar prints each category's rea
 
 The page rides in the button's id alongside the category (`mb:help:1:2`), because a press hands back nothing else and the card that raised it is a picture. `help player 2` and `/help category:player page:2` reach the same place. A test walks every category and checks that its pages add up to the number the sidebar prints, so the card cannot promise commands no page can show.
 
+Every icon is drawn from paths rather than taken from the artwork, and each one has to mean what its command does:
+
+![](preview/glyph-sheet.png)
+
+Six of these were added after looking at the cards: `remove`, `removemine` and `clear` all drew the rounded square that means **stop**, which says nothing about taking something away; `removedupes` and `leavecleanup` drew it too; `leave` is a departure rather than a stop; `stats` is counts rather than a list; and `history` and the `warning` tone on a refusal each drew a **question mark**, having never been given a glyph at all. A test now walks every command, every alias, and every `icon:` a reply asks for, and fails when one of them would fall through to that question mark.
+
 Two things the picture caught: `<position>` ran straight into the description after it, because the hint was drawn from the end of the name while the description starts at a fixed column — it is clamped now. And `remove`, `move`, `jump` and `removemine` all drew a question mark, having never been given glyphs.
 
 Below, the classic help card:

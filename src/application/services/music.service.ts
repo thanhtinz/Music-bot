@@ -297,7 +297,7 @@ export class MusicService {
     await ctx.reply({
       content: `Left **${this.channelLabel(channelId)}**.${note}`,
       title: 'Left the channel',
-      icon: 'stop',
+      icon: 'exit',
     });
   }
 
@@ -566,7 +566,7 @@ export class MusicService {
     await ctx.reply({
       content: `Removed **${removed}** tracks from the queue.`,
       title: 'Queue cleared',
-      icon: 'stop',
+      icon: 'trash',
     });
   }
 
@@ -599,7 +599,7 @@ export class MusicService {
     await ctx.reply({
       content: `Removed **${track.title}** from the queue.`,
       title: 'Removed',
-      icon: 'stop',
+      icon: 'trash',
     });
   }
 
@@ -676,7 +676,7 @@ export class MusicService {
     await ctx.reply({
       content: `Removed **${removed}** ${removed === 1 ? 'track' : 'tracks'} you queued.`,
       title: 'Removed yours',
-      icon: 'stop',
+      icon: 'trash',
     });
   }
 
@@ -708,7 +708,7 @@ export class MusicService {
     await ctx.reply({
       content: `Removed **${removed.length}** duplicate ${plural(removed.length, 'track')}, keeping the first of each.`,
       title: 'Duplicates removed',
-      icon: 'stop',
+      icon: 'broom',
     });
   }
 
@@ -758,7 +758,7 @@ export class MusicService {
     await ctx.reply({
       content: `Removed **${removed.length}** ${plural(removed.length, 'track')} queued by people who left.`,
       title: 'Cleaned up',
-      icon: 'stop',
+      icon: 'broom',
     });
   }
 
