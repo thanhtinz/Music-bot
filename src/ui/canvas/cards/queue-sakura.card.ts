@@ -371,7 +371,13 @@ async function drawRow(
   drawArtistLine(ctx, geometry, row);
 
   drawDuration(ctx, geometry, row, sample);
-  if (!isFirstRow) drawIndex(ctx, geometry, row, sample);
+
+  // The track playing has no position — it is not in the upcoming list — and
+  // the template draws an equaliser in its place. Every other row gets its
+  // number, including the first one on a card with nothing playing on it: the
+  // template's top band is highlighted whatever sits in it, and a top result
+  // without its position is a row nobody can act on.
+  if (!row.isCurrent) drawIndex(ctx, geometry, row, sample);
 }
 
 /**
@@ -434,7 +440,10 @@ function drawIndex(
   row: RenderRow,
   sample: { x: number; y: number },
 ): void {
-  cover(ctx, { x: 82, y: geometry.indexBaseline - 28, width: 62, height: 36 }, sample);
+  // Tall enough to take the equaliser the template draws in the highlighted
+  // row, not just the digits it draws in the plain ones — a box sized for a
+  // number leaves the tops of the bars standing above it.
+  cover(ctx, { x: 82, y: geometry.indexBaseline - 42, width: 62, height: 54 }, sample);
 
   ctx.font = font(29, 'bold');
   ctx.fillStyle = INDEX_INK;

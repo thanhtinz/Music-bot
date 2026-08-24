@@ -35,7 +35,7 @@ Long queues page through it. The current track keeps the highlighted first row o
 const slice = paginateSakuraQueue(queue.tracks, page); // 4 upcoming per page
 await renderQueueCard({
   current,
-  tracks: slice.items.map((track, i) => ({ position: slice.firstPosition + i + 1, ...track })),
+  tracks: slice.items.map((track, i) => ({ position: slice.firstPosition + i, ...track })),
   page: slice.page,
   totalPages: slice.totalPages,
   variant: 'sakura',
@@ -225,6 +225,24 @@ Positions count from 1 and mean the **upcoming** queue — position 1 is the nex
 `removemine` takes out only your own tracks and needs no permission: the point is leaving without stranding the room with forty songs nobody else picked, and clearing everyone's is what `clear` is for. `playnext` is the other side of that — jumping the line is a DJ's privilege, so the only difference from `play` is where the track lands. Both were already in the domain (`removeByRequester`, `addNext`) with nothing calling them.
 
 A missing argument reads as `NaN` rather than defaulting to 1, so a mistyped position is refused instead of quietly editing the first track. What `jump` skips over goes into the history rather than being dropped, so `previous` can still reach a track somebody jumped past.
+
+The card said otherwise for a long time. It added one to every row whenever something was playing, so the track beside **2** was the one `remove 1` deleted — the numbers on the picture and the numbers the commands took were a song apart, and no test could see it because the numbers are pixels. The card is compared against one drawn with the queue's own positions now, and that test goes red on the old arithmetic.
+
+### Finding a track in a long queue
+
+`remove`, `move` and `jump` all want a number, and in a queue of eighty the only way to find one was to page through the card until the track went by. `queue <text>` searches instead:
+
+![](preview/reply-queue-find.png)
+
+The rows carry their real positions — `remove 2`, `jump 5` — so the answer to "where is that song" is also the argument for the command that acts on it.
+
+Diacritics are folded, because nobody types `Chăm Hoa` into a chat box with the tone marks on: `cham hoa` finds it, and so does `hoa mono`. Words match in any order and as substrings, since half-remembered is the normal state — `lac` reaches `Lạc Trôi`. `đ` is folded by hand; it survives Unicode decomposition, being its own letter rather than a `d` with a mark.
+
+One argument, two meanings, told apart by shape: `queue 3` is a page, `queue mono` is a search. Nobody has a track called "3", and a second command for finding one would be a second thing to remember.
+
+![](preview/reply-queue-find-none.png)
+
+That picture caught a second thing. The template's top band is highlighted whatever sits in it, and the renderer read that as "this row is the track playing" — so it drew an equaliser where the number goes. On a search result that meant the best match came back with no position on it, which is the one number the row exists to give. The number now follows the _current track_, not the row index, and the patch that clears the equaliser is sized for it rather than for a digit.
 
 ## Spotify, Apple Music and Deezer links
 

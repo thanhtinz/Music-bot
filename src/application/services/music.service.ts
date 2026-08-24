@@ -1,6 +1,7 @@
 import {
   AUTOPLAY_REQUESTER_ID,
   createTrack,
+  findInQueue,
   type LoopMode,
   type Track,
   type TrackInput,
@@ -1109,7 +1110,11 @@ export class MusicService {
         paused: player.status === 'paused',
       },
       tracks: slice.items.map((track, index) => ({
-        position: slice.firstPosition + index + (current ? 1 : 0),
+        // The number a row shows is the number `remove`, `move` and `jump`
+        // take, which counts the upcoming list from 1 and never the track
+        // playing — that one has the highlighted row above, not a position.
+        // Adding one for it drew "2" beside the track `remove 1` deletes.
+        position: slice.firstPosition + index,
         title: track.title,
         author: track.author,
         durationMs: track.durationMs,
@@ -1130,6 +1135,72 @@ export class MusicService {
       attachments: [{ name: cardFile('queue'), data: card }],
       components: this.options.queueComponents?.(slice.page, slice.totalPages),
       edit: true,
+    });
+  }
+
+  /**
+   * The queued tracks matching what somebody typed, with their positions.
+   *
+   * `remove`, `move` and `jump` all want a number, and in a queue of eighty the
+   * only way to find one was to page through the card until the track went by.
+   * The rows here carry the real positions, so the answer to "where is that
+   * song" is also the argument for the command that acts on it.
+   */
+  async findInQueue(ctx: CommandContext, term: string, page = 1): Promise<void> {
+    const player = this.players.get(ctx.guildId);
+
+    if (!player || player.queue.isEmpty) {
+      await ctx.reply({
+        content: 'The queue is empty. Add something with `play`.',
+        title: 'Queue',
+        icon: 'queue',
+      });
+      return;
+    }
+
+    const matches = findInQueue(player.queue.tracks, term);
+
+    if (matches.length === 0) {
+      await ctx.reply({
+        content: `Nothing in the queue matches **${term.trim()}**.`,
+        title: 'No matches',
+        icon: 'search',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const slice = paginateSakuraQueue(matches, page);
+
+    const card = await renderQueueCard({
+      // No current track on this card: every row is a match, and a highlighted
+      // row for something that is not one would read as the first result.
+      tracks: slice.items.map((match) => ({
+        position: match.position,
+        title: match.track.title,
+        author: match.track.author,
+        durationMs: match.track.durationMs,
+        isStream: match.track.isStream,
+        requesterName: this.nameFor(match.track.requesterId),
+        ...(match.track.requesterId === AUTOPLAY_REQUESTER_ID ? { autoplay: true } : {}),
+      })),
+      page: slice.page,
+      totalPages: slice.totalPages,
+      // The result set, not the queue: the count on the card has to describe
+      // what the card is showing.
+      totalTracks: matches.length,
+      totalDurationMs: matches.reduce(
+        (sum, match) => sum + (match.track.isStream ? 0 : match.track.durationMs),
+        0,
+      ),
+      loop: player.loop,
+      theme: this.options.theme,
+      variant: this.options.variant,
+    });
+
+    await ctx.reply({
+      content: `**${matches.length}** of **${player.queue.size}** queued ${plural(player.queue.size, 'track')} match **${term.trim()}**.`,
+      attachments: [{ name: cardFile('queue'), data: card }],
     });
   }
 

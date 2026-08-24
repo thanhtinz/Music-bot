@@ -264,7 +264,17 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
     jump: async (ctx) => service.jump(ctx, positionOf(ctx.option('position'))),
 
     queue: async (ctx) => {
-      const page = positionOf(ctx.option('page') ?? ctx.args[0]);
+      // One argument, two meanings, told apart by shape: a number is a page,
+      // anything else is a search. Nobody has a track called "3", and a second
+      // command for finding one would be a second thing to remember.
+      const asked = ctx.option('page') ?? ctx.rest.trim();
+      const page = positionOf(asked);
+
+      if (asked && !Number.isFinite(page)) {
+        await service.findInQueue(ctx, asked);
+        return;
+      }
+
       await service.queue(ctx, Number.isFinite(page) && page > 0 ? page : 1);
     },
 

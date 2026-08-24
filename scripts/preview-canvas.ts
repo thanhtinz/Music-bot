@@ -249,8 +249,9 @@ async function renderSakuraQueuePreview(page = 1): Promise<Buffer> {
       positionMs: 42_000,
     },
     tracks: slice.items.map((track, index) => ({
-      // Positions continue across pages: page 2 starts at 5, not at 1.
-      position: slice.firstPosition + index + 1,
+      // Positions continue across pages: page 2 starts at 5, not at 1. They
+      // count the upcoming list, which is what `remove` and `jump` take.
+      position: slice.firstPosition + index,
       title: track.title,
       author: track.author,
       durationMs: track.durationMs,

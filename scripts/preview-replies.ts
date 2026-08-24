@@ -300,6 +300,26 @@ async function main(): Promise<void> {
   await music.nudge(streamStep.ctx, 30_000);
   save(streamStep, 'reply-forward-stream.png');
 
+  // Finding a track in a queue nobody wants to page through.
+  await player?.enqueue([
+    song('Waiting For You', 'MONO'),
+    song('Nơi Này Có Anh', 'Sơn Tùng M-TP'),
+    song('Faded', 'Alan Walker'),
+    song('Chăm Hoa (Lofi)', 'MONO'),
+  ]);
+
+  const found = context({ commandName: 'queue' });
+  await music.findInQueue(found.ctx, 'mono');
+  save(found, 'reply-queue-find.png');
+
+  const foundNothing = context({ commandName: 'queue' });
+  await music.findInQueue(foundNothing.ctx, 'jazz');
+  save(foundNothing, 'reply-queue-find-none.png');
+
+  const listed = context({ commandName: 'queue' });
+  await music.queue(listed.ctx, 1);
+  save(listed, 'reply-queue.png');
+
   const shuffled = context({ commandName: 'shuffle' });
   await music.shuffle(shuffled.ctx);
   save(shuffled, 'reply-shuffle.png');

@@ -174,12 +174,12 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
 
   {
     name: 'queue',
-    description: 'Show the queue',
+    description: 'Show the queue, or find a track in it',
     category: 'queue',
     aliases: ['q'],
     // Adding and removing is what `play` and `remove` are for; a second way to
     // do the same thing is worse than one.
-    options: [{ name: 'page', description: 'Page number' }],
+    options: [{ name: 'page', description: 'Page number, or text to search for', rest: true }],
   },
   {
     name: 'remove',
