@@ -12,7 +12,7 @@ import {
 } from './application/player';
 import { restoreSessions, SessionRecorder } from './application/session';
 import { PlaylistService } from './application/playlist';
-import { SettingsService } from './application/settings';
+import { CachedSettingsRepository, SettingsService } from './application/settings';
 import { StatsRecorder, StatsService } from './application/stats';
 import { SearchService } from './application/search';
 import { LyricsService } from './application/services/lyrics.service';
@@ -310,7 +310,13 @@ async function main(): Promise<void> {
     libraryComponents: (page, totalPages) => buildPlaylistPagination(page, totalPages),
   });
 
-  const settings = new SettingsService(stores.settings, {
+  // Wrapped, because every message reads this before it knows whether it is a
+  // command: the guild's prefix is what decides that. Free against the file
+  // store, which holds its records in memory; a query per message against
+  // Postgres.
+  const settingsStore = new CachedSettingsRepository(stores.settings);
+
+  const settings = new SettingsService(settingsStore, {
     defaults: {
       prefix: env.DEFAULT_PREFIX,
       defaultVolume: env.DEFAULT_VOLUME,

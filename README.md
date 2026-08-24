@@ -628,6 +628,31 @@ A playlist stores what it takes to rebuild a track, not the track object — the
 
 Storage is behind a port (`PlaylistRepository`), so where a library lives is not the command layer's business — see [Keeping things in Postgres](#keeping-things-in-postgres). `PLAYLIST_STORE_PATH` writes a JSON file — whole-file writes, moved into place with a rename, so a crash cannot leave half a library. Blank the variable to keep playlists in memory instead and lose them on restart.
 
+## The read that happens on every message
+
+Every message in every guild goes through a settings read _before_ the bot knows whether it is a command — the guild's own prefix is what decides that, and a prefix that can be configured and then ignored would make the setting a switch wired to nothing.
+
+That read was free against the JSON store, which holds its records in memory after the first load. Moving to Postgres in F8 quietly turned it into a network round trip per message: a busy server spends a hundred queries a minute discovering that none of them started with `!`. Measured against a real database on the same machine, 500 messages' worth:
+
+| Guild                 | Straight to Postgres | Cached        |
+| --------------------- | -------------------- | ------------- |
+| has changed a setting | 94 ms, 500 queries   | 2 ms, 1 query |
+| has never changed one | 85 ms, 500 queries   | 0 ms, 1 query |
+
+The second row is the important one. Most guilds never touch a setting, so `find` returning **nothing** is the common case — and a cache that only remembers hits would query forever for exactly the guilds it should be cheapest for. Misses are cached too.
+
+Writes go through the cache, so it cannot be stale for anything the bot itself did; the five-minute TTL is there for the operator who edits a row by hand. It is a real LRU — a hit moves the entry to the back — because the alternative evicts the guild that is read constantly for having been _loaded_ long ago, which is a different thing wearing the same name. A test proved that difference before the comment did.
+
+### Why this is not Redis
+
+The spec puts shared state in Redis (§21), and the roadmap says so. Having built the sharding it was supposed to serve, the honest answer is that it has no job here:
+
+- **A guild lives on exactly one shard.** Its settings are read and written by exactly one process, so there is no second reader to share a cache with. Redis would add a network hop to solve what a `Map` already solves — and the numbers above are against a database on the same machine; a cache that had to cross the network to answer would be closer to the 94 ms column than the 2 ms one.
+- **Durability is Postgres's job**, and sessions are already there.
+- **Cross-shard questions** — "how many players are there in total" — are what discord.js's own `broadcastEval` is for.
+
+So it is not built. Adding a dependency, a container and a failure mode to tick a roadmap box would make the bot worse, and the roadmap is a plan rather than a promise. If a deployment ever spreads one guild across processes, this file is the seam it plugs into: `CachedSettingsRepository` implements the same `SettingsRepository` port everything else does.
+
 ## Running across several processes
 
 Discord makes a bot past roughly 2,500 guilds split its gateway connection into shards, and one process stops being comfortable well before that. `npm run start:sharded` spawns `main.js` once per shard and lets discord.js hand each process its slice:
@@ -713,17 +738,17 @@ Redis is not here yet, and is not being pretended into existence. The spec puts 
 
 ## Roadmap
 
-| Phase | Scope                                                                    | Status  |
-| ----- | ------------------------------------------------------------------------ | ------- |
-| F1    | Project skeleton, config, logger, **canvas UI + Now Playing card**       | ✅ done |
-| F2    | Domain: track and queue (loop, shuffle, history, snapshots) + queue card | ✅ done |
-| F3    | Unified command engine (slash + prefix + @mention) + help card           | ✅ done |
-| F4    | Player, player manager, audio-backend seam, node balancing               | ✅ done |
-| F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker      | ✅ done |
-| F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
-| F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                    | 🚧      |
-| F8    | **24/7, state recovery**, **PostgreSQL**; Redis                          | 🚧      |
-| F9    | **Metrics and health**, **cluster, failover, sharding**; dashboard       | 🚧      |
+| Phase | Scope                                                                                   | Status  |
+| ----- | --------------------------------------------------------------------------------------- | ------- |
+| F1    | Project skeleton, config, logger, **canvas UI + Now Playing card**                      | ✅ done |
+| F2    | Domain: track and queue (loop, shuffle, history, snapshots) + queue card                | ✅ done |
+| F3    | Unified command engine (slash + prefix + @mention) + help card                          | ✅ done |
+| F4    | Player, player manager, audio-backend seam, node balancing                              | ✅ done |
+| F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker                     | ✅ done |
+| F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker                  | ✅ done |
+| F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                                   | 🚧      |
+| F8    | **24/7, state recovery**, **PostgreSQL**; Redis — see [why not](#why-this-is-not-redis) | ✅ done |
+| F9    | **Metrics and health**, **cluster, failover, sharding**; dashboard                      | 🚧      |
 
 ## License
 
