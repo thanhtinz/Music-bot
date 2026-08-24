@@ -34,7 +34,7 @@ export type GlyphName =
   | 'chart'
   | 'history'
   | 'warning'
-  | 'megaphone'
+  | 'bell'
   | 'question';
 
 /** Command and category names mapped onto a glyph. */
@@ -86,7 +86,7 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
   replay: 'loop',
   restart: 'loop',
   prefix: 'list',
-  djrole: 'gear',
+  djrole: 'note',
   idletimeout: 'clock',
   '247': 'clock',
   nowplaying: 'note',
@@ -123,9 +123,10 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
   recent: 'history',
   warning: 'warning',
   error: 'warning',
-  // Announcing a track is speaking to the room.
-  announce: 'megaphone',
-  announcetracks: 'megaphone',
+  // A bell for an announcement, and a note for the role that runs the music —
+  // `djrole` drew the same gear as `settings` itself, on the same card.
+  announce: 'bell',
+  announcetracks: 'bell',
   // Short aliases, so a card built from an alias rather than a command name
   // cannot fall through to a question mark. A test walks the catalog and fails
   // when a new one is added without a glyph.
@@ -183,7 +184,7 @@ const GLYPH_NAMES = new Set<string>([
   'chart',
   'history',
   'warning',
-  'megaphone',
+  'bell',
   'question',
 ]);
 
@@ -564,34 +565,30 @@ export function drawGlyph(
       ctx.fill();
       break;
     }
-    case 'megaphone': {
-      // Tilted up and to the right, with a handle underneath — a cone drawn
-      // straight on reads as the speaker the `volume` icon already is, and the
-      // two sit on the same settings card.
+    case 'bell': {
+      // A dome on a shoulder line, with the clapper below it.
       ctx.beginPath();
-      ctx.moveTo(px(0.18), py(0.5));
-      ctx.lineTo(px(0.62), py(0.14));
-      ctx.lineTo(px(0.84), py(0.4));
-      ctx.lineTo(px(0.36), py(0.68));
-      ctx.closePath();
+      ctx.moveTo(px(0.22), py(0.68));
+      ctx.lineTo(px(0.78), py(0.68));
       ctx.stroke();
 
-      // The handle, hanging from the narrow end.
       ctx.beginPath();
-      ctx.moveTo(px(0.28), py(0.6));
-      ctx.lineTo(px(0.38), py(0.86));
+      ctx.moveTo(px(0.28), py(0.68));
+      ctx.lineTo(px(0.28), py(0.46));
+      // The dome: a half-circle across the top of the body.
+      ctx.arc(px(0.5), py(0.46), w * 0.22, Math.PI, 0);
+      ctx.lineTo(px(0.72), py(0.68));
       ctx.stroke();
 
-      // Two rays leaving the mouth.
-      for (const [fromY, toY] of [
-        [0.2, 0.12],
-        [0.42, 0.5],
-      ] as const) {
-        ctx.beginPath();
-        ctx.moveTo(px(0.82), py(fromY));
-        ctx.lineTo(px(0.95), py(toY));
-        ctx.stroke();
-      }
+      // The handle on top, and the clapper swinging underneath.
+      ctx.beginPath();
+      ctx.moveTo(px(0.5), py(0.24));
+      ctx.lineTo(px(0.5), py(0.18));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(px(0.5), py(0.78), w * 0.07, 0, Math.PI);
+      ctx.stroke();
       break;
     }
     case 'question':

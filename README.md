@@ -107,7 +107,7 @@ Every icon is drawn from paths rather than taken from the artwork, and each one 
 
 ![](preview/glyph-sheet.png)
 
-Six of these were added after looking at the cards: `remove`, `removemine` and `clear` all drew the rounded square that means **stop**, which says nothing about taking something away; `removedupes` and `leavecleanup` drew it too; `leave` is a departure rather than a stop; `stats` is counts rather than a list; and `history` and the `warning` tone on a refusal each drew a **question mark**, having never been given a glyph at all. A test now walks every command, every alias, and every `icon:` a reply asks for, and fails when one of them would fall through to that question mark.
+Seven of these were added after looking at the cards: `remove`, `removemine` and `clear` all drew the rounded square that means **stop**, which says nothing about taking something away; `removedupes` and `leavecleanup` drew it too; `leave` is a departure rather than a stop; `stats` is counts rather than a list; and `history` and the `warning` tone on a refusal each drew a **question mark**, having never been given a glyph at all. A test now walks every command, every alias, and every `icon:` a reply asks for, and fails when one of them would fall through to that question mark — though it cannot catch two rows sharing one icon, which is what `djrole` and `settings` did until the picture showed it.
 
 Two things the picture caught: `<position>` ran straight into the description after it, because the hint was drawn from the end of the name while the description starts at a fixed column — it is clamped now. And `remove`, `move`, `jump` and `removemine` all drew a question mark, having never been given glyphs.
 
@@ -315,7 +315,7 @@ The ticker adopts the new panel, because that is the one on screen. Guilds that 
 
 ![](preview/reply-settings.png)
 
-Two things that picture caught. The sheet was fixed at five rows, so adding this setting pushed **24/7** off the bottom and said nothing about it — the card is drawn in code, so it grows with the list now, and a test compares a card built without its last row to prove the renderer is not stopping early. And the new row drew a **question mark**: `announce` had no glyph. The megaphone it got is deliberately tilted, because a cone drawn straight on reads as the speaker `volume` already uses, and the two sit on this same card.
+Two things that picture caught. The sheet was fixed at five rows, so adding this setting pushed **24/7** off the bottom and said nothing about it — the card is drawn in code, so it grows with the list now, and a test compares a card built without its last row to prove the renderer is not stopping early. And the new row drew a **question mark**: `announce` had no glyph. It gets a bell. On the same card, `djrole` was drawing the same gear as **Settings** itself — two rows, one icon, neither of them saying anything — so the role that runs the music gets a note.
 
 ## Saving what is playing
 
