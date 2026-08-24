@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/main.js",
+    "start:sharded": "node dist/src/shard.js",
     "dev": "tsx watch src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",

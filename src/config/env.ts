@@ -34,13 +34,6 @@ const envSchema = z.object({
   CARD_QUALITY: z.coerce.number().int().min(1).max(100).default(90),
 
   /**
-   * Where saved playlists are written.
-   *
-   * Left empty, playlists are kept in memory and lost on restart — which is the
-   * right default for a first run with nothing mounted, and the wrong one for
-   * anybody who means to keep them.
-   */
-  /**
    * A Postgres connection string. Set it and every store moves there.
    *
    * Opt-in rather than the default: a bot that will not start without a
@@ -49,6 +42,13 @@ const envSchema = z.object({
    * who does not want to run one. Set this and they are ignored.
    */
   DATABASE_URL: z.string().default(''),
+  /**
+   * Where saved playlists are written.
+   *
+   * Left empty, playlists are kept in memory and lost on restart — which is the
+   * right default for a first run with nothing mounted, and the wrong one for
+   * anybody who means to keep them.
+   */
   PLAYLIST_STORE_PATH: z.string().default('data/playlists.json'),
   /** Where per-guild settings are written; empty keeps them in memory. */
   SETTINGS_STORE_PATH: z.string().default('data/settings.json'),
@@ -61,6 +61,16 @@ const envSchema = z.object({
   SESSION_MAX_AGE_MS: z.coerce.number().int().min(0).max(86_400_000).default(900_000),
   /** Where listening stats are written; empty keeps them in memory. */
   STATS_STORE_PATH: z.string().default('data/stats.json'),
+  /**
+   * How many shards `npm run start:sharded` spawns.
+   *
+   * `auto` asks Discord how many the bot needs, which is the right answer
+   * almost always; a number is for pinning it during a migration. Ignored by
+   * `npm start`, which is one process serving every guild it is in.
+   */
+  SHARD_COUNT: z
+    .union([z.literal('auto'), z.coerce.number().int().min(1).max(1_000)])
+    .default('auto'),
   /** Port for /healthz, /readyz and /metrics. 0 turns the endpoint off. */
   METRICS_PORT: z.coerce.number().int().min(0).max(65_535).default(0),
   /** Bind address for that endpoint; loopback keeps it off the public net. */

@@ -19,6 +19,12 @@ import { LyricsService } from './application/services/lyrics.service';
 import { MusicService } from './application/services/music.service';
 import { buildCommands } from './commands/handlers';
 import { loadEnv } from './config/env';
+import {
+  healthPortFor,
+  refuseUnsafeSharding,
+  shardIdentity,
+  shouldRegisterCommands,
+} from './config/sharding';
 import { dedupeNodes, parseNodes } from './config/nodes';
 import { attachHandlers, createClient } from './infrastructure/discord/bot';
 import {
@@ -62,10 +68,25 @@ async function main(): Promise<void> {
   // it is encoding to and what its attachment should be called.
   configureCardEncoding({ format: env.CARD_FORMAT, quality: env.CARD_QUALITY });
 
+  // Which slice of guilds this process serves. A bot running on its own is
+  // shard 0 of 1, so nothing below has to ask whether it is sharded.
+  const shard = shardIdentity();
+
   // Where everything is kept: Postgres when DATABASE_URL is set, JSON files
   // otherwise. Built before anything that reads, because the schema is created
   // here and the first read must not race it.
   const stores = await createStores(env);
+
+  const unsafe = refuseUnsafeSharding(shard, stores.kind);
+  if (unsafe) {
+    // Refused rather than logged and carried on: the damage is silent, and the
+    // shard that loses the write has no way to know it lost anything.
+    log.fatal({ shard: shard.id, shards: shard.total }, unsafe);
+    await stores.close().catch(() => undefined);
+    process.exit(1);
+  }
+
+  if (shard.managed) log.info({ shard: shard.id, of: shard.total }, 'running as a shard');
 
   const metrics = createBotMetrics();
   const client = createClient();
@@ -367,6 +388,11 @@ async function main(): Promise<void> {
   client.once('clientReady', () => {
     log.info({ user: client.user?.tag, guilds: client.guilds.cache.size }, 'bot online');
 
+    // Registration is global to the application, not to a shard: every shard
+    // sending the same payload on every boot would be N identical writes for
+    // one result.
+    if (!shouldRegisterCommands(shard)) return;
+
     void registerSlashCommands({
       token: env.DISCORD_TOKEN,
       clientId: env.DISCORD_CLIENT_ID,
@@ -374,9 +400,13 @@ async function main(): Promise<void> {
     }).catch((error) => log.error({ err: error }, 'slash registration failed'));
   });
 
-  const health = env.METRICS_PORT
+  // Shards are separate processes on one machine, so they cannot all bind the
+  // same port: each takes the base plus its id.
+  const healthPort = healthPortFor(env.METRICS_PORT, shard);
+
+  const health = healthPort
     ? createHealthServer({
-        port: env.METRICS_PORT,
+        port: healthPort,
         ...(env.METRICS_HOST ? { host: env.METRICS_HOST } : {}),
         registry: metrics.registry,
         report: () => ({

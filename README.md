@@ -628,6 +628,35 @@ A playlist stores what it takes to rebuild a track, not the track object — the
 
 Storage is behind a port (`PlaylistRepository`), so where a library lives is not the command layer's business — see [Keeping things in Postgres](#keeping-things-in-postgres). `PLAYLIST_STORE_PATH` writes a JSON file — whole-file writes, moved into place with a rename, so a crash cannot leave half a library. Blank the variable to keep playlists in memory instead and lose them on restart.
 
+## Running across several processes
+
+Discord makes a bot past roughly 2,500 guilds split its gateway connection into shards, and one process stops being comfortable well before that. `npm run start:sharded` spawns `main.js` once per shard and lets discord.js hand each process its slice:
+
+```
+SHARD_COUNT=auto npm run start:sharded
+
+  shard starting            shard=0
+  running as a shard        shard=0 of=2
+  health endpoint listening port=9700
+```
+
+Nothing inside the bot changes, because a shard is just a client that sees fewer guilds — `shardIdFor` was already reading `guild.shardId`, and it finally means something. Three things do differ, and each is one small decision in `src/config/sharding.ts`:
+
+- **A lone process is shard 0 of 1.** Not a special case with its own branch — the same code path, so the single-process bot most people run is the one that gets exercised every day rather than a second path nobody tests.
+- **Each shard's health port is the base plus its id**, so shard 3 of a bot on 9100 is on 9103. They are separate processes on one machine; they cannot all bind the same port, and a bot that dies because its metrics endpoint collided is a bot that dies for no reason.
+- **Only shard 0 publishes the slash commands.** Registration is global to the application, not to a shard; every shard sending the same payload on every boot would be N identical writes for one result.
+
+**Sharding refuses to run on JSON files.** The file stores read a whole file, change it and write it back — two processes doing that do not merge, the last writer wins, and the shard that lost has no way to know it lost anything. So it is refused rather than left to corrupt quietly, twice: once by the manager before it spawns anything, and once by each shard in case somebody starts one by hand.
+
+```
+Sharding needs DATABASE_URL. 4 processes writing the same JSON files would
+overwrite each other, and the loser would lose its playlists with nothing logged.
+```
+
+Spawning two shards for real found a bug in the manager itself: when `spawn()` rejects because a shard died on the way up, exiting there leaves the shards that _did_ start as orphans — still running, still respawning, with nothing supervising them. It kills them now before it goes.
+
+Below a few thousand guilds this is the wrong entry point. `npm start` is one process, simpler to reason about and to watch; use the sharded one when one process is genuinely not enough, not before.
+
 ## Running it against a real node
 
 Everything else in this repo runs against a fake audio backend, which is right for a unit test and proves nothing about the wire. `npm run smoke:lavalink` asks an **actual** Lavalink node to load **actual** audio and draws the card from what comes back:
@@ -694,7 +723,7 @@ Redis is not here yet, and is not being pretended into existence. The spec puts 
 | F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
 | F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                    | 🚧      |
 | F8    | **24/7, state recovery**, **PostgreSQL**; Redis                          | 🚧      |
-| F9    | **Metrics and health**; Lavalink cluster, failover, dashboard            | 🚧      |
+| F9    | **Metrics and health**, **cluster, failover, sharding**; dashboard       | 🚧      |
 
 ## License
 
