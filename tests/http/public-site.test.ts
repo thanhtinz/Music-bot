@@ -7,9 +7,10 @@ import {
   permissionBits,
   REQUIRED_PERMISSIONS,
 } from '../../src/infrastructure/http/invite';
-import { toPublicStatus } from '../../src/infrastructure/http/public-status';
+import { toPublicStatus, type ShardVitals } from '../../src/infrastructure/http/public-status';
 import {
   commandSummary,
+  formatBytes,
   renderCommands,
   renderHome,
   renderStatus,
@@ -19,10 +20,13 @@ import { COMMAND_CATALOG } from '../../src/commands/catalog';
 /** One shard's internal status, private fields and all. */
 function shardStatus(
   shardId: number,
-  overrides: Partial<DashboardStatus> = {},
-): DashboardStatus & { shardId: number } {
+  overrides: Partial<DashboardStatus & ShardVitals> = {},
+): DashboardStatus & ShardVitals {
   return {
     shardId,
+    cachedUsers: 44_011,
+    memoryBytes: 446 * 1024 * 1024,
+    updatedAt: 1_700_000_000_000,
     botName: 'Melody',
     ready: true,
     uptimeMs: 3_600_000,
@@ -143,6 +147,10 @@ describe('what the public status is allowed to say', () => {
       players: 0,
       latencyMs: 0,
       uptimeMs: 0,
+      cachedUsers: 0,
+      memoryBytes: 0,
+      // Never answered, so there is no moment to claim.
+      updatedAt: 0,
     });
   });
 
@@ -150,6 +158,38 @@ describe('what the public status is allowed to say', () => {
     const status = toPublicStatus([shardStatus(0), shardStatus(1)], { expectedShards: 1 });
 
     expect(status.shards).toHaveLength(2);
+  });
+
+  it('carries each shard\u2019s own memory and cache, not shard zero\u2019s', () => {
+    // Read inside each process during the broadcast: asking the asker would
+    // report shard zero's memory once per shard.
+    const status = toPublicStatus([
+      shardStatus(0, { memoryBytes: 400 * 1024 * 1024, cachedUsers: 10 }),
+      shardStatus(1, { memoryBytes: 460 * 1024 * 1024, cachedUsers: 20 }),
+    ]);
+
+    expect(status.shards.map((shard) => shard.memoryBytes)).toEqual([
+      400 * 1024 * 1024,
+      460 * 1024 * 1024,
+    ]);
+    expect(status.shards.map((shard) => shard.cachedUsers)).toEqual([10, 20]);
+  });
+
+  it('sends when each shard answered, rather than a sentence about it', () => {
+    // The snapshot is gathered on a timer and the response is cached, so any
+    // sentence rendered server-side is wrong by however long it sat in a cache.
+    const html = renderStatus({
+      ...LAYOUT,
+      status: toPublicStatus([shardStatus(0, { updatedAt: 1_700_000_000_000 })]),
+    });
+
+    expect(html).toContain('data-at="1700000000000"');
+  });
+
+  it('shows memory the way a person reads it', () => {
+    expect(formatBytes(446 * 1024 * 1024)).toBe('446 MB');
+    expect(formatBytes(2.5 * 1024 * 1024 * 1024)).toBe('2.50 GB');
+    expect(formatBytes(0)).toBe('\u2014');
   });
 
   it('does not call a partial outage "all systems playing"', () => {
@@ -171,6 +211,13 @@ describe('what the public status is allowed to say', () => {
     });
 
     expect(healthy).toContain('All systems playing');
+  });
+
+  it('counts one shard as a shard', () => {
+    const one = renderStatus({ ...LAYOUT, status: toPublicStatus([shardStatus(0)]) });
+
+    expect(one).toContain('1 shard up');
+    expect(one).not.toContain('1 shards up');
   });
 
   it('is offline when nothing answered', () => {

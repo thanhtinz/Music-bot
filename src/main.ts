@@ -1,5 +1,5 @@
 import { Events, type Client } from 'discord.js';
-import { Connectors, Shoukaku } from 'shoukaku';
+import { Connectors, Constants, Shoukaku } from 'shoukaku';
 
 import { CommandRegistry } from './application/commands';
 import {
@@ -53,7 +53,11 @@ import { createHealthServer } from './infrastructure/http/health-server';
 import type { DashboardStatus } from './infrastructure/http/dashboard';
 import { inviteUrl } from './infrastructure/http/invite';
 import { createPublicServer } from './infrastructure/http/public-server';
-import { toPublicStatus, type PublicStatus } from './infrastructure/http/public-status';
+import {
+  toPublicStatus,
+  type PublicStatus,
+  type ShardVitals,
+} from './infrastructure/http/public-status';
 import { createLogger, logger } from './telemetry/logger';
 
 const log = createLogger('main');
@@ -66,7 +70,7 @@ const log = createLogger('main');
  * rather than closed over here, which would not survive the trip.
  */
 type StatusClient = Client & {
-  __shardStatus?: () => DashboardStatus & { shardId: number };
+  __shardStatus?: () => DashboardStatus & ShardVitals;
 };
 
 /**
@@ -453,7 +457,11 @@ async function main(): Promise<void> {
     }),
     nodes: [...shoukaku.nodes].map(([name, node]) => ({
       name,
-      connected: node.state === 2,
+      // Shoukaku's own enum rather than the number it happens to be. It had
+      // been compared against 2, which is DISCONNECTING: every healthy node
+      // read as down, on the dashboard, on the status page and in the metric
+      // an alert would watch. Only running against a real node showed it.
+      connected: node.state === Constants.State.CONNECTED,
       players: node.stats?.players ?? 0,
       ...(node.stats?.cpu?.systemLoad === undefined ? {} : { cpu: node.stats.cpu.systemLoad }),
       ...(node.stats?.memory === undefined
@@ -470,7 +478,16 @@ async function main(): Promise<void> {
   // Attached to the client so `broadcastEval` can reach it from inside each
   // shard: that call runs its function in the other processes, where the only
   // thing in scope is their own client.
-  (client as StatusClient).__shardStatus = () => ({ ...dashboardStatus(), shardId: shard.id });
+  (client as StatusClient).__shardStatus = () => ({
+    ...dashboardStatus(),
+    shardId: shard.id,
+    // Read here rather than on shard 0's side of the broadcast: each of these
+    // is a fact about *this* process, and asking the asker would report shard
+    // zero's memory four times over.
+    cachedUsers: client.users.cache.size,
+    memoryBytes: process.memoryUsage().rss,
+    updatedAt: Date.now(),
+  });
 
   // Shards are separate processes on one machine, so they cannot all bind the
   // same port: each takes the base plus its id.
@@ -500,7 +517,7 @@ async function main(): Promise<void> {
           metrics.gatewayLatency.set(Math.max(0, Math.round(client.ws.ping)));
 
           for (const [name, node] of shoukaku.nodes) {
-            metrics.nodeUp.set(node.state === 2 ? 1 : 0, { node: name });
+            metrics.nodeUp.set(node.state === Constants.State.CONNECTED ? 1 : 0, { node: name });
             metrics.nodePlayers.set(node.stats?.players ?? 0, { node: name });
           }
         },
@@ -554,7 +571,7 @@ async function main(): Promise<void> {
         : [local];
 
       publicSnapshot = toPublicStatus(
-        gathered.filter((entry): entry is DashboardStatus & { shardId: number } => Boolean(entry)),
+        gathered.filter((entry): entry is DashboardStatus & ShardVitals => Boolean(entry)),
         // A shard that is down answers nothing, so the count it should have
         // been comes from the manager rather than from who replied.
         { expectedShards: client.shard?.count ?? shard.total },

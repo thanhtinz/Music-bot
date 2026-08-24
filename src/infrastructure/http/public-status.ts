@@ -13,6 +13,18 @@ export interface PublicShard {
   /** Round trip to Discord's gateway, in milliseconds. */
   latencyMs: number;
   uptimeMs: number;
+  /** Users this shard is holding in memory — the cache, not a user count. */
+  cachedUsers: number;
+  /** Resident memory of this shard's process. */
+  memoryBytes: number;
+  /**
+   * When this shard answered, as epoch milliseconds.
+   *
+   * Per shard rather than per page because they answer at their own moments,
+   * and a shard that has stopped answering is exactly the one whose numbers
+   * are oldest — which the page cannot say without this.
+   */
+  updatedAt: number;
 }
 
 export interface PublicNode {
@@ -60,8 +72,16 @@ export interface PublicStatusOptions {
   expectedShards?: number;
 }
 
+/** The extra per-process facts a shard reports about itself. */
+export interface ShardVitals {
+  shardId: number;
+  cachedUsers: number;
+  memoryBytes: number;
+  updatedAt: number;
+}
+
 export function toPublicStatus(
-  shards: readonly (DashboardStatus & { shardId: number })[],
+  shards: readonly (DashboardStatus & ShardVitals)[],
   options: PublicStatusOptions = {},
 ): PublicStatus {
   const nodes = new Map<string, PublicNode>();
@@ -99,7 +119,7 @@ export function toPublicStatus(
  * latency are zero because there is no honest number to put there.
  */
 function withMissing(
-  shards: readonly (DashboardStatus & { shardId: number })[],
+  shards: readonly (DashboardStatus & ShardVitals)[],
   expected: number | undefined,
 ): PublicShard[] {
   const reported = new Map(
@@ -112,6 +132,9 @@ function withMissing(
         players: shard.players.length,
         latencyMs: Math.max(0, Math.round(shard.gatewayLatencyMs)),
         uptimeMs: Math.max(0, Math.round(shard.uptimeMs)),
+        cachedUsers: Math.max(0, shard.cachedUsers),
+        memoryBytes: Math.max(0, shard.memoryBytes),
+        updatedAt: shard.updatedAt,
       },
     ]),
   );
@@ -120,7 +143,18 @@ function withMissing(
 
   for (let id = 0; id < total; id++) {
     if (reported.has(id)) continue;
-    reported.set(id, { id, ready: false, guilds: 0, players: 0, latencyMs: 0, uptimeMs: 0 });
+    reported.set(id, {
+      id,
+      ready: false,
+      guilds: 0,
+      players: 0,
+      latencyMs: 0,
+      uptimeMs: 0,
+      cachedUsers: 0,
+      memoryBytes: 0,
+      // Never answered, so there is no moment to record.
+      updatedAt: 0,
+    });
   }
 
   return [...reported.values()].sort((left, right) => left.id - right.id);

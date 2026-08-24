@@ -126,6 +126,7 @@ export function renderStatus(options: StatusPageOptions): string {
     .finder input:focus { outline: 2px solid var(--pink); outline-offset: 1px; }
     .finder-answer { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 14.5px; }
     .finder-answer:empty { display: none; }
+    .ago { margin: 10px 0 0; color: var(--muted); font-size: 12.5px; }
     .refresh-note { color: var(--muted); font-size: 13px; text-align: center; }
   </style>`;
 
@@ -152,14 +153,16 @@ function banner(status: PublicStatus, ready: number): string {
   const all = total > 0 && ready === total;
   const uptime = escapeHtml(formatUptime(status.uptimeMs));
 
+  const shards = (count: number): string => `${count} ${count === 1 ? 'shard' : 'shards'}`;
+
   const [tone, dot, title, note] = all
-    ? ['ok', ' on', 'All systems playing', `${total} shards up · up ${uptime}`]
+    ? ['ok', ' on', 'All systems playing', `${shards(total)} up · up ${uptime}`]
     : ready > 0
       ? [
           'warn',
           ' part',
           'Partial outage',
-          `${ready} of ${total} shards up — servers on the rest cannot reach the bot`,
+          `${ready} of ${shards(total)} up — servers on the rest cannot reach the bot`,
         ]
       : ['bad', '', 'Offline', 'No shard is reporting in.'];
 
@@ -168,6 +171,14 @@ function banner(status: PublicStatus, ready: number): string {
       <strong>${title}</strong>
       <span class="banner-note">${note}</span>
     </div>`;
+}
+
+/** `446 MB`, the way a person reads a process's memory. */
+export function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '—';
+  const mb = bytes / 1024 / 1024;
+
+  return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${Math.round(mb)} MB`;
 }
 
 function shardCard(shard: PublicShard): string {
@@ -185,9 +196,14 @@ function shardCard(shard: PublicShard): string {
     <dl>
       <dt>servers</dt><dd>${dash(shard.guilds.toLocaleString('en'))}</dd>
       <dt>playing</dt><dd>${dash(String(shard.players))}</dd>
+      <dt>cached users</dt><dd>${dash(shard.cachedUsers.toLocaleString('en'))}</dd>
       <dt>latency</dt><dd>${dash(`${shard.latencyMs} ms`)}</dd>
+      <dt>memory</dt><dd>${dash(formatBytes(shard.memoryBytes))}</dd>
       <dt>uptime</dt><dd>${dash(escapeHtml(formatUptime(shard.uptimeMs)))}</dd>
     </dl>
+    <p class="ago" data-at="${shard.updatedAt}">${
+      shard.updatedAt === 0 ? 'never reported' : 'last updated just now'
+    }</p>
   </div>`;
 }
 
@@ -205,6 +221,31 @@ function shardCard(shard: PublicShard): string {
  */
 function finderScript(shardCount: number, refresh: number): string {
   return `<script>
+(function () {
+  // How old each shard's numbers are, worked out in the browser.
+  //
+  // The snapshot is gathered on a timer and the response is cached, so a page
+  // that said "updated just now" server-side would be wrong by however long it
+  // sat in a cache — and the reader has no way to tell. The timestamp is the
+  // honest thing to send; the sentence is built from it here.
+  function tick() {
+    var now = Date.now();
+    document.querySelectorAll('.ago').forEach(function (node) {
+      var at = Number(node.getAttribute('data-at'));
+      if (!at) { node.textContent = 'never reported'; return; }
+
+      var seconds = Math.max(0, Math.round((now - at) / 1000));
+      node.textContent =
+        seconds < 5 ? 'last updated just now'
+        : seconds < 90 ? 'last updated ' + seconds + ' seconds ago'
+        : 'last updated ' + Math.round(seconds / 60) + ' minutes ago';
+    });
+  }
+  tick();
+  setInterval(tick, 5000);
+})();
+</script>
+<script>
 (function () {
   var count = ${shardCount};
   var input = document.getElementById('guild');
