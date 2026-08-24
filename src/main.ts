@@ -7,6 +7,7 @@ import {
   IdleMonitor,
   PlayerManager,
   ProgressTicker,
+  SleepTimer,
   type Player,
 } from './application/player';
 import { InMemorySessionRepository, restoreSessions, SessionRecorder } from './application/session';
@@ -77,6 +78,30 @@ async function main(): Promise<void> {
     onTimeout: (guildId, reason) => players.leaveIdle(guildId, reason),
   });
 
+  // Stops the music at a time somebody chose. Built before the players so the
+  // manager can hold it — a timer left running past a `leave` would come back
+  // hours later and tear down whatever the guild is playing by then.
+  const sleep = new SleepTimer({
+    onSleep: async (guildId) => {
+      const channelId = players.get(guildId)?.textChannelId;
+      await players.destroy(guildId);
+
+      const channel = client.channels.cache.get(channelId ?? '');
+      if (!channel?.isSendable()) return;
+
+      const card = await renderSakuraNoticeCard({
+        title: 'Good night',
+        message: 'The sleep timer ran out, so I stopped the music and stepped out.',
+        icon: 'clock',
+        tone: 'info',
+      });
+
+      await channel
+        .send({ files: [{ attachment: card, name: cardFile('notice') }] })
+        .catch(() => undefined);
+    },
+  });
+
   const resolvers = new ResolverRegistry();
   // Radio goes first so a station name is not swallowed by the search provider.
   // Spotify goes through the node's LavaSrc plugin rather than a second API
@@ -94,6 +119,7 @@ async function main(): Promise<void> {
     defaultVolume: env.DEFAULT_VOLUME,
     maxQueueSize: env.MAX_QUEUE_SIZE,
     idle,
+    sleep,
     autoplayResolver: async (guildId, seed) => {
       const player = players.get(guildId);
       const avoid = player ? [...player.queue.history, ...player.queue.tracks] : [];
@@ -141,7 +167,12 @@ async function main(): Promise<void> {
 
     // A panel belongs to the track it was sent for: when that track ends there
     // is nothing left to follow, and the next one sends a panel of its own.
-    player.on('trackEnd', ({ guildId }) => progress.stop(guildId));
+    player.on('trackEnd', ({ guildId }) => {
+      progress.stop(guildId);
+      // "Stop after this one" is spent by the track actually ending, whenever
+      // that turns out to be — after a seek, a pause, or a skip.
+      void sleep.trackEnded(guildId);
+    });
     player.on('queueEnd', ({ guildId }) => progress.stop(guildId));
 
     // A track starting on its own is the one thing nobody's command is waiting
@@ -181,6 +212,7 @@ async function main(): Promise<void> {
       }),
     queueComponents: (page, totalPages) => buildQueuePagination(page, totalPages),
     progress,
+    sleep,
     startingVolumeFor: async (guildId) => (await settings.forGuild(guildId)).defaultVolume,
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
     guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
@@ -443,6 +475,7 @@ async function main(): Promise<void> {
     });
     sessions.stop();
     progress.stopAll();
+    sleep.stop();
 
     await players.destroyAll().catch(() => undefined);
     await health?.stop().catch(() => undefined);

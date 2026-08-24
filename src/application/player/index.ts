@@ -14,3 +14,11 @@ export type { AutoplaySelectorOptions } from './autoplay';
 export { progressBar, progressLine, PROGRESS_SEGMENTS } from './progress-line';
 export { lineFor, ProgressTicker, PROGRESS_TICK_MS } from './progress-ticker';
 export type { ProgressTickerOptions } from './progress-ticker';
+export {
+  SleepTimer,
+  formatSleepRemaining,
+  parseSleepRequest,
+  MAX_SLEEP_MS,
+  MIN_SLEEP_MS,
+} from './sleep-timer';
+export type { SleepPlan, SleepRequest, SleepTimerOptions } from './sleep-timer';

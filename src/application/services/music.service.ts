@@ -23,10 +23,17 @@ import {
   renderSakuraHistoryCard,
 } from '../../ui/canvas';
 import { satisfiesTier, type CommandContext, type ReplyHandle } from '../commands';
-import { lineFor } from '../player';
-import type { Player, PlayerManager, ProgressTicker } from '../player';
+import { formatSleepRemaining, lineFor, MAX_SLEEP_MS, parseSleepRequest } from '../player';
+import type { Player, PlayerManager, ProgressTicker, SleepPlan, SleepTimer } from '../player';
 
 const logger = createLogger('music-service');
+
+/** How a timer that is already running reads in a reply. */
+function describeSleepPlan(plan: SleepPlan): string {
+  return plan.kind === 'track'
+    ? 'I will stop once the current track finishes.'
+    : `Sleeping in **${formatSleepRemaining(plan.remainingMs)}**.`;
+}
 
 /** `1 track` / `2 tracks`, so a reply does not have to say "track(s)". */
 function plural(count: number, noun: string): string {
@@ -51,6 +58,14 @@ export interface MusicServiceOptions {
    * panel without starting a timer nothing will ever stop.
    */
   progress?: Pick<ProgressTicker, 'watch' | 'stop'>;
+  /**
+   * The guild sleep timers.
+   *
+   * Optional for the same reason: a service built for a preview or a test
+   * should not start a countdown nothing will ever cancel. Without it `sleep`
+   * says the timer is not running rather than pretending it set one.
+   */
+  sleep?: Pick<SleepTimer, 'set' | 'setAfterTrack' | 'cancel' | 'plan'>;
   /**
    * The volume a guild's players should start at.
    *
@@ -441,6 +456,124 @@ export class MusicService {
       title: 'Stopped',
       icon: 'stop',
     });
+  }
+
+  /**
+   * Sets, reads or clears the guild's sleep timer.
+   *
+   * One command rather than three, because that is how people ask for it:
+   * `sleep 30`, `sleep track`, `sleep off`, and a bare `sleep` to check what
+   * they set before dozing off.
+   */
+  async sleep(ctx: CommandContext, raw: string | undefined): Promise<void> {
+    const timer = this.options.sleep;
+
+    if (!timer) {
+      await ctx.reply({
+        content: 'The sleep timer is not running on this bot.',
+        title: 'Sleep timer',
+        icon: 'clock',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const request = parseSleepRequest(raw);
+
+    switch (request.kind) {
+      case 'invalid':
+        await ctx.reply({
+          content: 'Try `sleep 30`, `sleep 1h30m`, `sleep track` or `sleep off`.',
+          title: 'Sleep timer',
+          icon: 'clock',
+          ephemeral: true,
+        });
+        return;
+
+      case 'too-short':
+        await ctx.reply({
+          content: 'That is barely a timer. Use `stop` if you want the music off now.',
+          title: 'Sleep timer',
+          icon: 'clock',
+          ephemeral: true,
+        });
+        return;
+
+      case 'too-long':
+        await ctx.reply({
+          content: `A sleep timer runs for at most **${formatSleepRemaining(MAX_SLEEP_MS)}**.`,
+          title: 'Sleep timer',
+          icon: 'clock',
+          ephemeral: true,
+        });
+        return;
+
+      case 'status': {
+        const plan = timer.plan(ctx.guildId);
+        await ctx.reply({
+          content: plan
+            ? describeSleepPlan(plan)
+            : 'No sleep timer is set. Set one with `sleep 30`.',
+          title: 'Sleep timer',
+          icon: 'clock',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      case 'cancel':
+        await ctx.reply(
+          timer.cancel(ctx.guildId)
+            ? {
+                content: 'Sleep timer cancelled — the music keeps going.',
+                title: 'Sleep timer',
+                icon: 'clock',
+              }
+            : {
+                content: 'There was no sleep timer to cancel.',
+                title: 'Sleep timer',
+                icon: 'clock',
+                ephemeral: true,
+              },
+        );
+        return;
+
+      case 'track': {
+        const player = this.require(ctx);
+        if (!player) return;
+
+        const current = player.queue.current;
+        if (!current) {
+          await ctx.reply({
+            content: 'Nothing is playing, so there is no track to stop after.',
+            title: 'Sleep timer',
+            icon: 'clock',
+            ephemeral: true,
+          });
+          return;
+        }
+
+        timer.setAfterTrack(ctx.guildId);
+        await ctx.reply({
+          content: `I will stop once **${current.title}** finishes.`,
+          title: 'Sleep timer set',
+          icon: 'clock',
+        });
+        return;
+      }
+
+      case 'after': {
+        const player = this.require(ctx);
+        if (!player) return;
+
+        timer.set(ctx.guildId, request.ms);
+        await ctx.reply({
+          content: `Sleeping in **${formatSleepRemaining(request.ms)}** — I will stop the music and leave.`,
+          title: 'Sleep timer set',
+          icon: 'clock',
+        });
+      }
+    }
   }
 
   async seek(ctx: CommandContext, positionMs: number): Promise<void> {

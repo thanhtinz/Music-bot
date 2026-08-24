@@ -128,6 +128,14 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     requiresVoice: true,
   },
   {
+    name: 'sleep',
+    description: 'Stop the music later, or at the end of this track',
+    category: 'playback',
+    aliases: ['sleeptimer', 'bedtime'],
+    options: [{ name: 'duration', description: 'Minutes, a length like 1h30m, `track`, or `off`' }],
+    tier: 'dj',
+  },
+  {
     name: 'volume',
     description: 'Show or set the playback volume',
     category: 'playback',

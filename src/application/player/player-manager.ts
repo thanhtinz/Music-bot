@@ -4,6 +4,7 @@ import type { AudioBackend } from '../../infrastructure/audio/audio-backend';
 
 import type { IdleMonitor, IdleReason } from './idle-monitor';
 import { Player, type PlayerOptions } from './player';
+import type { SleepTimer } from './sleep-timer';
 
 export interface PlayerManagerOptions {
   defaultVolume?: number;
@@ -15,6 +16,13 @@ export interface PlayerManagerOptions {
    * is what the tests that are not about idling want.
    */
   idle?: IdleMonitor;
+  /**
+   * The guild sleep timers, so a destroyed player takes its timer with it.
+   *
+   * Without this a timer set before a `leave` would still be counting down, and
+   * would come back an hour later to stop whatever the guild is playing then.
+   */
+  sleep?: Pick<SleepTimer, 'forget' | 'stop'>;
   /** Told which player is being dropped for going idle, to announce it. */
   onIdleLeave?: (player: Player, reason: IdleReason) => Promise<void> | void;
   /**
@@ -193,6 +201,7 @@ export class PlayerManager {
 
     this.players.delete(guildId);
     this.options.idle?.forget(guildId);
+    this.options.sleep?.forget(guildId);
 
     await player.stop().catch((error) => {
       logger.warn({ err: error, guildId }, 'failed to stop player cleanly');
@@ -202,6 +211,7 @@ export class PlayerManager {
   /** Stops every player — used on graceful shutdown (spec §31). */
   async destroyAll(): Promise<void> {
     this.options.idle?.stop();
+    this.options.sleep?.stop();
     await Promise.all([...this.players.keys()].map((guildId) => this.destroy(guildId)));
   }
 

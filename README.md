@@ -319,6 +319,32 @@ A live stream has no position to jump to. The player quietly ignores the attempt
 
 ![](preview/reply-forward-stream.png)
 
+## A sleep timer
+
+People fall asleep to this bot. The alternative to a timer is a room playing to nobody until the idle monitor notices — which never happens while a long queue keeps feeding it tracks. `sleep 45` stops the music and leaves in three quarters of an hour:
+
+![](preview/reply-sleep-set.png)
+
+A bare number means **minutes** here, unlike everywhere else in the bot: nobody sets a sleep timer for thirty seconds, and `sleep 30` meaning half a minute would be a trap rather than a shorthand. Lengths work too — `sleep 1h30m`, `sleep 90m`. The floor is ten seconds and the ceiling is twelve hours; below the floor it points at `stop`, which is what that person actually wants.
+
+`sleep track` lets the current song finish and stops after it:
+
+![](preview/reply-sleep-track.png)
+
+That one is a flag rather than a timer on the track's remaining time. A seek, a pause or a skip would each leave such a timer pointing at a moment that no longer means anything, so the flag is spent by the track _actually_ ending, whenever that turns out to be — and only in the guild that set it.
+
+A bare `sleep` asks what is set, and `sleep off` calls it off. Both answer privately, since neither changes what the room hears:
+
+![](preview/reply-sleep-status.png)
+
+![](preview/reply-sleep-off.png)
+
+Anything else is read back rather than guessed at:
+
+![](preview/reply-sleep-invalid.png)
+
+A timer belongs to the player that was running when it was set. `leave`, `stop` and an idle disconnect all take it with them — without that, a timer set before somebody left would come back an hour later and tear down whatever the guild was playing by then.
+
 ## Announcing each track
 
 A track that starts on its own — the next in the queue, or an autoplay pick — has no command waiting on it, so until now a room only ever saw the song it had asked for. Each one now posts its own panel, with the same controls and the same moving progress line:

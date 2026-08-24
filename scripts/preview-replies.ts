@@ -6,7 +6,7 @@ import {
   type CommandContext,
   type ReplyPayload,
 } from '../src/application/commands';
-import { PlayerManager } from '../src/application/player';
+import { PlayerManager, SleepTimer } from '../src/application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from '../src/application/playlist';
 import { InMemorySettingsRepository, SettingsService } from '../src/application/settings';
 import { SearchService } from '../src/application/search';
@@ -208,6 +208,13 @@ const MUSIC_OPTIONS = {
       muted: player.muted,
     }),
   queueComponents: (page: number, totalPages: number) => buildQueuePagination(page, totalPages),
+  // A real timer would keep the preview process alive long after it has drawn
+  // its last card, so this one remembers what was asked for and never fires.
+  sleep: new SleepTimer({
+    onSleep: async () => {},
+    setTimer: () => 0 as unknown as NodeJS.Timeout,
+    clearTimer: () => {},
+  }),
 };
 
 async function main(): Promise<void> {
@@ -250,6 +257,27 @@ async function main(): Promise<void> {
   const replayed = context({ commandName: 'replay' });
   await music.replay(replayed.ctx);
   save(replayed, 'reply-replay.png');
+
+  // The sleep timer, in the four states somebody can put it in.
+  const sleepSet = context({ commandName: 'sleep' });
+  await music.sleep(sleepSet.ctx, '45');
+  save(sleepSet, 'reply-sleep-set.png');
+
+  const sleepStatus = context({ commandName: 'sleep' });
+  await music.sleep(sleepStatus.ctx, undefined);
+  save(sleepStatus, 'reply-sleep-status.png');
+
+  const sleepTrack = context({ commandName: 'sleep' });
+  await music.sleep(sleepTrack.ctx, 'track');
+  save(sleepTrack, 'reply-sleep-track.png');
+
+  const sleepOff = context({ commandName: 'sleep' });
+  await music.sleep(sleepOff.ctx, 'off');
+  save(sleepOff, 'reply-sleep-off.png');
+
+  const sleepUnread = context({ commandName: 'sleep' });
+  await music.sleep(sleepUnread.ctx, 'soonish');
+  save(sleepUnread, 'reply-sleep-invalid.png');
 
   // A radio stream has no position, so the refusal is what gets rendered.
   const radioPlayer = await players.getOrCreate({
