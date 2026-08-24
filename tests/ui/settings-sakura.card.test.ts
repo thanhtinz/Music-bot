@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { SETTING_DESCRIPTORS, createSettings } from '../../src/domain/settings';
 import {
   renderSakuraSettingsCard,
+  settingsCardHeight,
   SETTINGS_SAKURA_SIZE,
   type SettingsCardData,
 } from '../../src/ui/canvas';
@@ -30,13 +31,35 @@ function data(overrides: Partial<SettingsCardData> = {}): SettingsCardData {
 }
 
 describe('renderSakuraSettingsCard', () => {
-  it('renders a PNG at the declared size', async () => {
+  it('renders at the width it declares, tall enough for every setting', async () => {
     const buffer = await renderSakuraSettingsCard(data());
     expectCardImage(buffer);
 
     const image = await loadImage(buffer);
     expect(image.width).toBe(SETTINGS_SAKURA_SIZE.width);
-    expect(image.height).toBe(SETTINGS_SAKURA_SIZE.height);
+    expect(image.height).toBe(settingsCardHeight(SETTING_DESCRIPTORS.length));
+  });
+
+  it('grows with the settings list rather than cutting it off', async () => {
+    // A sheet fixed at five rows hid whichever setting was added last: adding
+    // `announce` pushed 24/7 off the bottom, and the card said nothing.
+    const three = await loadImage(
+      await renderSakuraSettingsCard(data({ rows: data().rows.slice(0, 3) })),
+    );
+    const all = await loadImage(await renderSakuraSettingsCard(data()));
+
+    expect(all.height).toBeGreaterThan(three.height);
+    expect(settingsCardHeight(SETTING_DESCRIPTORS.length)).toBeGreaterThan(settingsCardHeight(3));
+  });
+
+  it('draws a row for every setting there is', async () => {
+    // Comparing against a card built without the last row: if the renderer
+    // stopped early, the two would be identical.
+    const withoutLast = data({ rows: data().rows.slice(0, -1) });
+
+    expect(
+      (await renderSakuraSettingsCard(data())).equals(await renderSakuraSettingsCard(withoutLast)),
+    ).toBe(false);
   });
 
   it('is deterministic for identical input', async () => {

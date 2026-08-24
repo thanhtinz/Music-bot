@@ -449,6 +449,20 @@ async function main(): Promise<void> {
     directMessage: async () => true,
   });
 
+  // The panel a track starting on its own posts, with nobody's command
+  // waiting on it.
+  const announced: ReplyPayload[] = [];
+  const announcing = new MusicService(players, new ResolverRegistry(), {
+    ...MUSIC_OPTIONS,
+    announce: async (_channelId, payload) => {
+      announced.push(payload);
+      return { setContent: async () => true };
+    },
+  });
+
+  await announcing.announceTrack(players.get('guild')!);
+  save({ ctx: joined.ctx, saved: announced }, 'reply-announce.png');
+
   const grabbed = context({ commandName: 'grab' });
   await grabMusic.grab(grabbed.ctx);
   save(grabbed, 'reply-grab.png');

@@ -41,6 +41,7 @@ const ALL_GLYPHS: GlyphName[] = [
   'chart',
   'history',
   'warning',
+  'megaphone',
   'question',
 ];
 

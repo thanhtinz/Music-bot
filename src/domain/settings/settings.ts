@@ -17,6 +17,8 @@ export interface GuildSettings {
   readonly stayConnected: boolean;
   /** How long an idle player waits before leaving, when not staying connected. */
   readonly idleTimeoutMs: number;
+  /** Post a Now Playing panel when each track starts. */
+  readonly announceTracks: boolean;
   readonly updatedAt: number;
 }
 
@@ -55,6 +57,8 @@ export function createSettings(
     ...(defaults.djRoleId === undefined ? {} : { djRoleId: defaults.djRoleId }),
     stayConnected: false,
     idleTimeoutMs: defaults.idleTimeoutMs,
+    // On by default: a room that cannot see what is playing has to ask.
+    announceTracks: true,
     updatedAt: now,
   };
 }
@@ -147,6 +151,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         );
       }
       return { ...settings, idleTimeoutMs: ms };
+    },
+  },
+  {
+    key: 'announce',
+    label: 'Announce tracks',
+    description: 'Post a panel when each track starts',
+    example: 'on / off',
+    format: (settings) => (settings.announceTracks ? 'on' : 'off'),
+    apply: (settings, raw) => {
+      const value = raw.trim().toLowerCase();
+      if (['on', 'true', 'yes', 'enable'].includes(value)) {
+        return { ...settings, announceTracks: true };
+      }
+      if (['off', 'false', 'no', 'disable'].includes(value)) {
+        return { ...settings, announceTracks: false };
+      }
+      invalid('Announcements are `on` or `off`.');
     },
   },
   {

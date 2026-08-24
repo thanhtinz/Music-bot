@@ -22,7 +22,7 @@ import {
   renderQueueCard,
   renderSakuraHistoryCard,
 } from '../../ui/canvas';
-import { satisfiesTier, type CommandContext } from '../commands';
+import { satisfiesTier, type CommandContext, type ReplyHandle } from '../commands';
 import { lineFor } from '../player';
 import type { Player, PlayerManager, ProgressTicker } from '../player';
 
@@ -96,6 +96,21 @@ export interface MusicServiceOptions {
     userId: string,
     payload: { content: string; attachments?: { name: string; data: Buffer }[] },
   ) => Promise<boolean>;
+  /**
+   * Posts a panel into a channel nobody's command is waiting on.
+   *
+   * A track starting by itself has no interaction to reply to, so this is the
+   * one path that sends rather than answers. The handle comes back so the
+   * progress line on that panel can keep moving.
+   */
+  announce?: (
+    channelId: string,
+    payload: {
+      content: string;
+      attachments: { name: string; data: Buffer }[];
+      components?: unknown[];
+    },
+  ) => Promise<ReplyHandle | undefined>;
 }
 
 /**
@@ -1004,6 +1019,30 @@ export class MusicService {
       attachments: [{ name: cardFile('now-playing'), data: card }],
       components: this.options.nowPlayingComponents?.(player),
       edit: true,
+    });
+
+    this.options.progress?.watch(player, handle);
+  }
+
+  /**
+   * Announces a track that started on its own, in the channel the player
+   * belongs to.
+   *
+   * Nobody asked for this one, so it is a fresh message rather than an edit of
+   * a reply that belongs to some earlier command — and the ticker adopts it,
+   * because this panel is the one on screen now.
+   */
+  async announceTrack(player: Player): Promise<void> {
+    const current = player.queue.current;
+    const channelId = player.textChannelId;
+    if (!current || !channelId || !this.options.announce) return;
+
+    const card = await renderNowPlayingCard(this.toCardData(player, current));
+
+    const handle = await this.options.announce(channelId, {
+      content: lineFor(player),
+      attachments: [{ name: cardFile('now-playing'), data: card }],
+      components: this.options.nowPlayingComponents?.(player),
     });
 
     this.options.progress?.watch(player, handle);

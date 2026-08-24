@@ -305,6 +305,18 @@ A live stream has no position to jump to. The player quietly ignores the attempt
 
 ![](preview/reply-forward-stream.png)
 
+## Announcing each track
+
+A track that starts on its own — the next in the queue, or an autoplay pick — has no command waiting on it, so until now a room only ever saw the song it had asked for. Each one now posts its own panel, with the same controls and the same moving progress line:
+
+![](preview/reply-announce.png)
+
+The ticker adopts the new panel, because that is the one on screen. Guilds that would rather have a quiet channel turn it off with `settings announce off`; it is on by default, since a room that cannot see what is playing has to ask.
+
+![](preview/reply-settings.png)
+
+Two things that picture caught. The sheet was fixed at five rows, so adding this setting pushed **24/7** off the bottom and said nothing about it — the card is drawn in code, so it grows with the list now, and a test compares a card built without its last row to prove the renderer is not stopping early. And the new row drew a **question mark**: `announce` had no glyph. The megaphone it got is deliberately tilted, because a cone drawn straight on reads as the speaker `volume` already uses, and the two sit on this same card.
+
 ## Saving what is playing
 
 `grab` (also `save`, `yoink`) sends the current track to your own messages — the Now Playing card so the song is recognisable at a glance in a DM full of them, and the link as text, because a link drawn into an image is a link nobody can follow.

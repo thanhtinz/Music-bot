@@ -27,14 +27,32 @@ export interface SettingsCardData {
 }
 
 const WIDTH = 1200;
-const HEIGHT = 830;
 
-export const SETTINGS_SAKURA_SIZE = { width: WIDTH, height: HEIGHT } as const;
+/**
+ * As many rows as the settings list has.
+ *
+ * The card is drawn in code, so it grows instead of cutting the list off — a
+ * sheet that silently stopped at five would hide whichever setting was added
+ * last, which is exactly what happened when `announce` arrived and pushed 24/7
+ * off the bottom.
+ */
+export const SETTINGS_SAKURA_MAX_ROWS = 10;
 
-/** Five rows fit without crowding; the descriptors list is that long. */
-export const SETTINGS_SAKURA_PAGE_SIZE = 5;
+/** Height of a sheet with `rows` settings on it. */
+export function settingsCardHeight(rows: number): number {
+  const count = Math.min(Math.max(1, rows), SETTINGS_SAKURA_MAX_ROWS);
+  // Below the last row: the gap the footer sat in when the card was fixed at
+  // five rows, plus the footer itself.
+  return ROWS.firstY + (count - 1) * ROWS.spacing + ROWS.height + 196;
+}
 
-const PANEL: Rect = { x: 24, y: 22, width: WIDTH - 48, height: HEIGHT - 44 };
+/** The size of a full-length sheet, for tests and layout maths. */
+export const SETTINGS_SAKURA_SIZE = {
+  width: WIDTH,
+  get height() {
+    return settingsCardHeight(SETTINGS_SAKURA_MAX_ROWS);
+  },
+} as const;
 const HEADER_BASELINE = 96;
 
 const ROWS = {
@@ -69,29 +87,33 @@ const COLORS = {
 export async function renderSakuraSettingsCard(data: SettingsCardData): Promise<Buffer> {
   registerFonts();
 
-  const canvas = createCanvas(WIDTH, HEIGHT);
+  const rows = data.rows.slice(0, SETTINGS_SAKURA_MAX_ROWS);
+  const height = settingsCardHeight(rows.length);
+
+  const canvas = createCanvas(WIDTH, height);
   const ctx = canvas.getContext('2d');
 
-  drawBackground(ctx);
+  drawBackground(ctx, height);
   drawStickers(ctx);
   drawHeader(ctx, data);
 
-  data.rows.slice(0, SETTINGS_SAKURA_PAGE_SIZE).forEach((row, index) => drawRow(ctx, row, index));
+  rows.forEach((row, index) => drawRow(ctx, row, index));
 
-  drawFooter(ctx, data);
+  drawFooter(ctx, data, height);
 
   // Drawn last, as on every card, so nothing can clip it.
-  await drawMascot(ctx, { centerX: 1062, bottomY: 800, height: 158 });
+  await drawMascot(ctx, { centerX: 1062, bottomY: height - 30, height: 158 });
 
   return encodeCard(canvas);
 }
 
-function drawBackground(ctx: SKRSContext2D): void {
+function drawBackground(ctx: SKRSContext2D, height: number): void {
   ctx.fillStyle = COLORS.backdrop;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillRect(0, 0, WIDTH, height);
 
-  fillRoundedRect(ctx, PANEL, 32, COLORS.panel);
-  strokeRoundedRect(ctx, PANEL, 32, COLORS.panelBorder, 2);
+  const panel: Rect = { x: 24, y: 22, width: WIDTH - 48, height: height - 44 };
+  fillRoundedRect(ctx, panel, 32, COLORS.panel);
+  strokeRoundedRect(ctx, panel, 32, COLORS.panelBorder, 2);
 }
 
 function drawStickers(ctx: SKRSContext2D): void {
@@ -177,9 +199,9 @@ function drawRow(ctx: SKRSContext2D, row: SettingsCardRow, index: number): void 
   ctx.textAlign = 'left';
 }
 
-function drawFooter(ctx: SKRSContext2D, data: SettingsCardData): void {
+function drawFooter(ctx: SKRSContext2D, data: SettingsCardData, height: number): void {
   const prefix = data.prefix ?? '/';
-  const baseline = HEIGHT - 64;
+  const baseline = height - 64;
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';

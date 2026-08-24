@@ -19,7 +19,13 @@ export class JsonSettingsRepository implements SettingsRepository {
   }
 
   async find(guildId: string): Promise<GuildSettings | undefined> {
-    return this.store.get(guildId);
+    const stored = await this.store.get(guildId);
+    if (!stored) return undefined;
+
+    // A settings file written before a flag existed has no value for it, and
+    // `undefined` would read as off — which would silently turn announcements
+    // off for every guild that had ever changed a setting.
+    return { ...stored, announceTracks: stored.announceTracks ?? true };
   }
 
   async save(settings: GuildSettings): Promise<void> {

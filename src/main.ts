@@ -143,6 +143,26 @@ async function main(): Promise<void> {
     // is nothing left to follow, and the next one sends a panel of its own.
     player.on('trackEnd', ({ guildId }) => progress.stop(guildId));
     player.on('queueEnd', ({ guildId }) => progress.stop(guildId));
+
+    // A track starting on its own is the one thing nobody's command is waiting
+    // on, so without this a room only ever sees the song it asked for.
+    player.on('trackStart', ({ guildId }) => {
+      void announceIfWanted(guildId);
+    });
+  };
+
+  /** Posts the panel for a track that started by itself, if the guild wants it. */
+  const announceIfWanted = async (guildId: string): Promise<void> => {
+    const player = players.get(guildId);
+    if (!player) return;
+
+    try {
+      if (!(await settings.forGuild(guildId)).announceTracks) return;
+      await service.announceTrack(player);
+    } catch (error) {
+      // An announcement is a courtesy; failing it must not disturb playback.
+      log.warn({ err: error, guildId }, 'could not announce a track');
+    }
   };
 
   const service = new MusicService(players, resolvers, {
@@ -166,6 +186,37 @@ async function main(): Promise<void> {
     guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
     listenerCount: (guildId) => listenersOf(client, players, guildId)?.size,
     listenerIds: (guildId) => listenersOf(client, players, guildId),
+    announce: async (channelId, payload) => {
+      const channel = client.channels.cache.get(channelId);
+      if (!channel?.isSendable()) return undefined;
+
+      try {
+        const sent = await channel.send({
+          content: payload.content,
+          files: payload.attachments.map((file) => ({
+            attachment: file.data,
+            name: file.name,
+          })),
+          components: payload.components as never[] | undefined,
+        });
+
+        return {
+          async setContent(content: string) {
+            try {
+              await sent.edit({ content });
+              return true;
+            } catch {
+              // Deleted, or the channel is gone: the ticker stops rather than
+              // retrying into nothing.
+              return false;
+            }
+          },
+        };
+      } catch (error) {
+        log.warn({ err: error, channelId }, 'could not post a Now Playing panel');
+        return undefined;
+      }
+    },
     directMessage: async (userId, payload) => {
       try {
         const user = await client.users.fetch(userId);

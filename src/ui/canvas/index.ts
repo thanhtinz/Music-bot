@@ -71,7 +71,8 @@ export {
 export type { NoticeCardData, NoticeTone } from './cards/notice-sakura.card';
 export {
   renderSakuraSettingsCard,
-  SETTINGS_SAKURA_PAGE_SIZE,
+  SETTINGS_SAKURA_MAX_ROWS,
+  settingsCardHeight,
   SETTINGS_SAKURA_SIZE,
 } from './cards/settings-sakura.card';
 export type { SettingsCardData, SettingsCardRow } from './cards/settings-sakura.card';
