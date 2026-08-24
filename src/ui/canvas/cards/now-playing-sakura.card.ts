@@ -40,13 +40,18 @@ export const SAKURA_TEMPLATE_SIZE = { width: 1536, height: 1024 } as const;
  */
 const REGION = {
   /** Inside of the framed tile, where the cover art goes. */
-  // Measured from the template's own frame: its stroke runs 90–92 on the left,
-  // 160–162 on top, 550–552 on the right and 640–642 at the bottom, so the
-  // cover fills 93–549 by 163–639 — everything inside the border and nothing
-  // over it. The old box stopped seven pixels short on the right and eight at
-  // the bottom, which read as a picture too small for its frame.
-  artwork: { x: 93, y: 163, width: 457, height: 477 },
-  artworkRadius: 40,
+  /**
+   * Measured from the template's frame, which is drawn as two rounded
+   * outlines offset from each other: the outer one runs 80–83 / 148–152 /
+   * 548–552 / 640–642, the inner one sits up and to the left of it.
+   *
+   * The cover fills the *outer* one. Filling the inner rect leaves the offset
+   * showing as a pale sliver down the right and bottom; nudging it over moves
+   * that sliver to the left and top. Only the outer line has the cover flush
+   * against it on all four sides, which is the only version that looks even.
+   */
+  artwork: { x: 84, y: 153, width: 464, height: 487 },
+  artworkRadius: 46,
 
   /** Status pill; only its text is repainted so the icon survives. */
   statusPill: { x: 600, y: 183, width: 291, height: 68 },

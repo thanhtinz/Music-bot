@@ -115,17 +115,17 @@ describe('renderSakuraNowPlayingCard', () => {
       return data[i]! > 235 && data[i + 1]! > 200 && data[i + 2]! > 205;
     };
 
-    // The frame's stroke, measured from the template.
-    const frame = { left: 90, right: 552, top: 160, bottom: 642 };
+    // The frame's outer stroke, which is the line the cover sits against.
+    const frame = { left: 80, right: 552, top: 148, bottom: 642 };
 
     for (let y = 260; y <= 540; y += 40) {
-      expect(isGround(frame.left + 4, y), `gap on the left at y=${y}`).toBe(false);
-      expect(isGround(frame.right - 4, y), `gap on the right at y=${y}`).toBe(false);
+      expect(isGround(frame.left + 5, y), `gap on the left at y=${y}`).toBe(false);
+      expect(isGround(frame.right - 5, y), `gap on the right at y=${y}`).toBe(false);
     }
 
     for (let x = 160; x <= 480; x += 40) {
-      expect(isGround(x, frame.top + 4), `gap at the top at x=${x}`).toBe(false);
-      expect(isGround(x, frame.bottom - 4), `gap at the bottom at x=${x}`).toBe(false);
+      expect(isGround(x, frame.top + 5), `gap at the top at x=${x}`).toBe(false);
+      expect(isGround(x, frame.bottom - 5), `gap at the bottom at x=${x}`).toBe(false);
     }
   });
 
@@ -139,10 +139,10 @@ describe('renderSakuraNowPlayingCard', () => {
     ]);
 
     for (const [x, y] of [
-      [95, 165],
-      [547, 165],
-      [95, 637],
-      [547, 637],
+      [88, 157],
+      [544, 157],
+      [88, 635],
+      [544, 635],
     ] as const) {
       // Within a few levels rather than exactly: cards ship as WebP, and a
       // lossy encoder moves a flat colour by a level or two. A bulge would be
