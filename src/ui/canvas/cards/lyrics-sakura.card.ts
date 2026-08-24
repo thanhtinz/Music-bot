@@ -1,5 +1,7 @@
 import { createCanvas, type SKRSContext2D } from '@napi-rs/canvas';
 
+import type { TimedLyricLine } from '../../../lyrics/lyrics-provider';
+
 import { font, registerFonts } from '../fonts';
 import { drawGlyph } from '../glyphs';
 import { drawMascot } from '../mascot';
@@ -16,6 +18,19 @@ export interface LyricsCardData {
   totalPages?: number;
   /** Credited on the card, because the words are somebody else's work. */
   provider?: string;
+  /**
+   * Which line of this page is being sung, as an index into `lines`.
+   *
+   * Left out when the transcript has no timings, when the song is not the one
+   * on the card, or when the reader has paged away from where the music is.
+   */
+  activeLine?: number;
+}
+
+/** A wrapped line, carrying the moment it is sung when there is one. */
+export interface LyricsPageLine {
+  text: string;
+  atMs?: number;
 }
 
 const WIDTH = 1200;
@@ -118,7 +133,6 @@ function drawHeader(ctx: SKRSContext2D, data: LyricsCardData): void {
 function drawLines(ctx: SKRSContext2D, data: LyricsCardData): void {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.font = font(24);
 
   data.lines.slice(0, LYRICS_SAKURA_PAGE_SIZE).forEach((line, index) => {
     const baseline = BODY.firstBaseline + index * BODY.lineHeight;
@@ -127,8 +141,25 @@ function drawLines(ctx: SKRSContext2D, data: LyricsCardData): void {
     // whole song together.
     if (!line.trim()) return;
 
-    ctx.fillStyle = COLORS.inkSoft;
-    ctx.fillText(truncateText(ctx, line, BODY.maxWidth), BODY.x, baseline);
+    const active = index === data.activeLine;
+    ctx.font = font(24, active ? 'bold' : 'regular');
+    const text = truncateText(ctx, line, BODY.maxWidth);
+
+    if (active) {
+      // A pill behind the words rather than colour alone: on a card this size
+      // one pink line among seventeen grey ones is easy to miss, and the pill
+      // is what the eye lands on before it reads anything.
+      const width = ctx.measureText(text).width;
+      fillRoundedRect(
+        ctx,
+        { x: BODY.x - 18, y: baseline - 26, width: width + 36, height: 38 },
+        14,
+        COLORS.pinkSoft,
+      );
+    }
+
+    ctx.fillStyle = active ? COLORS.pinkStrong : COLORS.inkSoft;
+    ctx.fillText(text, BODY.x, baseline);
   });
 }
 
@@ -153,39 +184,112 @@ export function paginateLyrics(
   text: string,
   perPage = LYRICS_SAKURA_PAGE_SIZE,
 ): { pages: string[][]; totalPages: number } {
+  const source = text.trim();
+  if (!source) return { pages: [[]], totalPages: 1 };
+
+  const { pages, totalPages } = pageOf(
+    wrapLines(source.split('\n').map((line) => ({ text: line }))),
+    perPage,
+  );
+
+  return { pages: pages.map((page) => page.map((line) => line.text)), totalPages };
+}
+
+/**
+ * The same, for a transcript that carries its timings.
+ *
+ * A stamp belongs to the first fragment of the line it opened: wrapping splits
+ * one sung line into two drawn ones, and the moment it starts is the moment the
+ * first of them starts. The second fragment is left unstamped so that looking
+ * up "the line being sung" can never land halfway through one.
+ */
+export function paginateSyncedLyrics(
+  timings: readonly TimedLyricLine[],
+  perPage = LYRICS_SAKURA_PAGE_SIZE,
+): { pages: LyricsPageLine[][]; totalPages: number } {
+  if (timings.length === 0) return { pages: [[]], totalPages: 1 };
+
+  return pageOf(
+    wrapLines(timings.map((entry) => ({ text: entry.line, atMs: entry.atMs }))),
+    perPage,
+  );
+}
+
+/**
+ * Where in a paginated transcript a playback position falls.
+ *
+ * The last line whose moment has passed, rather than the next one coming up:
+ * that is the line being sung. Before the first stamp — an intro, or a song
+ * that has only just started — there is no answer, and the card opens on page
+ * one with nothing lit up.
+ *
+ * A verse break carries a stamp of its own and is skipped: it draws nothing, so
+ * choosing it would put the highlight on a blank row and read as the card
+ * having lost the song. The last line actually sung stays lit through the gap.
+ */
+export function activeLyricLine(
+  pages: readonly (readonly LyricsPageLine[])[],
+  positionMs: number,
+): { page: number; line: number } | undefined {
+  let found: { page: number; line: number } | undefined;
+
+  pages.forEach((page, pageIndex) => {
+    page.forEach((line, lineIndex) => {
+      if (line.atMs === undefined || line.atMs > positionMs) return;
+      if (!line.text.trim()) return;
+      found = { page: pageIndex + 1, line: lineIndex };
+    });
+  });
+
+  return found;
+}
+
+/** Wraps lines to the body width, keeping a stamp on the first fragment. */
+function wrapLines(source: readonly LyricsPageLine[]): LyricsPageLine[] {
   const measure = createCanvas(10, 10).getContext('2d');
   registerFonts();
   measure.font = font(24);
 
-  // Trimmed first: a trailing newline would otherwise become a blank line, and
-  // a wholly empty song a page with nothing on it.
-  const source = text.trim();
-  if (!source) return { pages: [[]], totalPages: 1 };
+  const wrapped: LyricsPageLine[] = [];
 
-  const wrapped: string[] = [];
-  for (const raw of source.split('\n')) {
-    const line = raw.trimEnd();
+  for (const entry of source) {
+    const line = entry.text.trimEnd();
+    const stamp = entry.atMs === undefined ? {} : { atMs: entry.atMs };
 
     if (!line.trim()) {
-      wrapped.push('');
+      wrapped.push({ text: '', ...stamp });
       continue;
     }
 
+    let first = true;
     let current = '';
+    const push = (text: string): void => {
+      wrapped.push(first ? { text, ...stamp } : { text });
+      first = false;
+    };
+
     for (const word of line.split(/\s+/)) {
       const candidate = current ? `${current} ${word}` : word;
       if (current && measure.measureText(candidate).width > BODY.maxWidth) {
-        wrapped.push(current);
+        push(current);
         current = word;
       } else {
         current = candidate;
       }
     }
-    if (current) wrapped.push(current);
+    if (current) push(current);
   }
 
+  return wrapped;
+}
+
+function pageOf(
+  wrapped: readonly LyricsPageLine[],
+  perPage: number,
+): { pages: LyricsPageLine[][]; totalPages: number } {
   const size = Math.max(1, perPage);
-  const pages: string[][] = [];
+  const pages: LyricsPageLine[][] = [];
+
   for (let index = 0; index < wrapped.length; index += size) {
     pages.push(wrapped.slice(index, index + size));
   }

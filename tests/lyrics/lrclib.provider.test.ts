@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { LrclibProvider, primaryArtist, searchableTitle, stripTimestamps } from '../../src/lyrics';
+import { LrclibProvider, parseLrc, primaryArtist, searchableTitle } from '../../src/lyrics';
 import { CircuitBreaker, ResolverError } from '../../src/resolvers';
 
 /** A fetch that answers with whatever the test says, and records the URL. */
@@ -61,13 +61,48 @@ describe('primaryArtist', () => {
   });
 });
 
-describe('stripTimestamps', () => {
-  it('removes the timing and keeps the words', () => {
-    expect(stripTimestamps('[00:12.34] one\n[00:15.00] two')).toBe('one\ntwo');
+describe('parseLrc', () => {
+  it('reads the timing and keeps the words', () => {
+    expect(parseLrc('[00:12.34] one\n[00:15.00] two')).toEqual([
+      { atMs: 12_340, line: 'one' },
+      { atMs: 15_000, line: 'two' },
+    ]);
   });
 
-  it('handles several stamps on one line', () => {
-    expect(stripTimestamps('[00:12.34][01:02.00] chorus')).toBe('chorus');
+  it('lands a repeated line at every moment it is sung', () => {
+    expect(parseLrc('[00:12.34][01:02.00] chorus')).toEqual([
+      { atMs: 12_340, line: 'chorus' },
+      { atMs: 62_000, line: 'chorus' },
+    ]);
+  });
+
+  it('reads the fraction as fractional seconds', () => {
+    // `.5` is half a second, not five hundredths and not five milliseconds.
+    expect(parseLrc('[00:10.5] half')[0]?.atMs).toBe(10_500);
+    expect(parseLrc('[00:10.05] a little')[0]?.atMs).toBe(10_050);
+    expect(parseLrc('[00:10.005] barely')[0]?.atMs).toBe(10_005);
+    expect(parseLrc('[00:10] none')[0]?.atMs).toBe(10_000);
+  });
+
+  it('keeps a blank line, because a verse break is part of the song', () => {
+    expect(parseLrc('[00:10.00] one\n[00:12.00]\n[00:14.00] two')).toEqual([
+      { atMs: 10_000, line: 'one' },
+      { atMs: 12_000, line: '' },
+      { atMs: 14_000, line: 'two' },
+    ]);
+  });
+
+  it('drops the metadata tags and anything it cannot place', () => {
+    expect(parseLrc('[ar:MONO]\n[length:03:20]\nstray words\n[00:10.00] real')).toEqual([
+      { atMs: 10_000, line: 'real' },
+    ]);
+  });
+
+  it('puts the lines in the order they are sung', () => {
+    expect(parseLrc('[01:00.00] later\n[00:10.00] earlier').map((entry) => entry.line)).toEqual([
+      'earlier',
+      'later',
+    ]);
   });
 });
 

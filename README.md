@@ -413,6 +413,18 @@ It gets the same treatment as the track resolvers: a 6-second timeout and a circ
 
 The lookup is remembered per guild so a page button turns the page instead of spending another request.
 
+### Following along
+
+LRCLIB often has a **timed** transcript, and the bot was throwing the timings away — stripping `[00:24.00]` off each line and drawing the words. It keeps them now, so a card for the song that is playing opens on the page the music is on and lights up the line being sung:
+
+![](preview/reply-lyrics-synced.png)
+
+The words are built from the timings rather than from the raw file, so what the card pages through and what it highlights cannot fall out of step. Wrapping splits one sung line into two drawn ones; the stamp goes on the first fragment only, so "the line being sung" can never land halfway through one.
+
+Three things have to hold before anything lights up: the transcript is timed, it is the words to what is playing, and that is still the track it was looked up for. `lyrics Lạc Trôi` while something else plays is a card about a different song and gets no highlight; a queue that has moved on loses it too. Paging away leaves the highlight behind rather than dragging it along — turning the page is a deliberate act, and a card that argues with the person turning it is worse than one that stays put.
+
+The picture caught the one case no test had: a verse break carries a stamp of its own and draws nothing, so half a minute into the song the highlight landed on a blank row and the card looked broken. A break is skipped now, and the last line actually sung stays lit through the gap.
+
 ## More than one audio node
 
 `LAVALINK_NODES` takes extra nodes as `name@host:port:password` (comma separated, `:secure` for TLS). The single-node variables stay the first node, so an existing deployment keeps working untouched. An entry that will not parse is skipped with a warning — one typo in a list of three should cost that node, not the whole bot — and a repeated name _or_ address is dropped, because either would have Shoukaku connect to the same node twice.

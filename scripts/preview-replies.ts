@@ -328,6 +328,21 @@ async function main(): Promise<void> {
   await playlists.toggleFavorite(unfavorited.ctx);
   save(unfavorited, 'reply-favorite-removed.png');
 
+  const LYRIC_LINES = [
+    'Nhặt một bông hoa rơi bên hiên nhà',
+    'Nhẹ nhàng đặt lên trang giấy đã ngả màu',
+    '',
+    'Chăm một bông hoa như chăm một người',
+    'Tưới đều mỗi sáng, chờ đến lúc hoa cười',
+    'Rồi một ngày kia hoa nở thật tươi',
+    'Mà người thì đã đi xa mất rồi',
+    '',
+    'Ở lại đây với những mùa hoa cũ',
+    'Ở lại đây đếm từng cánh rụng rơi',
+    'Người có nghe chăng lời của gió',
+    'Kể chuyện một người vẫn đứng đợi ngoài hiên',
+  ];
+
   // A canned provider: the preview must not depend on a live lyrics service.
   const lyrics = new LyricsService(
     {
@@ -336,20 +351,25 @@ async function main(): Promise<void> {
         title: 'Chăm Hoa',
         artist: 'MONO',
         provider: 'LRCLIB',
-        text: [
-          'Nhặt một bông hoa rơi bên hiên nhà',
-          'Nhẹ nhàng đặt lên trang giấy đã ngả màu',
-          '',
-          'Chăm một bông hoa như chăm một người',
-          'Tưới đều mỗi sáng, chờ đến lúc hoa cười',
-          'Rồi một ngày kia hoa nở thật tươi',
-          'Mà người thì đã đi xa mất rồi',
-          '',
-          'Ở lại đây với những mùa hoa cũ',
-          'Ở lại đây đếm từng cánh rụng rơi',
-          'Người có nghe chăng lời của gió',
-          'Kể chuyện một người vẫn đứng đợi ngoài hiên',
-        ].join('\n'),
+        text: LYRIC_LINES.join('\n'),
+      }),
+    },
+    music,
+    { pageComponents: () => [] },
+  );
+
+  // The same words with their timings, so the card can open on the line being
+  // sung rather than at the top.
+  const syncedLyrics = new LyricsService(
+    {
+      name: 'LRCLIB',
+      find: async () => ({
+        title: 'Chăm Hoa',
+        artist: 'MONO',
+        provider: 'LRCLIB',
+        text: LYRIC_LINES.join('\n'),
+        synced: true,
+        timings: LYRIC_LINES.map((line, index) => ({ atMs: index * 4_000, line })),
       }),
     },
     music,
@@ -369,6 +389,12 @@ async function main(): Promise<void> {
   const lyricsCard = context({ commandName: 'lyrics' });
   await lyrics.show(lyricsCard.ctx, 'Chăm Hoa');
   save(lyricsCard, 'reply-lyrics.png');
+
+  // Half a minute in: the seventh line is the one being sung.
+  await player?.seek(30_000);
+  const syncedCard = context({ commandName: 'lyrics' });
+  await syncedLyrics.show(syncedCard.ctx, '');
+  save(syncedCard, 'reply-lyrics-synced.png');
 
   const statsStore = new InMemoryStatsRepository();
   let guildStats = createGuildStats('guild', Date.UTC(2026, 6, 1));

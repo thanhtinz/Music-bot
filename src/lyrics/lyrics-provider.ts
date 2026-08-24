@@ -6,6 +6,12 @@ export interface LyricsQuery {
   durationMs?: number;
 }
 
+/** One line of a timed transcript, and the moment it is sung. */
+export interface TimedLyricLine {
+  atMs: number;
+  line: string;
+}
+
 export interface Lyrics {
   title: string;
   artist: string;
@@ -13,8 +19,16 @@ export interface Lyrics {
   text: string;
   /** Where it came from, shown on the card. */
   provider: string;
-  /** True when the provider had a timed version and it was flattened. */
+  /** True when the provider had a timed version. */
   synced?: boolean;
+  /**
+   * The same words with their timings, when the provider had them.
+   *
+   * Kept alongside `text` rather than replacing it: a card that cannot follow
+   * along still wants the words, and a page turn still works when the song is
+   * paused or nothing is playing at all.
+   */
+  timings?: readonly TimedLyricLine[];
 }
 
 /**

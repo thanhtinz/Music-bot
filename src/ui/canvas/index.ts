@@ -77,12 +77,14 @@ export {
 } from './cards/settings-sakura.card';
 export type { SettingsCardData, SettingsCardRow } from './cards/settings-sakura.card';
 export {
+  activeLyricLine,
   LYRICS_SAKURA_PAGE_SIZE,
   LYRICS_SAKURA_SIZE,
   paginateLyrics,
+  paginateSyncedLyrics,
   renderSakuraLyricsCard,
 } from './cards/lyrics-sakura.card';
-export type { LyricsCardData } from './cards/lyrics-sakura.card';
+export type { LyricsCardData, LyricsPageLine } from './cards/lyrics-sakura.card';
 export {
   formatHours,
   renderSakuraStatsCard,

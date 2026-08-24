@@ -1246,6 +1246,20 @@ export class MusicService {
     return this.players.get(guildId)?.queue.current;
   }
 
+  /**
+   * How far into that track the guild is, or `undefined` when nothing plays.
+   *
+   * Read rather than exposed as a player, so a lyrics card can open on the line
+   * being sung without the service that draws it holding a player it could
+   * mutate.
+   */
+  currentPositionMs(guildId: string): number | undefined {
+    const player = this.players.get(guildId);
+    if (!player?.queue.current) return undefined;
+
+    return player.positionMs;
+  }
+
   private toTrack(candidate: TrackCandidate, requesterId: string): Track {
     return createTrack({
       source: candidate.source,

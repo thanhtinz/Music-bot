@@ -7,6 +7,7 @@ import {
   type Lyrics,
   type LyricsProvider,
   type LyricsQuery,
+  type TimedLyricLine,
 } from './lyrics-provider';
 
 const logger = createLogger('lrclib');
@@ -77,11 +78,15 @@ export class LrclibProvider implements LyricsProvider {
       };
     }
 
-    // A synced file is `[mm:ss.xx] line`; the timestamps are stripped rather
-    // than shown, because the card has no way to follow along yet.
+    // A synced file is `[mm:ss.xx] line`. The timed version wins when there is
+    // one: the words are the same either way, and the timestamps are what lets
+    // the card open on the line being sung.
     const synced = record.syncedLyrics?.trim();
     const plain = record.plainLyrics?.trim();
-    const text = plain || (synced ? stripTimestamps(synced) : '');
+    const timings = synced ? parseLrc(synced) : [];
+    // Built from the timings rather than from the raw file, so the words the
+    // card pages through and the words it highlights cannot fall out of step.
+    const text = timings.length > 0 ? timings.map((entry) => entry.line).join('\n') : (plain ?? '');
 
     if (!text) return undefined;
 
@@ -90,7 +95,7 @@ export class LrclibProvider implements LyricsProvider {
       artist: record.artistName ?? query.artist ?? '',
       text,
       provider: this.name,
-      ...(plain ? {} : { synced: true }),
+      ...(timings.length > 0 ? { synced: true, timings } : {}),
     };
   }
 
@@ -142,11 +147,43 @@ export class LrclibProvider implements LyricsProvider {
   }
 }
 
-/** Turns `[00:12.34] line` into `line`. */
-export function stripTimestamps(synced: string): string {
-  return synced
-    .split('\n')
-    .map((line) => line.replace(/^\s*(?:\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?\]\s*)+/, '').trimEnd())
-    .join('\n')
-    .trim();
+const LRC_STAMP = /\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
+
+/**
+ * Reads an LRC transcript into timed lines.
+ *
+ * One entry per timestamp rather than per line: `[00:42.00][02:10.00] chorus`
+ * is a compressed repeat, and a card following along has to land on the chorus
+ * both times it is sung.
+ *
+ * Metadata tags — `[ar:…]`, `[length:…]` — carry no time and are dropped, as
+ * are lines that never had a stamp: a transcript is only as useful as the
+ * moments in it, and a line the bot cannot place would sit at zero and light up
+ * before the song has started.
+ */
+export function parseLrc(synced: string): TimedLyricLine[] {
+  const entries: TimedLyricLine[] = [];
+
+  for (const raw of synced.split('\n')) {
+    LRC_STAMP.lastIndex = 0;
+    const stamps = [...raw.matchAll(LRC_STAMP)];
+    if (stamps.length === 0) continue;
+
+    const last = stamps[stamps.length - 1]!;
+    const line = raw.slice(last.index + last[0].length).trim();
+
+    for (const stamp of stamps) {
+      // Two digits are hundredths, three are milliseconds — the field is
+      // fractional seconds, so `.5` is half a second rather than five.
+      const fraction = stamp[3] ?? '';
+      const millis = fraction ? Math.round(Number(`0.${fraction}`) * 1000) : 0;
+
+      entries.push({
+        atMs: Number(stamp[1]) * 60_000 + Number(stamp[2]) * 1000 + millis,
+        line,
+      });
+    }
+  }
+
+  return entries.sort((left, right) => left.atMs - right.atMs);
 }
