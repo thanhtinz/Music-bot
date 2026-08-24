@@ -653,6 +653,62 @@ The spec puts shared state in Redis (§21), and the roadmap says so. Having buil
 
 So it is not built. Adding a dependency, a container and a failure mode to tick a roadmap box would make the bot worse, and the roadmap is a plan rather than a promise. If a deployment ever spreads one guild across processes, this file is the seam it plugs into: `CachedSettingsRepository` implements the same `SettingsRepository` port everything else does.
 
+## The website
+
+`PUBLIC_PORT` serves a small site: what the bot is, every command, and whether it is up.
+
+| Route         | What it is                                                   |
+| ------------- | ------------------------------------------------------------ |
+| `/`           | Home — the pitch, with a screenshot of each feature          |
+| `/commands`   | All 38 commands, grouped, with aliases and who may run them  |
+| `/status`     | Shards, the audio cluster, and a "find your shard" lookup    |
+| `/invite`     | A 302 to Discord's OAuth screen, short enough to paste       |
+| `/api/status` | The same counts as JSON, CORS-open, for anyone's uptime page |
+| `/shots/*`    | The screenshots the pages use                                |
+
+Header and nav are one layout shared by all three pages, so the day a fourth is added there is one place to add it rather than three copies to keep agreeing with each other.
+
+### Home
+
+![](preview/web-home.png)
+
+Every picture on it is a card the bot really rendered — the same PNGs the README shows. A page selling a bot whose whole point is what its replies look like should show the replies rather than describe them.
+
+### Commands
+
+![](preview/web-commands.png)
+
+Generated from the same catalog the commands are built from, through the same `usage()` the router and the help card use. A hand-kept command list on a website is a list that quietly stops matching the bot, and a reader has no way to tell which of the two is lying.
+
+### Status
+
+![](preview/web-status.png)
+
+**Find your shard** is the point of the page. A bot spread across processes can be perfectly fine for most servers and completely absent from the rest, and "is it just me" is otherwise unanswerable from outside. Paste a server ID and it applies Discord's own rule — `(guild_id >> 22) % shard_count` — in your browser, with `BigInt`, because a snowflake past 2^53 rounded to a float gives a confidently wrong answer for exactly the newest servers. It runs client-side because it needs nothing the server has, and there is no reason to log which server somebody asked about.
+
+Two things the pictures caught:
+
+- The banner read **All systems playing** while two of four shards were down. On the one page that must not overclaim — whoever is reading it is on exactly one shard, and it may be the broken one. Three states now: all up, **partial outage** with the count, or offline.
+- A shard that is dead does not answer the broadcast at all, so it was absent from the list rather than present and unhealthy — three shards with one dead read "2/2 up". The expected count comes from the sharding manager now, and a shard that said nothing is drawn as **not reporting** with dashes rather than zeroes: it is not serving no servers, it is not saying.
+
+### Public means public
+
+It is a second server on a second port, and that is the point. The metrics port binds loopback and serves guild names, channel names and what people are listening to. This one binds every interface. Two audiences, two ports, and no route that can be confused for the other's — the day somebody puts a reverse proxy in front of the wrong port, that separation is what stops it being a leak.
+
+The boundary is one function, `toPublicStatus`, and it works by construction: it reads named fields off the internal status and never spreads it, because a spread would publish the next field added to the dashboard on the day it was added, by nobody's decision. A test feeds it a guild called _Bí Mật Của Chúng Tôi_ playing _Chăm Hoa_ and asserts that none of those words survive into the JSON or into any page.
+
+The screenshots are looked up in a map rather than resolved from the URL: a route that turns part of a URL into a filename has to be defended against `..`, against symlinks, against encodings that normalise to either, and against every future reader who assumes somebody already did. A map cannot be traversed.
+
+### The pictures are WebP
+
+Six cards is **2.9 MB** of PNG, which is a landing page that takes a moment to arrive on a phone for no reason. They are re-encoded once, cached in memory and served as WebP: **341 KB**, 8.6× smaller, at the same quality 90 the bot already sends cards to Discord at.
+
+The `accept` header is honoured rather than assumed, with `vary: accept` on the response. Every browser released this decade takes WebP, but "every browser" is not "every client" — a link preview fetcher or a scraper may not, and serving them bytes they cannot decode to save a few hundred kilobytes is a bad trade.
+
+### The invite
+
+Eight permissions, each written as its own named bit so it has to justify itself, and the home page lists what the bot deliberately does **not** ask for — including Administrator, which no bot needs and which one should be refused for requesting. The `applications.commands` scope is in there too; without it the slash commands register and then appear for nobody.
+
 ## The status page
 
 `METRICS_PORT` also serves a read-only dashboard at `/`, alongside `/healthz`, `/readyz` and `/metrics`:

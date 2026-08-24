@@ -71,6 +71,20 @@ const envSchema = z.object({
   SHARD_COUNT: z
     .union([z.literal('auto'), z.coerce.number().int().min(1).max(1_000)])
     .default('auto'),
+  /**
+   * Port for the public website. 0 turns it off, which is the default.
+   *
+   * Separate from the metrics port because the two have opposite audiences:
+   * metrics binds loopback and serves guild names and track titles, this binds
+   * every interface and serves counts. A bot nobody is inviting does not need
+   * it at all.
+   */
+  PUBLIC_PORT: z.coerce.number().int().min(0).max(65_535).default(0),
+  /** Bind address for the website; every interface, since that is the point. */
+  PUBLIC_HOST: z.string().default('0.0.0.0'),
+  /** Linked from the site's footer when set. */
+  PUBLIC_SOURCE_URL: z.string().default(''),
+  PUBLIC_SUPPORT_URL: z.string().default(''),
   /** Port for /healthz, /readyz and /metrics. 0 turns the endpoint off. */
   METRICS_PORT: z.coerce.number().int().min(0).max(65_535).default(0),
   /** Bind address for that endpoint; loopback keeps it off the public net. */

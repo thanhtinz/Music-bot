@@ -50,9 +50,24 @@ import {
 import { cardFile, configureCardEncoding, renderSakuraNoticeCard } from './ui/canvas';
 import { createBotMetrics } from './telemetry/bot-metrics';
 import { createHealthServer } from './infrastructure/http/health-server';
+import type { DashboardStatus } from './infrastructure/http/dashboard';
+import { inviteUrl } from './infrastructure/http/invite';
+import { createPublicServer } from './infrastructure/http/public-server';
+import { toPublicStatus, type PublicStatus } from './infrastructure/http/public-status';
 import { createLogger, logger } from './telemetry/logger';
 
 const log = createLogger('main');
+
+/**
+ * A shard's own status, reachable from inside `broadcastEval`.
+ *
+ * That call runs its function in the other shard processes, where the only
+ * thing in scope is their own client — so the reader is hung on the client
+ * rather than closed over here, which would not survive the trip.
+ */
+type StatusClient = Client & {
+  __shardStatus?: () => DashboardStatus & { shardId: number };
+};
 
 /**
  * Boots the bot.
@@ -406,6 +421,57 @@ async function main(): Promise<void> {
     }).catch((error) => log.error({ err: error }, 'slash registration failed'));
   });
 
+  /** Everything this process knows about itself, for both status surfaces. */
+  const dashboardStatus = (): DashboardStatus => ({
+    botName: client.user?.username ?? 'Melody',
+    ready: client.isReady(),
+    uptimeMs: client.uptime ?? 0,
+    guilds: client.guilds.cache.size,
+    gatewayLatencyMs: Math.max(0, client.ws.ping),
+    players: players.list().map((player) => {
+      const channel = client.channels.cache.get(player.voiceChannelId);
+      const listeners =
+        channel?.isVoiceBased() === true
+          ? channel.members.filter((member) => !member.user.bot).size
+          : undefined;
+
+      return {
+        guildId: player.guildId,
+        ...(client.guilds.cache.get(player.guildId)?.name === undefined
+          ? {}
+          : { guildName: client.guilds.cache.get(player.guildId)!.name }),
+        ...(channel && 'name' in channel && channel.name ? { channelName: channel.name } : {}),
+        status: player.status,
+        ...(player.queue.current === undefined
+          ? {}
+          : { title: player.queue.current.title, author: player.queue.current.author }),
+        positionMs: player.positionMs,
+        durationMs: player.queue.current?.durationMs ?? 0,
+        queueLength: player.queue.size,
+        ...(listeners === undefined ? {} : { listeners }),
+      };
+    }),
+    nodes: [...shoukaku.nodes].map(([name, node]) => ({
+      name,
+      connected: node.state === 2,
+      players: node.stats?.players ?? 0,
+      ...(node.stats?.cpu?.systemLoad === undefined ? {} : { cpu: node.stats.cpu.systemLoad }),
+      ...(node.stats?.memory === undefined
+        ? {}
+        : {
+            memory:
+              node.stats.memory.allocated > 0
+                ? node.stats.memory.used / node.stats.memory.allocated
+                : 0,
+          }),
+    })),
+  });
+
+  // Attached to the client so `broadcastEval` can reach it from inside each
+  // shard: that call runs its function in the other processes, where the only
+  // thing in scope is their own client.
+  (client as StatusClient).__shardStatus = () => ({ ...dashboardStatus(), shardId: shard.id });
+
   // Shards are separate processes on one machine, so they cannot all bind the
   // same port: each takes the base plus its id.
   const healthPort = healthPortFor(env.METRICS_PORT, shard);
@@ -427,54 +493,7 @@ async function main(): Promise<void> {
             players: players.size,
           },
         }),
-        status: () => ({
-          botName: client.user?.username ?? 'Melody',
-          ready: client.isReady(),
-          uptimeMs: client.uptime ?? 0,
-          guilds: client.guilds.cache.size,
-          gatewayLatencyMs: Math.max(0, client.ws.ping),
-          players: players.list().map((player) => {
-            const channel = client.channels.cache.get(player.voiceChannelId);
-            const listeners =
-              channel?.isVoiceBased() === true
-                ? channel.members.filter((member) => !member.user.bot).size
-                : undefined;
-
-            return {
-              guildId: player.guildId,
-              ...(client.guilds.cache.get(player.guildId)?.name === undefined
-                ? {}
-                : { guildName: client.guilds.cache.get(player.guildId)!.name }),
-              ...(channel && 'name' in channel && channel.name
-                ? { channelName: channel.name }
-                : {}),
-              status: player.status,
-              ...(player.queue.current === undefined
-                ? {}
-                : { title: player.queue.current.title, author: player.queue.current.author }),
-              positionMs: player.positionMs,
-              durationMs: player.queue.current?.durationMs ?? 0,
-              queueLength: player.queue.size,
-              ...(listeners === undefined ? {} : { listeners }),
-            };
-          }),
-          nodes: [...shoukaku.nodes].map(([name, node]) => ({
-            name,
-            connected: node.state === 2,
-            players: node.stats?.players ?? 0,
-            ...(node.stats?.cpu?.systemLoad === undefined
-              ? {}
-              : { cpu: node.stats.cpu.systemLoad }),
-            ...(node.stats?.memory === undefined
-              ? {}
-              : {
-                  memory:
-                    node.stats.memory.allocated > 0
-                      ? node.stats.memory.used / node.stats.memory.allocated
-                      : 0,
-                }),
-          })),
-        }),
+        status: dashboardStatus,
         collect: () => {
           metrics.players.set(players.size);
           metrics.guilds.set(client.guilds.cache.size);
@@ -495,6 +514,69 @@ async function main(): Promise<void> {
     });
   }
 
+  /**
+   * The last aggregate, refreshed on a timer rather than per request.
+   *
+   * Gathering it crosses process boundaries, which is asynchronous and costs a
+   * round trip to every shard; doing that per request would let a link in a
+   * busy server turn page views into gateway chatter. A status page fifteen
+   * seconds behind is fine, and the response says so in its cache header.
+   */
+  let publicSnapshot: PublicStatus = toPublicStatus([]);
+
+  /**
+   * The public website, on shard 0 only.
+   *
+   * One page for the whole bot rather than one per process: the numbers on it
+   * are totals, and a visitor landing on shard 3's copy seeing a third of the
+   * servers would be reading a true number that answers the wrong question.
+   */
+  const site =
+    env.PUBLIC_PORT && shard.id === 0
+      ? createPublicServer({
+          port: env.PUBLIC_PORT,
+          host: env.PUBLIC_HOST,
+          botName: client.user?.username ?? 'Melody',
+          prefix: env.DEFAULT_PREFIX,
+          inviteUrl: inviteUrl({ clientId: env.DISCORD_CLIENT_ID }),
+          ...(env.PUBLIC_SOURCE_URL ? { sourceUrl: env.PUBLIC_SOURCE_URL } : {}),
+          ...(env.PUBLIC_SUPPORT_URL ? { supportUrl: env.PUBLIC_SUPPORT_URL } : {}),
+          status: () => publicSnapshot,
+        })
+      : undefined;
+
+  const refreshPublicSnapshot = async (): Promise<void> => {
+    try {
+      const local = (client as StatusClient).__shardStatus!();
+
+      const gathered = client.shard
+        ? await client.shard.broadcastEval((each) => (each as StatusClient).__shardStatus?.())
+        : [local];
+
+      publicSnapshot = toPublicStatus(
+        gathered.filter((entry): entry is DashboardStatus & { shardId: number } => Boolean(entry)),
+        // A shard that is down answers nothing, so the count it should have
+        // been comes from the manager rather than from who replied.
+        { expectedShards: client.shard?.count ?? shard.total },
+      );
+    } catch (error) {
+      // A shard that is restarting cannot answer; the previous snapshot is a
+      // better page than an error one.
+      log.debug({ err: error }, 'could not refresh the public status');
+    }
+  };
+
+  const snapshotTimer = site ? setInterval(() => void refreshPublicSnapshot(), 15_000) : undefined;
+  snapshotTimer?.unref();
+
+  if (site) {
+    await refreshPublicSnapshot();
+    await site.start().catch((error) => {
+      // Nobody in a voice channel cares that the website is down.
+      log.warn({ err: error, port: env.PUBLIC_PORT }, 'could not start the public site');
+    });
+  }
+
   installShutdownHandlers(async () => {
     log.info('shutting down');
     // Written before the players are torn down: destroying them first would
@@ -507,6 +589,8 @@ async function main(): Promise<void> {
     sleep.stop();
 
     await players.destroyAll().catch(() => undefined);
+    if (snapshotTimer) clearInterval(snapshotTimer);
+    await site?.stop().catch(() => undefined);
     await health?.stop().catch(() => undefined);
     await client.destroy();
     // Last: the sessions written above are still going through it.
