@@ -40,11 +40,13 @@ lavalink:
 plugins:
   lavasrc:
     sources:
-      # Spotify metadata only; the audio comes from whatever `providers` below
-      # finds, which is YouTube here.
+      # Metadata only; the audio comes from whatever `providers` below finds,
+      # which is YouTube here. Each of these still needs its own credentials —
+      # switched on without them, links come back empty and the bot reports the
+      # service as not enabled, which is the truth of it.
       spotify: true
-      applemusic: false
-      deezer: false
+      applemusic: true
+      deezer: true
       yandexmusic: false
     spotify:
       # Supplied by docker-compose from the environment, so no secret is
@@ -54,6 +56,17 @@ plugins:
       countryCode: 'VN'
       playlistLoadLimit: 3
       albumLoadLimit: 3
+    applemusic:
+      # A media-api token, read out of the Apple Music web player. Blank and
+      # Apple Music links stay unsupported.
+      mediaAPIToken: '${APPLE_MUSIC_TOKEN:}'
+      countryCode: 'VN'
+      playlistLoadLimit: 3
+      albumLoadLimit: 3
+    deezer:
+      # Deezer's tracks are encrypted; this is the key LavaSrc needs to read
+      # them. Blank and Deezer links stay unsupported.
+      masterDecryptionKey: '${DEEZER_DECRYPTION_KEY:}'
     providers:
       # How LavaSrc looks for playable audio once it knows what the link is.
       - 'ytsearch:"%ISRC%"'

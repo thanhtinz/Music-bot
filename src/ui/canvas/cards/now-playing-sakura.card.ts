@@ -19,6 +19,7 @@ import {
 } from '../primitives';
 import type { NowPlayingCardData } from './now-playing.card';
 import { encodeCard } from '../encode';
+import { sourceColor, sourceLabel } from '../sources';
 
 /**
  * Pre-rendered artwork this card composites onto.
@@ -70,15 +71,6 @@ const TRACK = '#f2e5e3';
 const ACCENT: readonly [string, string] = ['#f78fb3', '#f2668f'];
 const BUTTON_PINK = '#f984a7';
 const PILL_BORDER = '#f0d6de';
-
-/** Brand colour per source, used as the badge mark's fill. */
-const SOURCE_COLORS: Record<string, string> = {
-  youtube: '#ff0033',
-  spotify: '#1db954',
-  soundcloud: '#ff5500',
-  radio: '#f2668f',
-  http: '#8b8b8b',
-};
 
 /**
  * Draws a source's mark inside a box of `size` height at `(x, y)`.
@@ -226,9 +218,91 @@ const drawGenericMark: SourceMark = (ctx, x, y, size, color) => {
   return size;
 };
 
+const drawAppleMusicMark: SourceMark = (ctx, x, y, size, color) => {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // A beamed pair of notes: Apple Music's mark is a note, and the beam tells it
+  // apart from the single note the `nowplaying` icon draws.
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
+  ctx.lineWidth = size * 0.09;
+  ctx.lineCap = 'round';
+
+  const stemTop = cy - r * 0.5;
+  const stemBottom = cy + r * 0.28;
+  const left = cx - r * 0.34;
+  const right = cx + r * 0.34;
+
+  ctx.beginPath();
+  ctx.moveTo(left, stemBottom);
+  ctx.lineTo(left, stemTop);
+  ctx.lineTo(right, stemTop - r * 0.14);
+  ctx.lineTo(right, stemBottom - r * 0.14);
+  ctx.stroke();
+
+  for (const [headX, headY] of [
+    [left, stemBottom],
+    [right, stemBottom - r * 0.14],
+  ] as const) {
+    ctx.beginPath();
+    ctx.ellipse(headX - r * 0.13, headY, r * 0.19, r * 0.15, -0.35, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  return size;
+};
+
+const drawDeezerMark: SourceMark = (ctx, x, y, size, color) => {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Deezer's mark is rows of bars rather than a waveform: same idea as
+  // SoundCloud's, turned ninety degrees, which is what tells them apart.
+  // Three columns of chunky bars rather than four thin ones: at 34px the
+  // finer version read as a smudge of dots.
+  const barWidth = size * 0.17;
+  const barHeight = size * 0.13;
+  const gapX = size * 0.09;
+  const gapY = size * 0.07;
+  const rowsPerColumn = [1, 2, 3];
+  const totalWidth = rowsPerColumn.length * barWidth + (rowsPerColumn.length - 1) * gapX;
+
+  ctx.fillStyle = '#ffffff';
+  rowsPerColumn.forEach((rows, column) => {
+    const barX = cx - totalWidth / 2 + column * (barWidth + gapX);
+
+    for (let row = 0; row < rows; row += 1) {
+      const barY = cy + size * 0.22 - (row + 1) * (barHeight + gapY);
+      fillRoundedRect(
+        ctx,
+        { x: barX, y: barY, width: barWidth, height: barHeight },
+        barHeight * 0.35,
+        '#ffffff',
+      );
+    }
+  });
+
+  return size;
+};
+
 const SOURCE_MARKS: Record<string, SourceMark> = {
   youtube: drawYouTubeMark,
   spotify: drawSpotifyMark,
+  applemusic: drawAppleMusicMark,
+  deezer: drawDeezerMark,
   soundcloud: drawSoundCloudMark,
   radio: drawRadioMark,
 };
@@ -368,7 +442,7 @@ function drawTitleAndArtist(ctx: SKRSContext2D, data: NowPlayingCardData): void 
 function drawSourceBadge(ctx: SKRSContext2D, data: NowPlayingCardData): void {
   const pill = REGION.sourcePill;
   const source = (data.source ?? 'unknown').toLowerCase();
-  const label = source.toUpperCase();
+  const label = sourceLabel(source);
 
   const markSize = 34;
   const drawMark = SOURCE_MARKS[source] ?? drawGenericMark;
@@ -391,7 +465,7 @@ function drawSourceBadge(ctx: SKRSContext2D, data: NowPlayingCardData): void {
 
   const markX = rect.x + 20;
   const markY = rect.y + (rect.height - markSize) / 2;
-  const drawnWidth = drawMark(ctx, markX, markY, markSize, SOURCE_COLORS[source] ?? '#8b8b8b');
+  const drawnWidth = drawMark(ctx, markX, markY, markSize, sourceColor(source));
 
   ctx.font = font(26, 'bold');
   ctx.fillStyle = INK;

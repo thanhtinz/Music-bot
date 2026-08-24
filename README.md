@@ -218,19 +218,25 @@ Positions count from 1 and mean the **upcoming** queue — position 1 is the nex
 
 A missing argument reads as `NaN` rather than defaulting to 1, so a mistyped position is refused instead of quietly editing the first track. What `jump` skips over goes into the history rather than being dropped, so `previous` can still reach a track somebody jumped past.
 
-## Spotify links
+## Spotify, Apple Music and Deezer links
 
-Paste a Spotify track, album or playlist link and it plays:
+Paste a track, album or playlist link from any of the three and it plays, badged with the service it came from:
 
-![](preview/reply-play-spotify.png)
+| Spotify                             | Apple Music                             | Deezer                             |
+| ----------------------------------- | --------------------------------------- | ---------------------------------- |
+| ![](preview/reply-play-spotify.png) | ![](preview/reply-play-apple-music.png) | ![](preview/reply-play-deezer.png) |
 
-The reading is done by the **audio node**, not the bot. Lavalink's LavaSrc plugin already holds Spotify credentials and a token cache and hands back playable tracks carrying Spotify's own title, artist and artwork; a second copy of that in the bot would be a second set of credentials and a second thing to keep current. So `LavaSrcResolver` only decides what a link means and passes it on.
+The reading is done by the **audio node**, not the bot. Lavalink's LavaSrc plugin already holds each service's credentials and token cache and hands back playable tracks carrying that service's own title, artist and artwork; a second copy of that in the bot would be a second set of credentials and a second thing to keep current. So `LavaSrcResolver` only decides what a link means and passes it on.
 
-Credentials go to the node, in `docker/lavalink/application.yml`, supplied from `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` by compose. Leave them blank and everything else still works — the links come back as unsupported:
+Apple Music's links need one piece of care: `/us/album/name/123?i=456` is a **song**, not an album — the page is the album, and `i` says which track on it was shared. Missing that turns one shared song into a whole album queued behind it. Deezer's carry an optional locale (`/fr/track/…`), which is normalised away.
+
+Credentials go to the node, in `docker/lavalink/application.yml`, supplied by compose from `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`, `APPLE_MUSIC_TOKEN` and `DEEZER_DECRYPTION_KEY`. Leave any of them blank and everything else still works — those links come back as unsupported, and the message names the service, because a node is usually set up for one of them and not the others:
 
 ![](preview/reply-play-spotify-disabled.png)
 
 That message matters more than it looks. The load comes back empty whether a track was deleted or the plugin was never installed, and the second is an operator's problem; answering "that track is unavailable" would send whoever reads it looking at the wrong thing. A resolver can now mark a message as already fit for the user, and that one is.
+
+Each service gets its own badge mark and brand colour, from one table both the Now Playing panel and the search card read — two copies drift the moment a source is added, which is exactly what these two would have done. `APPLE MUSIC` is spelled the way Apple spells it rather than as the `applemusic` the code calls it.
 
 ## What already played
 

@@ -9,10 +9,12 @@ services:
       - _JAVA_OPTIONS=-Xmx1G
       - SERVER_PORT=2333
       - LAVALINK_SERVER_PASSWORD=${LAVALINK_PASSWORD:-youshallnotpass}
-      # Read by the LavaSrc plugin. Leave them unset and Spotify links are
-      # simply unsupported; nothing else changes.
+      # Read by the LavaSrc plugin. Leave any of them unset and that service's
+      # links are simply unsupported; nothing else changes.
       - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+      - APPLE_MUSIC_TOKEN=${APPLE_MUSIC_TOKEN:-}
+      - DEEZER_DECRYPTION_KEY=${DEEZER_DECRYPTION_KEY:-}
     volumes:
       - ./docker/lavalink/application.yml:/opt/Lavalink/application.yml:ro
       - lavalink-plugins:/opt/Lavalink/plugins

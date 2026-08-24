@@ -12,6 +12,7 @@ import {
 } from '../primitives';
 import { drawMusicNote, drawSparkle, drawStar, SAKURA_STICKER_COLORS } from '../stickers';
 import { encodeCard } from '../encode';
+import { sourceColor, sourceLabel } from '../sources';
 
 export interface SearchCardResult {
   title: string;
@@ -62,15 +63,6 @@ const COLORS = {
   pinkStrong: '#f2406e',
   pinkSoft: '#fbe0e9',
 } as const;
-
-/** Brand colour per source, so the label is placed before it is read. */
-const SOURCE_COLORS: Record<string, string> = {
-  youtube: '#ff0033',
-  spotify: '#1db954',
-  soundcloud: '#ff5500',
-  radio: '#f2668f',
-  http: '#8b8b8b',
-};
 
 /**
  * What a search turned up, numbered so it can be picked from.
@@ -203,7 +195,7 @@ function drawMeta(ctx: SKRSContext2D, box: Rect, result: SearchCardResult): void
   ctx.fillText(result.isStream ? 'LIVE' : formatDuration(result.durationMs), right, box.y + 34);
 
   if (result.source) {
-    const label = result.source.toUpperCase();
+    const label = sourceLabel(result.source);
 
     ctx.font = font(15, 'bold');
     ctx.fillStyle = COLORS.inkMuted;
@@ -213,7 +205,7 @@ function drawMeta(ctx: SKRSContext2D, box: Rect, result: SearchCardResult): void
     const width = ctx.measureText(label).width;
     ctx.beginPath();
     ctx.arc(right - width - 12, box.y + 55, 5, 0, Math.PI * 2);
-    ctx.fillStyle = SOURCE_COLORS[result.source.toLowerCase()] ?? COLORS.inkMuted;
+    ctx.fillStyle = sourceColor(result.source);
     ctx.fill();
   }
 

@@ -548,6 +548,38 @@ async function main(): Promise<void> {
   await spotifyMusic.pickVolume(picked.ctx, 25);
   save(picked, 'reply-now-playing-volume.png');
 
+  // Apple Music and Deezer, resolved the same way: the node hands back a
+  // playable track carrying that service's own metadata.
+  for (const [source, guildId, title, file] of [
+    ['applemusic', 'apple-guild', 'Để Mị Nói Cho Mà Nghe', 'reply-play-apple-music.png'],
+    ['deezer', 'deezer-guild', 'Lạc Trôi', 'reply-play-deezer.png'],
+  ] as const) {
+    const registry = new ResolverRegistry();
+    registry.register(
+      new LavaSrcResolver({
+        search: async () => [],
+        loadUrl: async () => [
+          {
+            source,
+            identifier: `${source}-1`,
+            title,
+            author: 'Hoàng Thùy Linh',
+            durationMs: 231_000,
+          },
+        ],
+      }),
+    );
+
+    const capture = context({ commandName: 'play', guildId });
+    await new MusicService(players, registry, MUSIC_OPTIONS).play(
+      capture.ctx,
+      source === 'deezer'
+        ? 'https://www.deezer.com/track/3135556'
+        : 'https://music.apple.com/vn/album/de-mi-noi-cho-ma-nghe/1441164589?i=1441164592',
+    );
+    save(capture, file);
+  }
+
   // The same link on a node with no LavaSrc plugin.
   const noPlugin = new MusicService(
     players,

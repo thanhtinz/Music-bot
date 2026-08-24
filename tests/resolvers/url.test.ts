@@ -97,6 +97,89 @@ describe('parseInput — Spotify', () => {
   });
 });
 
+describe('parseInput — Apple Music', () => {
+  it('reads an album link', () => {
+    const parsed = parseInput('https://music.apple.com/us/album/de-mi-lam-gi/1441164589');
+
+    expect(parsed).toMatchObject({
+      kind: 'applemusic-album',
+      source: 'applemusic',
+      identifier: '1441164589',
+    });
+  });
+
+  it('reads a song shared from inside an album as one track', () => {
+    // `?i=` is how Apple shares a single song: the page is the album, and
+    // missing this queues the whole thing behind it.
+    const parsed = parseInput('https://music.apple.com/vn/album/cham-hoa/1441164589?i=1441164592');
+
+    expect(parsed).toMatchObject({
+      kind: 'applemusic-track',
+      source: 'applemusic',
+      identifier: '1441164592',
+    });
+  });
+
+  it('reads a playlist link', () => {
+    expect(
+      parseInput(
+        'https://music.apple.com/us/playlist/todays-hits/pl.f4d106fed2bd41149aaacabb233eb5eb',
+      ),
+    ).toMatchObject({
+      kind: 'applemusic-playlist',
+      source: 'applemusic',
+    });
+  });
+
+  it('reads a link with no locale in it', () => {
+    expect(parseInput('https://music.apple.com/album/cham-hoa/1441164589')).toMatchObject({
+      kind: 'applemusic-album',
+      source: 'applemusic',
+    });
+  });
+
+  it('hands the URL over as Apple wrote it', () => {
+    // The plugin reads the same link, `i` and all.
+    const raw = 'https://music.apple.com/vn/album/cham-hoa/1441164589?i=1441164592';
+    expect(parseInput(raw).url).toBe(raw);
+  });
+
+  it('falls back to a search for a page that is not music', () => {
+    expect(parseInput('https://music.apple.com/us/browse')).toMatchObject({ kind: 'search' });
+  });
+});
+
+describe('parseInput — Deezer', () => {
+  it('reads track, album and playlist links', () => {
+    expect(parseInput('https://www.deezer.com/track/3135556')).toMatchObject({
+      kind: 'deezer-track',
+      source: 'deezer',
+      identifier: '3135556',
+    });
+    expect(parseInput('https://deezer.com/album/302127')).toMatchObject({
+      kind: 'deezer-album',
+      source: 'deezer',
+    });
+    expect(parseInput('https://www.deezer.com/en/playlist/1479458365')).toMatchObject({
+      kind: 'deezer-playlist',
+      source: 'deezer',
+      identifier: '1479458365',
+    });
+  });
+
+  it('normalises away the locale', () => {
+    expect(parseInput('https://www.deezer.com/fr/track/3135556').url).toBe(
+      'https://www.deezer.com/track/3135556',
+    );
+  });
+
+  it('falls back to a search for a page that is not a track', () => {
+    expect(parseInput('https://www.deezer.com/us/channels/pop')).toMatchObject({
+      kind: 'search',
+    });
+  });
+});
+
 describe('parseInput — other sources', () => {
   it('reads SoundCloud tracks and sets', () => {
     expect(parseInput('https://soundcloud.com/artist/song').kind).toBe('soundcloud-track');

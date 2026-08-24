@@ -7,6 +7,12 @@ export type InputKind =
   | 'spotify-track'
   | 'spotify-album'
   | 'spotify-playlist'
+  | 'applemusic-track'
+  | 'applemusic-album'
+  | 'applemusic-playlist'
+  | 'deezer-track'
+  | 'deezer-album'
+  | 'deezer-playlist'
   | 'soundcloud-track'
   | 'soundcloud-playlist'
   | 'http-stream'
@@ -29,6 +35,8 @@ const YOUTUBE_HOSTS = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music
 const YOUTUBE_SHORT_HOSTS = ['youtu.be'];
 const SPOTIFY_HOSTS = ['open.spotify.com', 'play.spotify.com'];
 const SOUNDCLOUD_HOSTS = ['soundcloud.com', 'www.soundcloud.com', 'm.soundcloud.com'];
+const APPLE_MUSIC_HOSTS = ['music.apple.com', 'geo.music.apple.com'];
+const DEEZER_HOSTS = ['deezer.com', 'www.deezer.com', 'link.deezer.com'];
 
 const YOUTUBE_ID = /^[\w-]{11}$/;
 const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
@@ -62,6 +70,8 @@ export function parseInput(raw: string): ParsedInput {
   if (YOUTUBE_SHORT_HOSTS.includes(host)) return parseYouTubeShort(url);
   if (YOUTUBE_HOSTS.includes(host)) return parseYouTube(url);
   if (SPOTIFY_HOSTS.includes(host)) return parseSpotify(url);
+  if (APPLE_MUSIC_HOSTS.includes(host)) return parseAppleMusic(url);
+  if (DEEZER_HOSTS.includes(host)) return parseDeezer(url);
   if (SOUNDCLOUD_HOSTS.includes(host)) return parseSoundCloud(url);
 
   if (url.protocol === 'http:' || url.protocol === 'https:') {
@@ -148,6 +158,59 @@ function parseSpotify(url: URL): ParsedInput {
     source: 'spotify',
     identifier: id as string,
     url: `https://open.spotify.com/${type}/${id}`,
+  };
+}
+
+/**
+ * Apple Music, whose links carry the locale and a slug before the id.
+ *
+ * `/us/album/name/123456?i=789` is a *track* — the album is the page, and `i`
+ * says which song on it was shared. Missing that turns one shared song into a
+ * whole album queued behind it.
+ */
+function parseAppleMusic(url: URL): ParsedInput {
+  const parts = url.pathname.split('/').filter(Boolean);
+  // The locale is optional: `/album/…` and `/us/album/…` are both real.
+  const typeIndex = parts.findIndex((part) =>
+    ['album', 'playlist', 'song', 'music-video'].includes(part),
+  );
+  const type = typeIndex < 0 ? undefined : parts[typeIndex];
+  const id = typeIndex < 0 ? undefined : (parts[typeIndex + 2] ?? parts[typeIndex + 1]);
+
+  if (!type || !id) return { kind: 'search', source: 'youtube', identifier: url.toString() };
+
+  const trackOnAlbum = url.searchParams.get('i');
+  const kind: InputKind =
+    type === 'playlist'
+      ? 'applemusic-playlist'
+      : type === 'album' && !trackOnAlbum
+        ? 'applemusic-album'
+        : 'applemusic-track';
+
+  return {
+    kind,
+    source: 'applemusic',
+    identifier: trackOnAlbum ?? id,
+    // Handed to the node as it was written, `i` and all: the plugin reads the
+    // same URL Apple published.
+    url: url.toString(),
+  };
+}
+
+/** Deezer, whose links may carry a locale segment before the type. */
+function parseDeezer(url: URL): ParsedInput {
+  const parts = url.pathname.split('/').filter(Boolean);
+  const typeIndex = parts.findIndex((part) => ['track', 'album', 'playlist'].includes(part));
+  const type = typeIndex < 0 ? undefined : parts[typeIndex];
+  const id = typeIndex < 0 ? undefined : parts[typeIndex + 1];
+
+  if (!type || !id) return { kind: 'search', source: 'youtube', identifier: url.toString() };
+
+  return {
+    kind: `deezer-${type}` as InputKind,
+    source: 'deezer',
+    identifier: id,
+    url: `https://www.deezer.com/${type}/${id}`,
   };
 }
 

@@ -1,5 +1,6 @@
 /** Where the audio ultimately comes from. */
-export type Source = 'youtube' | 'spotify' | 'soundcloud' | 'http' | 'radio';
+export type Source =
+  'youtube' | 'spotify' | 'applemusic' | 'deezer' | 'soundcloud' | 'http' | 'radio';
 
 /**
  * A resolved, playable track.

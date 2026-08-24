@@ -157,6 +157,58 @@ describe('LavaSrcResolver', () => {
   });
 });
 
+describe('LavaSrcResolver — Apple Music and Deezer', () => {
+  const APPLE_TRACK = 'https://music.apple.com/vn/album/cham-hoa/1441164589?i=1441164592';
+  const DEEZER_TRACK = 'https://www.deezer.com/track/3135556';
+
+  it('takes an Apple Music link to the node as written', () => {
+    const { client, urls } = node({ loadUrl: [candidate('Chăm Hoa')] });
+
+    return new LavaSrcResolver(client).resolveTrack(parseInput(APPLE_TRACK)).then((track) => {
+      expect(track?.title).toBe('Chăm Hoa');
+      // `i` is what says which song on the album was shared.
+      expect(urls[0]).toBe(APPLE_TRACK);
+    });
+  });
+
+  it('takes a Deezer link to the node', async () => {
+    const { client, urls } = node({ loadUrl: [candidate('Chăm Hoa')] });
+
+    await new LavaSrcResolver(client).resolveTrack(parseInput(DEEZER_TRACK));
+
+    expect(urls[0]).toBe(DEEZER_TRACK);
+  });
+
+  it('loads an Apple Music album as a playlist', async () => {
+    const { client } = node({ loadUrl: [candidate('One', 1), candidate('Two', 2)] });
+
+    const playlist = await new LavaSrcResolver(client).resolvePlaylist(
+      parseInput('https://music.apple.com/us/album/de-mi-lam-gi/1441164589'),
+    );
+
+    expect(playlist).toMatchObject({ source: 'applemusic', name: 'Apple Music album' });
+    expect(playlist?.tracks).toHaveLength(2);
+  });
+
+  it('names the service that is switched off', async () => {
+    // A node is often set up for one of these and not the others, so
+    // "not enabled" has to say which.
+    const { client } = node({ loadUrl: [] });
+    const resolver = new LavaSrcResolver(client);
+
+    await expect(resolver.resolveTrack(parseInput(APPLE_TRACK))).rejects.toThrow(/Apple Music/);
+    await expect(resolver.resolveTrack(parseInput(DEEZER_TRACK))).rejects.toThrow(/Deezer/);
+  });
+
+  it('leaves links it does not own alone', async () => {
+    const { client } = node({ loadUrl: [candidate('Nope')] });
+    const resolver = new LavaSrcResolver(client);
+
+    expect(resolver.canHandle(parseInput('https://soundcloud.com/artist/track'))).toBe(false);
+    expect(await resolver.resolveTrack(parseInput('https://youtu.be/dQw4w9WgXcQ'))).toBeNull();
+  });
+});
+
 describe('describeResolverError', () => {
   it('prefers a message the resolver wrote for the situation', () => {
     const error = new ResolverError('UNAVAILABLE', 'Spotify links are not enabled.', {

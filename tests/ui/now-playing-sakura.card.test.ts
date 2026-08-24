@@ -67,7 +67,7 @@ describe('renderSakuraNowPlayingCard', () => {
   it('draws a distinct mark for every known source', async () => {
     // Each source owns its silhouette: a play tile means YouTube and nothing
     // else, so no two badges may render identically.
-    const sources = ['youtube', 'spotify', 'soundcloud', 'radio', 'http'];
+    const sources = ['youtube', 'spotify', 'applemusic', 'deezer', 'soundcloud', 'radio', 'http'];
     const rendered = await Promise.all(
       sources.map((source) => renderSakuraNowPlayingCard({ ...BASE, source })),
     );
