@@ -441,6 +441,27 @@ async function main(): Promise<void> {
   await music.remove(badPosition.ctx, 99);
   save(badPosition, 'reply-remove-out-of-range.png');
 
+  // Grabbing what is playing: the confirmation, and the refusal a closed DM
+  // gets. The private message itself carries the Now Playing card.
+  const grabMusic = new MusicService(players, new ResolverRegistry(), {
+    ...MUSIC_OPTIONS,
+    guildName: () => 'Melody Test Server',
+    directMessage: async () => true,
+  });
+
+  const grabbed = context({ commandName: 'grab' });
+  await grabMusic.grab(grabbed.ctx);
+  save(grabbed, 'reply-grab.png');
+
+  const dmsClosed = new MusicService(players, new ResolverRegistry(), {
+    ...MUSIC_OPTIONS,
+    directMessage: async () => false,
+  });
+
+  const grabRefused = context({ commandName: 'grab' });
+  await dmsClosed.grab(grabRefused.ctx);
+  save(grabRefused, 'reply-grab-closed.png');
+
   // Cleanup, on a queue seeded with a repeat and a track from somebody who
   // has since left the channel.
   const cleanupPlayers = new PlayerManager(backend, { defaultVolume: 70, maxQueueSize: 100 });

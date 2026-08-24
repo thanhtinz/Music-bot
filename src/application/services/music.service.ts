@@ -85,6 +85,17 @@ export interface MusicServiceOptions {
    * literal text, so a card has to name the channel itself.
    */
   channelName?: (channelId: string) => string | undefined;
+  /**
+   * Sends somebody a private message, reporting whether it arrived.
+   *
+   * A closed DM is the ordinary case rather than an error — plenty of people
+   * have them off — so it comes back as `false` and `grab` says so, instead of
+   * being thrown at the command.
+   */
+  directMessage?: (
+    userId: string,
+    payload: { content: string; attachments?: { name: string; data: Buffer }[] },
+  ) => Promise<boolean>;
 }
 
 /**
@@ -759,6 +770,62 @@ export class MusicService {
       content: `Removed **${removed.length}** ${plural(removed.length, 'track')} queued by people who left.`,
       title: 'Cleaned up',
       icon: 'broom',
+    });
+  }
+
+  /**
+   * Sends whoever asked a copy of what is playing, privately.
+   *
+   * The card goes in the message so the song is recognisable at a glance in a
+   * DM full of them, and the link goes in the text, where it can be tapped —
+   * a link drawn into an image is a link nobody can follow.
+   */
+  async grab(ctx: CommandContext): Promise<void> {
+    const player = this.players.get(ctx.guildId);
+    const current = player?.queue.current;
+
+    if (!player || !current) {
+      await ctx.reply({
+        content: 'Nothing is playing right now.',
+        title: 'Nothing to save',
+        icon: 'note',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (!this.options.directMessage) {
+      await ctx.reply({
+        content: 'I cannot send private messages here.',
+        title: 'Grab',
+        icon: 'warning',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const card = await renderNowPlayingCard(this.toCardData(player, current));
+    const where = this.options.guildName?.(ctx.guildId);
+
+    const delivered = await this.options.directMessage(ctx.userId, {
+      content: [
+        `**${current.title}** — ${current.author}`,
+        current.uri,
+        where ? `_Playing in ${where}_` : undefined,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      attachments: [{ name: cardFile('now-playing'), data: card }],
+    });
+
+    await ctx.reply({
+      content: delivered
+        ? `Sent **${current.title}** to your messages.`
+        : 'I could not message you. Your direct messages may be closed.',
+      title: delivered ? 'Saved' : 'Could not send',
+      icon: delivered ? 'heart' : 'warning',
+      // Private either way: a room does not need to watch somebody save a song.
+      ephemeral: true,
     });
   }
 

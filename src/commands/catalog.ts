@@ -136,6 +136,12 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     tier: 'dj',
   },
   {
+    name: 'grab',
+    description: 'Send what is playing to your messages',
+    category: 'playback',
+    aliases: ['save', 'yoink'],
+  },
+  {
     name: 'nowplaying',
     description: 'Show the Now Playing panel',
     category: 'playback',

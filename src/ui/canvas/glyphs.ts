@@ -45,6 +45,10 @@ const GLYPH_ALIASES: Record<string, GlyphName> = {
   add: 'plus',
   favorite: 'heart',
   fav: 'heart',
+  // Grabbing a song is keeping it, the same as favouriting one.
+  grab: 'heart',
+  save: 'heart',
+  yoink: 'heart',
   pause: 'pause',
   stop: 'stop',
   skip: 'skip',

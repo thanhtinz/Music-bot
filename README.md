@@ -305,6 +305,18 @@ A live stream has no position to jump to. The player quietly ignores the attempt
 
 ![](preview/reply-forward-stream.png)
 
+## Saving what is playing
+
+`grab` (also `save`, `yoink`) sends the current track to your own messages — the Now Playing card so the song is recognisable at a glance in a DM full of them, and the link as text, because a link drawn into an image is a link nobody can follow.
+
+![](preview/reply-grab.png)
+
+Both replies are private: a room does not need to watch somebody save a song. Closed DMs are the ordinary case rather than an error — plenty of people have messages from server members turned off — so the send comes back as a `false` the command explains, instead of an exception thrown at the reply:
+
+![](preview/reply-grab-closed.png)
+
+Sending the message is a port (`directMessage`), so the service stays free of discord.js and a test can watch what would have been sent.
+
 ## Cleaning up a queue
 
 Two commands for a queue that has drifted from what the room wants:

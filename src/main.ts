@@ -166,6 +166,24 @@ async function main(): Promise<void> {
     guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
     listenerCount: (guildId) => listenersOf(client, players, guildId)?.size,
     listenerIds: (guildId) => listenersOf(client, players, guildId),
+    directMessage: async (userId, payload) => {
+      try {
+        const user = await client.users.fetch(userId);
+        await user.send({
+          content: payload.content,
+          files: (payload.attachments ?? []).map((file) => ({
+            attachment: file.data,
+            name: file.name,
+          })),
+        });
+        return true;
+      } catch (error) {
+        // Closed DMs are the ordinary case, not a fault worth logging loudly:
+        // plenty of people have messages from server members turned off.
+        log.debug({ err: error, userId }, 'could not send a direct message');
+        return false;
+      }
+    },
     channelName: (channelId) => {
       const channel = client.channels.cache.get(channelId);
       return channel && 'name' in channel ? (channel.name ?? undefined) : undefined;
