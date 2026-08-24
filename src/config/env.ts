@@ -40,6 +40,15 @@ const envSchema = z.object({
    * right default for a first run with nothing mounted, and the wrong one for
    * anybody who means to keep them.
    */
+  /**
+   * A Postgres connection string. Set it and every store moves there.
+   *
+   * Opt-in rather than the default: a bot that will not start without a
+   * database is a worse first run than one that keeps a JSON file, and the
+   * four `*_STORE_PATH` variables below stay exactly as they are for anybody
+   * who does not want to run one. Set this and they are ignored.
+   */
+  DATABASE_URL: z.string().default(''),
   PLAYLIST_STORE_PATH: z.string().default('data/playlists.json'),
   /** Where per-guild settings are written; empty keeps them in memory. */
   SETTINGS_STORE_PATH: z.string().default('data/settings.json'),

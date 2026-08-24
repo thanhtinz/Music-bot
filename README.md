@@ -626,7 +626,32 @@ Names are matched case- and whitespace-insensitively, so `chill vibes` finds `Ch
 
 A playlist stores what it takes to rebuild a track, not the track object — the per-enqueue id and the original requester do not survive being saved, so a replayed track is attributed to whoever played it.
 
-Storage is behind a port (`PlaylistRepository`), so it can move to PostgreSQL in F8 without the command layer changing. Until then `PLAYLIST_STORE_PATH` writes a JSON file — whole-file writes, moved into place with a rename, so a crash cannot leave half a library. Blank the variable to keep playlists in memory instead and lose them on restart.
+Storage is behind a port (`PlaylistRepository`), so where a library lives is not the command layer's business — see [Keeping things in Postgres](#keeping-things-in-postgres). `PLAYLIST_STORE_PATH` writes a JSON file — whole-file writes, moved into place with a rename, so a crash cannot leave half a library. Blank the variable to keep playlists in memory instead and lose them on restart.
+
+## Keeping things in Postgres
+
+Playlists, guild settings, listening stats and live sessions are each behind a port, and there are now two implementations of every one: JSON files and Postgres. Set `DATABASE_URL` and all four move:
+
+```
+DATABASE_URL=postgresql://musicbot:musicbot@127.0.0.1:5432/musicbot
+```
+
+Leave it blank and nothing changes — the JSON files stay, which is the right default for one bot on one machine. `docker compose --profile postgres up -d` starts a database for anyone who wants one; the service sits behind a profile so `docker compose up` without it does not wait for a container nobody started.
+
+**All four move together, or none do.** One decision in one place rather than four `? :` in the boot path: four independent choices is four chances for a deploy to keep its playlists in Postgres and its settings in a file nobody mounted. A test asserts the four stores are always the same kind.
+
+The schema is created at boot with `CREATE TABLE IF NOT EXISTS`, before the first read — a bot pointed at an empty database should work, not fail somebody's first `playlist list` with a missing table and leave them to find out why from the logs. That is a real migration story's worth of ceremony avoided while the shape is this small; when a column has to be backfilled or a type has to change, `schema.ts` is where a migration table goes, and the boot path already calls it in the right place.
+
+Settings, stats and sessions are a `guild_id` and a JSONB document each. None of them is ever queried by a field inside — nothing asks "which guilds have 24/7 on" — so a column per setting would make every new setting a migration, where a document makes it a change to the domain type and nothing else. Playlists get real columns because they _are_ queried: by owner, and by name. Their tracks stay a JSONB document for the same reason as the rest, since no query asks which playlists contain a given song.
+
+Two details the database forced:
+
+- **The folded name is a column**, written by `normalizePlaylistName` before the insert rather than computed by an expression in SQL. Names are matched case- and whitespace-insensitively, and having two implementations of that rule is having two rules. Renaming a playlist moves the folded name with it, or the old name would still find it — which is what one of the tests checks.
+- **`BIGINT` comes back as a string.** Postgres integers are wider than a JavaScript number, so the driver refuses to guess and hands over the digits. Timestamps are milliseconds since the epoch, comfortably inside `Number.MAX_SAFE_INTEGER`, so they are converted at the edge; without that a playlist's `createdAt` sorts and compares as text everywhere downstream.
+
+These adapters are tested against a **real** PostgreSQL 16, not a fake. A store is the one thing a double cannot vouch for: a typo in a statement, a parameter in the wrong position and a column that does not exist all look fine to a recording double and fail on the first real write. CI starts a Postgres service so the suite runs them on every push; locally, `DATABASE_URL=… npm test` does the same, and without a database those tests skip rather than fail.
+
+Redis is not here yet, and is not being pretended into existence. The spec puts sessions in it (§21), but nothing in the bot currently needs a cache shared between processes: sessions are durable in Postgres now, and the one thing Redis would add — several bot processes sharing live state — needs the sharding work in F9 to exist first.
 
 ## Customising the look
 
@@ -645,7 +670,7 @@ Storage is behind a port (`PlaylistRepository`), so it can move to PostgreSQL in
 | F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker      | ✅ done |
 | F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker   | ✅ done |
 | F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                    | 🚧      |
-| F8    | **24/7, state recovery**; PostgreSQL + Redis                             | 🚧      |
+| F8    | **24/7, state recovery**, **PostgreSQL**; Redis                          | 🚧      |
 | F9    | **Metrics and health**; Lavalink cluster, failover, dashboard            | 🚧      |
 
 ## License

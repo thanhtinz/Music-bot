@@ -13,6 +13,26 @@ jobs:
   verify:
     runs-on: ubuntu-latest
 
+    # The storage adapters are the one thing a fake cannot vouch for: a typo in
+    # a statement or a parameter in the wrong position looks fine to a double
+    # and fails on the first real write. Without this the Postgres tests skip.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: musicbot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/musicbot_test
+
     steps:
       - uses: actions/checkout@v4
 

@@ -10,10 +10,10 @@ import {
   SleepTimer,
   type Player,
 } from './application/player';
-import { InMemorySessionRepository, restoreSessions, SessionRecorder } from './application/session';
-import { InMemoryPlaylistRepository, PlaylistService } from './application/playlist';
-import { InMemorySettingsRepository, SettingsService } from './application/settings';
-import { InMemoryStatsRepository, StatsRecorder, StatsService } from './application/stats';
+import { restoreSessions, SessionRecorder } from './application/session';
+import { PlaylistService } from './application/playlist';
+import { SettingsService } from './application/settings';
+import { StatsRecorder, StatsService } from './application/stats';
 import { SearchService } from './application/search';
 import { LyricsService } from './application/services/lyrics.service';
 import { MusicService } from './application/services/music.service';
@@ -32,10 +32,7 @@ import {
 } from './infrastructure/discord/components';
 import { registerSlashCommands } from './infrastructure/discord/register-commands';
 import { LavalinkBackend } from './infrastructure/lavalink/lavalink-backend';
-import { JsonPlaylistRepository } from './infrastructure/storage/json-playlist-repository';
-import { JsonSessionRepository } from './infrastructure/storage/json-session-repository';
-import { JsonSettingsRepository } from './infrastructure/storage/json-settings-repository';
-import { JsonStatsRepository } from './infrastructure/storage/json-stats-repository';
+import { createStores } from './infrastructure/storage/stores';
 import { LrclibProvider } from './lyrics';
 import {
   FileResolver,
@@ -64,6 +61,11 @@ async function main(): Promise<void> {
   // Set before anything renders, so every card in the process agrees on what
   // it is encoding to and what its attachment should be called.
   configureCardEncoding({ format: env.CARD_FORMAT, quality: env.CARD_QUALITY });
+
+  // Where everything is kept: Postgres when DATABASE_URL is set, JSON files
+  // otherwise. Built before anything that reads, because the schema is created
+  // here and the first read must not race it.
+  const stores = await createStores(env);
 
   const metrics = createBotMetrics();
   const client = createClient();
@@ -158,14 +160,8 @@ async function main(): Promise<void> {
 
   // Saved so a deploy in the middle of a set costs the listeners a few seconds
   // rather than their queue.
-  const sessionStore = env.SESSION_STORE_PATH
-    ? new JsonSessionRepository(env.SESSION_STORE_PATH)
-    : new InMemorySessionRepository();
-  const sessions = new SessionRecorder(sessionStore);
-  const statsStore = env.STATS_STORE_PATH
-    ? new JsonStatsRepository(env.STATS_STORE_PATH)
-    : new InMemoryStatsRepository();
-  const statsRecorder = new StatsRecorder(statsStore);
+  const sessions = new SessionRecorder(stores.sessions);
+  const statsRecorder = new StatsRecorder(stores.stats);
 
   // The moving line above a Now Playing panel. Only the message text is
   // rewritten, so the card is never re-encoded and never re-fetched.
@@ -283,42 +279,29 @@ async function main(): Promise<void> {
     },
   });
 
-  // A file store when one is configured, memory otherwise: playlists that do
-  // not survive a restart still beat a playlist command that reports an outage.
-  const playlists = new PlaylistService(
-    env.PLAYLIST_STORE_PATH
-      ? new JsonPlaylistRepository(env.PLAYLIST_STORE_PATH)
-      : new InMemoryPlaylistRepository(),
-    service,
-    {
-      prefix: env.DEFAULT_PREFIX,
-      prefixFor: async (guildId) => (await settings.forGuild(guildId)).prefix,
-      get botName() {
-        return client.user?.username ?? 'MusicBot';
-      },
-      displayName: (userId) => client.users.cache.get(userId)?.displayName,
-      libraryComponents: (page, totalPages) => buildPlaylistPagination(page, totalPages),
+  const playlists = new PlaylistService(stores.playlists, service, {
+    prefix: env.DEFAULT_PREFIX,
+    prefixFor: async (guildId) => (await settings.forGuild(guildId)).prefix,
+    get botName() {
+      return client.user?.username ?? 'MusicBot';
     },
-  );
+    displayName: (userId) => client.users.cache.get(userId)?.displayName,
+    libraryComponents: (page, totalPages) => buildPlaylistPagination(page, totalPages),
+  });
 
-  const settings = new SettingsService(
-    env.SETTINGS_STORE_PATH
-      ? new JsonSettingsRepository(env.SETTINGS_STORE_PATH)
-      : new InMemorySettingsRepository(),
-    {
-      defaults: {
-        prefix: env.DEFAULT_PREFIX,
-        defaultVolume: env.DEFAULT_VOLUME,
-        ...(env.DJ_ROLE_ID === undefined ? {} : { djRoleId: env.DJ_ROLE_ID }),
-        idleTimeoutMs: env.IDLE_TIMEOUT_MS,
-      },
-      guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
-      get botName() {
-        // Read late: the client has no user until it is logged in.
-        return client.user?.username ?? 'MusicBot';
-      },
+  const settings = new SettingsService(stores.settings, {
+    defaults: {
+      prefix: env.DEFAULT_PREFIX,
+      defaultVolume: env.DEFAULT_VOLUME,
+      ...(env.DJ_ROLE_ID === undefined ? {} : { djRoleId: env.DJ_ROLE_ID }),
+      idleTimeoutMs: env.IDLE_TIMEOUT_MS,
     },
-  );
+    guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
+    get botName() {
+      // Read late: the client has no user until it is logged in.
+      return client.user?.username ?? 'MusicBot';
+    },
+  });
 
   readPolicy = async (guildId) => {
     const guild = await settings.forGuild(guildId);
@@ -333,7 +316,7 @@ async function main(): Promise<void> {
     searchComponents: (count) => buildSearchPicks(count),
   });
 
-  const stats = new StatsService(statsStore, {
+  const stats = new StatsService(stores.stats, {
     displayName: (userId) => client.users.cache.get(userId)?.displayName,
     guildName: (guildId) => client.guilds.cache.get(guildId)?.name,
   });
@@ -490,12 +473,14 @@ async function main(): Promise<void> {
     await players.destroyAll().catch(() => undefined);
     await health?.stop().catch(() => undefined);
     await client.destroy();
+    // Last: the sessions written above are still going through it.
+    await stores.close().catch(() => undefined);
   });
 
   client.once(Events.ClientReady, () => {
     // Restored once the gateway is up, because rejoining a voice channel needs
     // the guilds to be known.
-    void restoreSessions(players, sessionStore, {
+    void restoreSessions(players, stores.sessions, {
       maxAgeMs: env.SESSION_MAX_AGE_MS,
       maxQueueSize: env.MAX_QUEUE_SIZE,
     }).catch((error) => log.error({ err: error }, 'could not restore sessions'));

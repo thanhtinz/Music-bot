@@ -29,6 +29,30 @@ services:
       retries: 10
       start_period: 40s
 
+  # Optional. Nothing here needs it — leave DATABASE_URL unset in .env and the
+  # bot keeps its playlists, settings, stats and sessions in JSON files instead.
+  # Bring it up with `docker compose --profile postgres up -d`.
+  postgres:
+    image: postgres:16-alpine
+    container_name: music-bot-postgres
+    restart: unless-stopped
+    profiles: [postgres]
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-musicbot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-musicbot}
+      - POSTGRES_DB=${POSTGRES_DB:-musicbot}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      # Bound to localhost, like the audio node: a database with a default
+      # password has no business being reachable from the internet.
+      - '127.0.0.1:5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-musicbot}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   bot:
     build: .
     container_name: music-bot
@@ -36,6 +60,11 @@ services:
     depends_on:
       lavalink:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+        # So `docker compose up` without the profile does not wait for a
+        # database nobody started.
+        required: false
     env_file:
       - .env
     environment:
@@ -44,3 +73,4 @@ services:
 
 volumes:
   lavalink-plugins:
+  postgres-data:
