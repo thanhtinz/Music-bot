@@ -28,13 +28,27 @@ const QUERY: CommandOption = {
   rest: true,
 };
 
+/**
+ * The same, for the commands that also take an upload.
+ *
+ * Not required, because a file on its own is a complete instruction — Discord
+ * would otherwise insist on text before it would let anybody attach anything.
+ */
+const QUERY_OR_FILE: CommandOption = { ...QUERY, required: false };
+
+const FILE: CommandOption = {
+  name: 'file',
+  description: 'An audio file to play',
+  type: 'attachment',
+};
+
 export const COMMAND_CATALOG: readonly CommandMeta[] = [
   {
     name: 'play',
-    description: 'Play a track or add it to the queue',
+    description: 'Play a track, a link or an upload',
     category: 'playback',
     aliases: ['p'],
-    options: [QUERY],
+    options: [QUERY_OR_FILE, FILE],
     requiresVoice: true,
     deferred: true,
   },
@@ -43,7 +57,7 @@ export const COMMAND_CATALOG: readonly CommandMeta[] = [
     description: 'Queue something at the front, to play next',
     category: 'playback',
     aliases: ['pn', 'playtop'],
-    options: [QUERY],
+    options: [QUERY_OR_FILE, FILE],
     tier: 'dj',
     requiresVoice: true,
     deferred: true,

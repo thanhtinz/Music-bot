@@ -74,7 +74,10 @@ export function createInteractionContext(
     correlationId: interaction.id,
 
     option(name) {
-      return interaction.options.get(name)?.value?.toString();
+      const found = interaction.options.get(name);
+      // An attachment option's `value` is Discord's id for the upload, which
+      // nothing downstream can play; the URL is what the resolver needs.
+      return found?.attachment?.url ?? found?.value?.toString();
     },
 
     async defer(ephemeral) {
@@ -166,6 +169,13 @@ export function createMessageContext(
 ): CommandContext {
   const options = command ? mapPositionalOptions(command, parsed.args) : new Map<string, string>();
   let sent: Message | undefined;
+
+  // A typed command carries its upload on the message rather than in an
+  // argument, so the file lands under the option name the command declared for
+  // it — `!play` with an mp3 attached reads the same as `/play file:…`.
+  const upload = message.attachments.first()?.url;
+  const fileOption = command?.options?.find((option) => option.type === 'attachment');
+  if (upload && fileOption && !options.has(fileOption.name)) options.set(fileOption.name, upload);
 
   return {
     guildId: message.guildId ?? '',

@@ -10,6 +10,15 @@ export interface CommandOption {
   required?: boolean;
   /** Consumes every remaining token — used for search queries. */
   rest?: boolean;
+  /**
+   * What kind of value this option carries. Text unless stated.
+   *
+   * `attachment` is an uploaded file: Discord registers it as its own option
+   * type, and both interfaces hand the command the file's URL, so a handler
+   * reads an upload the same way whether it was attached to a slash command or
+   * to a typed message.
+   */
+  type?: 'string' | 'attachment';
 }
 
 export interface Command {
@@ -66,9 +75,15 @@ export function missingOptions(command: Command, resolved: ReadonlyMap<string, s
     .map((option) => option.name);
 }
 
-/** Usage string shown in help and in "invalid arguments" errors. */
+/**
+ * Usage string shown in help and in "invalid arguments" errors.
+ *
+ * An upload is left out of it: a usage line tells somebody what to type, and a
+ * file is not something anybody types.
+ */
 export function usage(command: Command, prefix = '/'): string {
   const options = (command.options ?? [])
+    .filter((option) => option.type !== 'attachment')
     .map((option) => (option.required ? `<${option.name}>` : `[${option.name}]`))
     .join(' ');
 

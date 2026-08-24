@@ -76,8 +76,10 @@ describe('command catalog', () => {
     const play = COMMAND_CATALOG.find((meta) => meta.name === 'play');
     const command = { ...play!, execute: async () => undefined };
 
-    expect(usage(command, '/')).toBe('/play <query>');
-    expect(usage(command, '!')).toBe('!play <query>');
+    // Optional since an upload plays on its own, and the file is left out of
+    // a usage line because nobody types one.
+    expect(usage(command, '/')).toBe('/play [query]');
+    expect(usage(command, '!')).toBe('!play [query]');
   });
 
   it('groups every command into a category', () => {

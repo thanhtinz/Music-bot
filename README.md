@@ -244,6 +244,24 @@ One argument, two meanings, told apart by shape: `queue 3` is a page, `queue mon
 
 That picture caught a second thing. The template's top band is highlighted whatever sits in it, and the renderer read that as "this row is the track playing" — so it drew an equaliser where the number goes. On a search result that meant the best match came back with no position on it, which is the one number the row exists to give. The number now follows the _current track_, not the row index, and the patch that clears the equaliser is sized for it rather than for a digit.
 
+## Playing a file somebody uploaded
+
+Somebody who has the song on their phone should be able to drop it into the channel rather than go looking for it on YouTube first. `/play file:<upload>` takes it, and so does a typed `!play` with the file attached to the message:
+
+![](preview/reply-play-upload.png)
+
+An upload is a **file**, not a stream: it has an end, a length and a position, so `seek`, `forward` and the progress bar all work on it. That is the difference from a radio URL, which the other resolver keeps — a station never ends and has nothing to seek to. The two are told apart by the file extension and by the host, so a station can never be dragged in here and drawn with a progress bar that never fills.
+
+The audio node is asked what the file actually is, because an MP3 carries its own title, artist and length in its tags and those beat anything guessable from a URL. A file with no tags falls back to its own name — `Chăm_Hoa_MONO_demo.mp3` reads as **Chăm Hoa MONO demo**, which is usually what somebody already typed once. Lavalink fills a missing tag with `Unknown title` rather than leaving it blank, and that on a card looks like a bug, so it is treated as no title at all.
+
+Hosts are on an allowlist, as radio URLs are: playing an arbitrary URL makes the bot fetch whatever a user names, which is a request-forgery primitive. Discord's own CDN is on it by default, because that is where an upload attached to a command lands — the URL comes from Discord rather than from whoever typed the command. `FileResolver` takes `allowedHosts` for anyone serving their own library.
+
+Both interfaces hand the command the same thing. A slash attachment option carries Discord's id for the upload in its `value`, which nothing downstream can play, so the adapter reads the URL off it; a typed command carries the file on the message instead, and it lands under the same option name the command declared. `play` and `playnext` therefore read an upload identically whichever way it arrived, and prefer it over any words typed alongside — attaching is the more deliberate act, and the one the person can see they did.
+
+Making the text optional cost the router its "you forgot the query" check, so `play` makes it itself:
+
+![](preview/reply-play-nothing.png)
+
 ## Spotify, Apple Music and Deezer links
 
 Paste a track, album or playlist link from any of the three and it plays, badged with the service it came from:

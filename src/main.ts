@@ -37,7 +37,13 @@ import { JsonSessionRepository } from './infrastructure/storage/json-session-rep
 import { JsonSettingsRepository } from './infrastructure/storage/json-settings-repository';
 import { JsonStatsRepository } from './infrastructure/storage/json-stats-repository';
 import { LrclibProvider } from './lyrics';
-import { LavaSrcResolver, RadioResolver, ResolverRegistry, YouTubeResolver } from './resolvers';
+import {
+  FileResolver,
+  LavaSrcResolver,
+  RadioResolver,
+  ResolverRegistry,
+  YouTubeResolver,
+} from './resolvers';
 import { cardFile, configureCardEncoding, renderSakuraNoticeCard } from './ui/canvas';
 import { createBotMetrics } from './telemetry/bot-metrics';
 import { createHealthServer } from './infrastructure/http/health-server';
@@ -107,6 +113,10 @@ async function main(): Promise<void> {
   // Spotify goes through the node's LavaSrc plugin rather than a second API
   // client here; see docker/lavalink/application.yml.
   resolvers.registerAll([
+    // Uploads go first: an attachment is an HTTP URL like a radio stream is,
+    // and only this one knows the difference between a file that ends and a
+    // station that does not.
+    new FileResolver(backend),
     new RadioResolver(),
     new LavaSrcResolver(backend),
     new YouTubeResolver(backend),

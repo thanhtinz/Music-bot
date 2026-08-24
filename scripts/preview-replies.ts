@@ -17,6 +17,7 @@ import { buildCommands } from '../src/commands/handlers';
 import { AUTOPLAY_REQUESTER_ID, createTrack } from '../src/domain/music';
 import { createGuildStats, recordPlay } from '../src/domain/stats';
 import {
+  FileResolver,
   LavaSrcResolver,
   ResolverRegistry,
   type SourceResolver,
@@ -130,6 +131,10 @@ function describeComponents(components: unknown[] | undefined): string {
     })
     .join(' ');
 }
+
+/** An upload, named the way a phone names a file. */
+const UPLOAD_URL =
+  'https://cdn.discordapp.com/attachments/1/2/Ch%C4%83m_Hoa_MONO_demo.mp3?ex=abc&is=def';
 
 /** Stands in for the Discord channel cache. */
 const CHANNEL_NAMES: Record<string, string> = {
@@ -335,6 +340,37 @@ async function main(): Promise<void> {
   const addedToPlaylist = context({ commandName: 'playlist' });
   await playlists.addCurrent(addedToPlaylist.ctx, 'Chill Tối Muộn');
   save(addedToPlaylist, 'reply-playlist-added.png');
+
+  // An uploaded file: the resolver asks the node what it is, so the preview
+  // answers for it with a file that has no tags — the worst case, where the
+  // name on the card has to come from the upload's own filename.
+  const uploads = new ResolverRegistry();
+  uploads.register(
+    new FileResolver({
+      search: async () => [],
+      loadUrl: async () => [
+        {
+          source: 'http' as const,
+          identifier: UPLOAD_URL,
+          title: 'Unknown title',
+          author: 'Unknown artist',
+          durationMs: 187_000,
+        },
+      ],
+    }),
+  );
+
+  const uploadMusic = new MusicService(players, uploads, MUSIC_OPTIONS);
+  const uploaded = context({ commandName: 'play' });
+  await uploadMusic.play(uploaded.ctx, UPLOAD_URL);
+  save(uploaded, 'reply-play-upload.png');
+
+  const nothingToPlay = context({ commandName: 'play' });
+  const playCommand = buildCommands(music, { prefix: '!', botName: 'Melody' }).find(
+    (command) => command.name === 'play',
+  )!;
+  await playCommand.execute(nothingToPlay.ctx);
+  save(nothingToPlay, 'reply-play-nothing.png');
 
   const savedQueue = context({ commandName: 'playlist' });
   await playlists.saveQueue(savedQueue.ctx, 'Tối Thứ Sáu');

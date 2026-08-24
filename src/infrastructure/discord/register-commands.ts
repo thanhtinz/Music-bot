@@ -25,12 +25,22 @@ export function toSlashCommand(meta: CommandMeta): RESTPostAPIChatInputApplicati
   return {
     name: meta.name,
     description: meta.description.slice(0, 100),
-    options: (meta.options ?? []).map((option) => ({
-      type: ApplicationCommandOptionType.String,
-      name: option.name,
-      description: option.description.slice(0, 100),
-      required: Boolean(option.required),
-    })),
+    // Required options first: Discord rejects a command that lists an optional
+    // one before a required one, and the catalog is written for readers rather
+    // than for that rule.
+    options: [...(meta.options ?? [])]
+      .sort((left, right) => Number(Boolean(right.required)) - Number(Boolean(left.required)))
+      .map((option) => {
+        const shared = {
+          name: option.name,
+          description: option.description.slice(0, 100),
+          required: Boolean(option.required),
+        };
+
+        return option.type === 'attachment'
+          ? { ...shared, type: ApplicationCommandOptionType.Attachment as const }
+          : { ...shared, type: ApplicationCommandOptionType.String as const };
+      }),
   };
 }
 

@@ -134,6 +134,25 @@ export function helpRequest(ctx: {
   };
 }
 
+/**
+ * What `play` was asked to play, from either an upload or text.
+ *
+ * The upload wins when both are there: attaching a file is the more deliberate
+ * act, and it is also the one the person can see they did. `undefined` means
+ * neither, which the caller refuses — a bare `play` used to be caught by the
+ * router, and cannot be any more now that the text is optional.
+ */
+export function playRequest(ctx: {
+  option: (name: string) => string | undefined;
+  rest: string;
+}): string | undefined {
+  const file = ctx.option('file')?.trim();
+  if (file) return file;
+
+  const query = (ctx.option('query') ?? ctx.rest).trim();
+  return query || undefined;
+}
+
 /** How far `forward` and `rewind` go when nobody says. */
 const DEFAULT_NUDGE_SECONDS = 10;
 
@@ -154,6 +173,18 @@ const CATEGORY_TITLES: Record<string, string> = {
  * command's metadata cannot drift from its behaviour.
  */
 export function buildCommands(service: MusicService, options: HandlerOptions): Command[] {
+  /** A `play` with nothing to play — no words, no link, no file. */
+  const refuseEmptyPlay = async (ctx: CommandContext, command: string): Promise<void> => {
+    const prefix = prefixFor(ctx, { prefix: options.prefix, botName: options.botName });
+
+    await ctx.reply({
+      content: `Give me something to play: \`${prefix}${command} <song>\`, a link, or an audio file.`,
+      title: 'Play what?',
+      icon: 'search',
+      ephemeral: true,
+    });
+  };
+
   /**
    * `forward` and `rewind`, which differ only in which way they go.
    *
@@ -178,8 +209,18 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
   };
 
   const executors: Record<string, Command['execute']> = {
-    play: async (ctx) => service.play(ctx, ctx.option('query') ?? ctx.rest),
-    playnext: async (ctx) => service.playNext(ctx, ctx.option('query') ?? ctx.rest),
+    play: async (ctx) => {
+      const wanted = playRequest(ctx);
+      if (wanted === undefined) return refuseEmptyPlay(ctx, 'play');
+
+      return service.play(ctx, wanted);
+    },
+    playnext: async (ctx) => {
+      const wanted = playRequest(ctx);
+      if (wanted === undefined) return refuseEmptyPlay(ctx, 'playnext');
+
+      return service.playNext(ctx, wanted);
+    },
     pause: async (ctx) => service.pause(ctx),
     resume: async (ctx) => service.resume(ctx),
     skip: async (ctx) => service.skip(ctx),
@@ -454,11 +495,23 @@ export function unimplementedCommands(): CommandMeta[] {
   return COMMAND_CATALOG.filter((meta) => !implemented.has(meta.name));
 }
 
+/**
+ * A command's row on the help card.
+ *
+ * The first argument is shown whether or not it is required — `<name>` when it
+ * is, `[name]` when it is not. Showing only the required ones left `/play`
+ * beside `/search <query>` with nothing at all, which reads as a command that
+ * takes no argument rather than one whose argument is optional.
+ *
+ * An upload is never shown: the row tells somebody what to type, and a file is
+ * not something anybody types.
+ */
 function toHelpRow(meta: CommandMeta) {
-  const first = meta.options?.[0];
+  const first = meta.options?.find((option) => option.type !== 'attachment');
+
   return {
     name: meta.name,
-    args: first?.required ? `<${first.name}>` : undefined,
+    args: first ? (first.required ? `<${first.name}>` : `[${first.name}]`) : undefined,
     description: meta.description,
   };
 }

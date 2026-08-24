@@ -325,15 +325,19 @@ function drawRow(
 
   if (command.args) {
     const nameWidth = ctx.measureText(name).width;
-    ctx.font = font(24, 'bold');
+    // Two points under the name: the hint is what the command takes, not what
+    // it is called, and the smaller size is what lets `?remove <position>` fit
+    // beside its name at all — it was sixteen pixels over and was being
+    // dropped, on the one command whose argument is not optional.
+    ctx.font = font(22, 'bold');
     ctx.fillStyle = PINK;
 
     // The description starts at a fixed column, so the hint has to stop before
     // it — otherwise `<position>` runs straight into the sentence after it.
     // Dropped rather than truncated when it does not fit: `<…` tells nobody
     // anything, and a long prefix like `@Bot ` leaves little room.
-    const argsX = ROW.nameX + nameWidth + 14;
-    const room = ROW.descriptionX - argsX - 12;
+    const argsX = ROW.nameX + nameWidth + 10;
+    const room = ROW.descriptionX - argsX - 8;
 
     if (ctx.measureText(command.args).width <= room) {
       ctx.fillText(command.args, argsX, baseline);

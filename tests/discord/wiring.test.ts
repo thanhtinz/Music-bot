@@ -36,7 +36,7 @@ describe('command wiring', () => {
 
     expect(play?.requiresVoice).toBe(true);
     expect(play?.deferred).toBe(true);
-    expect(usage(play!, '/')).toBe('/play <query>');
+    expect(usage(play!, '/')).toBe('/play [query]');
   });
 
   it('reports which catalog commands still have no implementation', () => {
@@ -54,7 +54,7 @@ describe('slash registration', () => {
     const payload = toSlashCommand(play!);
 
     expect(payload).toMatchObject({ name: 'play' });
-    expect(payload.options?.[0]).toMatchObject({ name: 'query', required: true });
+    expect(payload.options?.[0]).toMatchObject({ name: 'query', required: false });
   });
 
   it('keeps names and descriptions inside Discord’s limits', () => {

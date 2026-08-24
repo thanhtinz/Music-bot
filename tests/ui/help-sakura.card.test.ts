@@ -83,6 +83,34 @@ describe('renderSakuraHelpCard', () => {
     expectCardImage(buffer);
   });
 
+  it('has room for the longest hint a required argument needs', async () => {
+    // `?remove <position>` was sixteen pixels over and the hint was dropped —
+    // on the one command whose argument is not optional, so the card asked for
+    // a number without ever saying so. The picture is the only place that
+    // shows; this fails if the row stops fitting again.
+    const row = { name: 'remove', description: 'Take one track out of the queue' };
+    const [withHint, without] = await Promise.all([
+      renderSakuraHelpCard(data({ prefix: '?', commands: [{ ...row, args: '<position>' }] })),
+      renderSakuraHelpCard(data({ prefix: '?', commands: [row] })),
+    ]);
+
+    expect(withHint.equals(without)).toBe(false);
+  });
+
+  it('drops a hint that genuinely cannot fit, rather than overlapping', async () => {
+    // A mention prefix leaves a few pixels; there is nothing to draw there, and
+    // running into the description would be worse than saying nothing.
+    const row = { name: 'remove', description: 'Take one track out of the queue' };
+    const [withHint, without] = await Promise.all([
+      renderSakuraHelpCard(
+        data({ prefix: '@Melody ', commands: [{ ...row, args: '<position>' }] }),
+      ),
+      renderSakuraHelpCard(data({ prefix: '@Melody ', commands: [row] })),
+    ]);
+
+    expect(withHint.equals(without)).toBe(true);
+  });
+
   it('caps rows at the page size', async () => {
     const [exact, overflowing] = await Promise.all([
       renderSakuraHelpCard(data({ commands: commands(HELP_SAKURA_PAGE_SIZE) })),
