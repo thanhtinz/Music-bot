@@ -59,13 +59,13 @@ await renderSakuraHelpCard({ categories, activeCategory, commands, prefix });
 await renderSakuraPlaylistCard({ entries, ownerName, page, totalPages, prefix });
 ```
 
-The cover fills its frame edge to edge, which took measuring the template rather than guessing at it:
+The cover fills the picture area of its frame, which took measuring the template rather than guessing at it:
 
 ![](preview/artwork-fit.png)
 
-The frame is drawn as **two** rounded outlines offset from one another — outer at 80–83 / 148–152 / 548–552 / 640–642, inner up and to the left of it. Fill the inner rect and the offset shows as a pale sliver down the right and bottom; nudge the box over and the sliver moves to the left and top. Only filling the outer one puts the cover flush against the line on all four sides, which is the only version that looks even. Its corners are about 46px, and the clip has to match: filling the box with too small a radius makes the corners bulge past the arc, which looks worse than the gap it replaced.
+The frame is a **double** outline — an outer line, a pale gap, then an inner one — and the photo the template ships sits just inside the inner line, at 94–538 by 164–627 with a 34px radius. The original box stopped partway across that gap, so the picture looked too small for its frame; filling further covers the inner line and flattens the frame into a single stroke. Only the picture area itself leaves the frame looking like the artwork drew it.
 
-Two tests hold it. One walks the inside of every edge and fails on a strip of pale ground between frame and cover. The other compares the four corners against the template's own pixels, because outside the arc the card has to be exactly what the artwork drew — it goes red at any radius that squares the cover off.
+Two tests hold it. One walks the inside of every edge and fails on a strip of pale ground between the inner line and the cover. The other compares the four corners against the template's own pixels, because outside the arc the card has to be exactly what the artwork drew — it goes red at any radius that squares the cover off.
 
 Swapping either template means re-measuring the region coordinates in `src/ui/canvas/cards/now-playing-sakura.card.ts` and `queue-sakura.card.ts`; they are pixel measurements of those specific images. Note the two queue variants page differently — the classic list fits 10 rows, the illustrated one 5.
 

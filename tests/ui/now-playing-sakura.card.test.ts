@@ -101,8 +101,8 @@ describe('renderSakuraNowPlayingCard', () => {
   });
 
   it('fills its frame with the cover, edge to edge', async () => {
-    // The cover used to stop seven pixels short on the right and eight at the
-    // bottom, which read as a picture too small for the frame around it.
+    // The cover used to stop partway across the frame's pale gap, which read
+    // as a picture too small for the frame around it.
     const image = await loadImage(await renderSakuraNowPlayingCard(BASE));
     const canvas = createCanvas(image.width, image.height);
     const ctx = canvas.getContext('2d');
@@ -115,34 +115,34 @@ describe('renderSakuraNowPlayingCard', () => {
       return data[i]! > 235 && data[i + 1]! > 200 && data[i + 2]! > 205;
     };
 
-    // The frame's outer stroke, which is the line the cover sits against.
-    const frame = { left: 80, right: 552, top: 148, bottom: 642 };
+    // The inner line of the template's double frame: the picture's own edge.
+    const picture = { left: 94, right: 538, top: 164, bottom: 627 };
 
     for (let y = 260; y <= 540; y += 40) {
-      expect(isGround(frame.left + 5, y), `gap on the left at y=${y}`).toBe(false);
-      expect(isGround(frame.right - 5, y), `gap on the right at y=${y}`).toBe(false);
+      expect(isGround(picture.left + 2, y), `gap on the left at y=${y}`).toBe(false);
+      expect(isGround(picture.right - 2, y), `gap on the right at y=${y}`).toBe(false);
     }
 
     for (let x = 160; x <= 480; x += 40) {
-      expect(isGround(x, frame.top + 5), `gap at the top at x=${x}`).toBe(false);
-      expect(isGround(x, frame.bottom - 5), `gap at the bottom at x=${x}`).toBe(false);
+      expect(isGround(x, picture.top + 2), `gap at the top at x=${x}`).toBe(false);
+      expect(isGround(x, picture.bottom - 2), `gap at the bottom at x=${x}`).toBe(false);
     }
   });
 
   it('rounds the cover to the frame’s own corners', async () => {
-    // Filling the box without matching its radius makes the cover bulge past
-    // the frame's arc, which looks worse than the gap it replaced. Outside the
-    // arc the card has to be exactly what the template drew.
+    // Filling the box without matching its radius makes the cover bulge over
+    // the frame's inner line, which looks worse than the gap it replaced.
+    // Outside the arc the card has to be exactly what the template drew.
     const [rendered, template] = await Promise.all([
       pixelsOf(await renderSakuraNowPlayingCard(BASE)),
       pixelsOf(await readFile(resolve(__dirname, '../../assets/templates/now-playing-sakura.png'))),
     ]);
 
     for (const [x, y] of [
-      [88, 157],
-      [544, 157],
-      [88, 635],
-      [544, 635],
+      [99, 169],
+      [533, 169],
+      [99, 622],
+      [533, 622],
     ] as const) {
       // Within a few levels rather than exactly: cards ship as WebP, and a
       // lossy encoder moves a flat colour by a level or two. A bulge would be

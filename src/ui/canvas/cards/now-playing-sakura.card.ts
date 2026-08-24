@@ -41,17 +41,16 @@ export const SAKURA_TEMPLATE_SIZE = { width: 1536, height: 1024 } as const;
 const REGION = {
   /** Inside of the framed tile, where the cover art goes. */
   /**
-   * Measured from the template's frame, which is drawn as two rounded
-   * outlines offset from each other: the outer one runs 80–83 / 148–152 /
-   * 548–552 / 640–642, the inner one sits up and to the left of it.
+   * The picture area inside the template's frame, measured from the artwork.
    *
-   * The cover fills the *outer* one. Filling the inner rect leaves the offset
-   * showing as a pale sliver down the right and bottom; nudging it over moves
-   * that sliver to the left and top. Only the outer line has the cover flush
-   * against it on all four sides, which is the only version that looks even.
+   * The frame is a double outline — an outer line, a pale gap, then an inner
+   * one — on all four sides, and the photo the template ships sits just inside
+   * the inner line: 94–538 by 164–627. Painting over the inner line (or
+   * stopping halfway across the gap, which is what the first version did)
+   * breaks the frame; this fills exactly what the picture is meant to fill.
    */
-  artwork: { x: 84, y: 153, width: 464, height: 487 },
-  artworkRadius: 46,
+  artwork: { x: 94, y: 164, width: 445, height: 464 },
+  artworkRadius: 34,
 
   /** Status pill; only its text is repainted so the icon survives. */
   statusPill: { x: 600, y: 183, width: 291, height: 68 },
