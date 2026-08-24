@@ -653,6 +653,18 @@ The spec puts shared state in Redis (§21), and the roadmap says so. Having buil
 
 So it is not built. Adding a dependency, a container and a failure mode to tick a roadmap box would make the bot worse, and the roadmap is a plan rather than a promise. If a deployment ever spreads one guild across processes, this file is the seam it plugs into: `CachedSettingsRepository` implements the same `SettingsRepository` port everything else does.
 
+## The status page
+
+`METRICS_PORT` also serves a read-only dashboard at `/`, alongside `/healthz`, `/readyz` and `/metrics`:
+
+![](preview/dashboard.png)
+
+Read-only on purpose. Controls would need authentication, and an unauthenticated page that can stop playback in every guild is worse than no page at all — this says what the bot is doing, and the commands remain the way to change it. It binds to `METRICS_HOST`, which defaults to loopback; put it behind a reverse proxy with auth before letting anyone else near it.
+
+The whole page is one inline string — no build step, no CDN, no asset pipeline. A dashboard that needs its own build is a liability on the day you most want to look at it. Guild names, channel names and track titles are escaped on the way in, because a server called `<script>` must not become one.
+
+With shards, each process serves its own page on its own port (`METRICS_PORT` plus the shard id), showing the guilds that shard holds.
+
 ## Running across several processes
 
 Discord makes a bot past roughly 2,500 guilds split its gateway connection into shards, and one process stops being comfortable well before that. `npm run start:sharded` spawns `main.js` once per shard and lets discord.js hand each process its slice:
@@ -746,9 +758,9 @@ Redis is not here yet, and is not being pretended into existence. The spec puts 
 | F4    | Player, player manager, audio-backend seam, node balancing                              | ✅ done |
 | F5    | Resolvers: URL parsing, YouTube / Spotify metadata / radio, breaker                     | ✅ done |
 | F6    | **Discord + Lavalink wiring**: live commands, buttons, filters, Docker                  | ✅ done |
-| F7    | **Saved playlists**, **favorites**; lyrics, vote-skip                                   | 🚧      |
+| F7    | **Saved playlists**, **favorites**, **lyrics**, **vote-skip**                           | ✅ done |
 | F8    | **24/7, state recovery**, **PostgreSQL**; Redis — see [why not](#why-this-is-not-redis) | ✅ done |
-| F9    | **Metrics and health**, **cluster, failover, sharding**; dashboard                      | 🚧      |
+| F9    | **Metrics and health**, **cluster, failover, sharding**, **dashboard**                  | ✅ done |
 
 ## License
 
