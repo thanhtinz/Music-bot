@@ -137,6 +137,13 @@ docker compose up -d lavalink   # audio node on 127.0.0.1:2333
 npm run dev                     # bot, with reload
 ```
 
+`.env` is read by Node itself, through `--env-file-if-exists` on the `dev`,
+`start` and `start:sharded` scripts — there is no dotenv import to add. The
+file is optional: a deploy that sets real environment variables, as the Docker
+image does, needs no `.env` at all. It is also git-ignored, so a second
+checkout or a `git worktree` starts without one and the bot stops at boot
+listing the variables it wants.
+
 Or run both in Docker:
 
 ```bash
