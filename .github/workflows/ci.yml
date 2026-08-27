@@ -43,6 +43,12 @@ jobs:
 
       - run: npm ci
 
+      # The same font the runtime image installs. Without it the CJK card tests
+      # cannot tell a broken renderer from a bare runner, so they skip — and a
+      # title regression would reach production green.
+      - name: Install CJK fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
       - name: Format check
         run: npm run format:check
 
