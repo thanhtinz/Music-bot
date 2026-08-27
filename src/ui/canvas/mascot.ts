@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 import { loadImage, type Image, type SKRSContext2D } from '@napi-rs/canvas';
+
+import { assetPath } from './asset-path';
 
 /**
  * The bot's mascot, cut out of the brand artwork.
@@ -9,7 +10,7 @@ import { loadImage, type Image, type SKRSContext2D } from '@napi-rs/canvas';
  * Every card draws the same file rather than its own approximation, so the
  * character cannot drift between screens.
  */
-const MASCOT_PATH = resolve(__dirname, '../../../assets/mascot/melody-cat.png');
+const MASCOT_PATH = assetPath('mascot', 'melody-cat.png');
 
 /** Brand name shown next to the mascot. */
 export const BOT_NAME = 'Melody';

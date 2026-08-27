@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { Image, type SKRSContext2D } from '@napi-rs/canvas';
 
 import type { Rect } from './primitives';
+import { assetPath } from './asset-path';
 
 /**
  * Line-art icons, drawn from Lucide's SVGs.
@@ -232,7 +233,7 @@ export const LUCIDE_ICON_FILES: Record<GlyphName, string> = {
 };
 
 /** Where {@link LUCIDE_ICON_FILES} lands once `npm run sync:icons` has run. */
-const ICON_DIR = resolve(__dirname, '../../../assets/icons');
+const ICON_DIR = assetPath('icons');
 
 /** Lucide draws on a 24-unit grid at stroke width 2. */
 const ICON_GRID = 24;

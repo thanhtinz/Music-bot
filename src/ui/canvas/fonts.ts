@@ -1,7 +1,9 @@
 import { existsSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { GlobalFonts } from '@napi-rs/canvas';
+
+import { assetPath } from './asset-path';
 
 /**
  * Font family name used by every canvas card.
@@ -17,7 +19,7 @@ export const UI_FONT = 'MusicBotUI';
 /** Font used for emoji glyphs when the primary family has no coverage. */
 export const EMOJI_FONT = 'MusicBotEmoji';
 
-const ASSET_FONT_DIR = resolve(__dirname, '../../../assets/fonts');
+const ASSET_FONT_DIR = assetPath('fonts');
 const ASSET_CJK_DIR = join(ASSET_FONT_DIR, 'cjk');
 
 /**

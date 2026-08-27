@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 import { createCanvas, loadImage, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 
@@ -20,6 +19,7 @@ import {
 import type { NowPlayingCardData } from './now-playing.card';
 import { encodeCard } from '../encode';
 import { sourceColor, sourceLabel } from '../sources';
+import { assetPath } from '../asset-path';
 
 /**
  * Pre-rendered artwork this card composites onto.
@@ -28,7 +28,7 @@ import { sourceColor, sourceLabel } from '../sources';
  * framed cover tile — lives in the image. The renderer only paints the parts
  * that change, which keeps the illustrated look without redrawing it in code.
  */
-const TEMPLATE_PATH = resolve(__dirname, '../../../../assets/templates/now-playing-sakura.png');
+const TEMPLATE_PATH = assetPath('templates', 'now-playing-sakura.png');
 
 export const SAKURA_TEMPLATE_SIZE = { width: 1536, height: 1024 } as const;
 

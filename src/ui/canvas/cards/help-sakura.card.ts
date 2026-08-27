@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 import { createCanvas, loadImage, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 
@@ -8,6 +7,7 @@ import { drawGlyph, glyphFor } from '../glyphs';
 import { drawMascot } from '../mascot';
 import { fillRoundedRect, truncateText, type Rect } from '../primitives';
 import { encodeCard } from '../encode';
+import { assetPath } from '../asset-path';
 
 /**
  * Illustrated command-list artwork this card composites onto.
@@ -15,7 +15,7 @@ import { encodeCard } from '../encode';
  * The panels, search field and stickers live in the image; the sidebar entries
  * and command rows are repainted from the real catalog.
  */
-const TEMPLATE_PATH = resolve(__dirname, '../../../../assets/templates/help-sakura.png');
+const TEMPLATE_PATH = assetPath('templates', 'help-sakura.png');
 
 export const HELP_SAKURA_TEMPLATE_SIZE = { width: 1536, height: 1024 } as const;
 

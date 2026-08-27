@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 import { createCanvas, loadImage, type Image, type SKRSContext2D } from '@napi-rs/canvas';
 
@@ -15,6 +14,7 @@ import {
 } from '../primitives';
 import type { QueueCardData, QueueCardTrack } from './queue.card';
 import { encodeCard } from '../encode';
+import { assetPath } from '../asset-path';
 
 /**
  * Illustrated queue artwork this card composites onto.
@@ -23,7 +23,7 @@ import { encodeCard } from '../encode';
  * header controls and row chrome — lives in the image; only the per-row data is
  * repainted.
  */
-const TEMPLATE_PATH = resolve(__dirname, '../../../../assets/templates/queue-sakura.png');
+const TEMPLATE_PATH = assetPath('templates', 'queue-sakura.png');
 
 export const QUEUE_SAKURA_TEMPLATE_SIZE = { width: 1548, height: 1016 } as const;
 
