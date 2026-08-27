@@ -383,7 +383,9 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       const categoryLine = grouped
         .map(([category, commands], index) => {
           const title = CATEGORY_TITLES[category] ?? category;
-          return index === active ? `**▸ ${title}** (${commands.length})` : `${title} (${commands.length})`;
+          return index === active
+            ? `**▸ ${title}** (${commands.length})`
+            : `${title} (${commands.length})`;
         })
         .join(' · ');
 

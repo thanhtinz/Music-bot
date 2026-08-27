@@ -98,7 +98,9 @@ export class StatsService {
       title: `Stats${guildName ? ` — ${guildName}` : ''}`,
       icon: 'chart',
       content: `**${stats.totalPlays}** ${plural(stats.totalPlays, 'play')} · **${formatHours(stats.totalListenedMs)}** listened since ${since}${
-        mine ? ` · You: **${mine.plays}** ${plural(mine.plays, 'play')}, **${formatHours(mine.listenedMs)}**` : ''
+        mine
+          ? ` · You: **${mine.plays}** ${plural(mine.plays, 'play')}, **${formatHours(mine.listenedMs)}**`
+          : ''
       }`,
       fields: [
         { name: 'Top tracks', value: this.trackLines(topTracks(stats, STATS_ROWS)) },
@@ -162,7 +164,9 @@ export class StatsService {
   }
 
   /** The guild's top listeners, by total time. */
-  private listenerLines(users: readonly { userId: string; listenedMs: number; plays: number }[]): string {
+  private listenerLines(
+    users: readonly { userId: string; listenedMs: number; plays: number }[],
+  ): string {
     if (users.length === 0) return 'Nothing yet.';
     return users
       .map(

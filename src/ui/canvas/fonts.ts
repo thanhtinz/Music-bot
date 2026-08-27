@@ -92,6 +92,19 @@ let registered = false;
  */
 let cjkFamilies: string[] = [];
 
+/**
+ * The CJK families this host actually has, in fallback order.
+ *
+ * Empty on a host with no CJK font at all, which is a real state rather than a
+ * failure: the cards still draw, Han and Hangul just come out as `□`. Exposed
+ * so a test can tell "this host cannot render it" apart from "the renderer
+ * stopped rendering it" — the two look identical in the pixels.
+ */
+export function cjkFallbackFamilies(): readonly string[] {
+  registerFonts();
+  return cjkFamilies;
+}
+
 function firstExisting(paths: readonly string[]): string | undefined {
   return paths.find((path) => existsSync(path));
 }
