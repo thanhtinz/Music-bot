@@ -195,7 +195,7 @@ function drawPrefix(ctx: SKRSContext2D, data: HelpSakuraCardData): void {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
-  ctx.font = font(26, 'bold');
+  ctx.font = font(29, 'bold');
   ctx.fillStyle = INK_LABEL;
   const label = 'Prefix: ';
   ctx.fillText(label, HEADER_PREFIX.x, HEADER_PREFIX.baseline);
@@ -258,12 +258,12 @@ function drawSidebar(ctx: SKRSContext2D, data: HelpSakuraCardData): void {
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.font = font(26, active ? 'bold' : 'regular');
+    ctx.font = font(28, active ? 'bold' : 'regular');
     ctx.fillStyle = ink;
     ctx.fillText(truncateText(ctx, category.title, 132), SIDEBAR.labelX, baseline);
 
     ctx.textAlign = 'right';
-    ctx.font = font(24, 'bold');
+    ctx.font = font(26, 'bold');
     ctx.fillStyle = active ? ON_PINK : INK_COUNT;
     ctx.fillText(String(Math.max(0, category.count)), SIDEBAR.countRight, baseline);
   }
@@ -351,7 +351,7 @@ function drawRow(
   // The pill centres its own text; restore left/alphabetic before continuing.
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.font = font(23);
+  ctx.font = font(26);
   ctx.fillStyle = INK_DESCRIPTION;
   ctx.fillText(
     truncateText(ctx, command.description, pill.x - 24 - ROW.descriptionX),
@@ -369,7 +369,7 @@ function drawUsagePill(
 ): Rect {
   const text = `${prefix}${command.usage ?? command.name}`;
 
-  ctx.font = font(22, 'bold');
+  ctx.font = font(23, 'bold');
   // Wide enough for the template's longest example, still clear of the
   // description column.
   const width = Math.min(ctx.measureText(text).width + 44, 340);
@@ -400,19 +400,19 @@ function drawFooter(ctx: SKRSContext2D, data: HelpSakuraCardData): void {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
-  ctx.font = font(24);
+  ctx.font = font(26);
   ctx.fillStyle = INK_LABEL;
   const lead = 'Use ';
   ctx.fillText(lead, FOOTER.x, FOOTER.baseline);
   let cursor = FOOTER.x + ctx.measureText(lead).width;
 
-  ctx.font = font(24, 'bold');
+  ctx.font = font(26, 'bold');
   ctx.fillStyle = PINK_STRONG;
   const command = `${data.prefix}help [command]`;
   ctx.fillText(command, cursor, FOOTER.baseline);
   cursor += ctx.measureText(command).width;
 
-  ctx.font = font(24);
+  ctx.font = font(26);
   ctx.fillStyle = INK_LABEL;
   ctx.fillText(' for more details', cursor, FOOTER.baseline);
 
@@ -432,7 +432,7 @@ function drawPageMarker(ctx: SKRSContext2D, data: HelpSakuraCardData): void {
   cover(ctx, PAGE_MARKER.clear, SAMPLE.footer);
 
   ctx.textAlign = 'right';
-  ctx.font = font(24, 'bold');
+  ctx.font = font(26, 'bold');
   ctx.fillStyle = PINK_STRONG;
   ctx.fillText(
     `Page ${Math.min(Math.max(1, data.page ?? 1), total)}/${total}`,

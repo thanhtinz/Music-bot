@@ -7,7 +7,6 @@ import {
   type SettingsDefaults,
 } from '../../domain/settings';
 import { createLogger } from '../../telemetry/logger';
-import { cardFile, renderSakuraSettingsCard, type SettingsCardRow } from '../../ui/canvas';
 import { prefixFor, type CommandContext } from '../commands';
 
 import type { SettingsRepository } from './settings-repository';
@@ -45,26 +44,25 @@ export class SettingsService {
   /** Renders the whole settings sheet. */
   async show(ctx: CommandContext): Promise<void> {
     const settings = await this.forGuild(ctx.guildId);
+    const guildName = this.options.guildName?.(ctx.guildId);
 
-    const rows: SettingsCardRow[] = SETTING_DESCRIPTORS.map((descriptor) => ({
-      key: descriptor.key,
-      label: descriptor.label,
-      description: descriptor.description,
-      value: descriptor.format(settings),
-    }));
-
-    const card = await renderSakuraSettingsCard({
-      rows,
-      guildName: this.options.guildName?.(ctx.guildId),
-      // Spelled the way this person reached the bot, so the hint on the card
-      // is one they can actually type.
-      prefix: prefixFor(ctx, {
-        prefix: settings.prefix,
-        ...(this.options.botName === undefined ? {} : { botName: this.options.botName }),
-      }),
+    // Spelled the way this person reached the bot, so the hint in the reply
+    // is one they can actually type.
+    const prefix = prefixFor(ctx, {
+      prefix: settings.prefix,
+      ...(this.options.botName === undefined ? {} : { botName: this.options.botName }),
     });
 
-    await ctx.reply({ attachments: [{ name: cardFile('settings'), data: card }] });
+    await ctx.reply({
+      title: `Settings${guildName ? ` — ${guildName}` : ''}`,
+      icon: 'gear',
+      fields: SETTING_DESCRIPTORS.map((descriptor) => ({
+        name: descriptor.label,
+        value: `${descriptor.format(settings)}\n_${descriptor.description}_`,
+        inline: true,
+      })),
+      footer: `Change one with ${prefix}settings <key> <value>`,
+    });
   }
 
   /** Changes one setting. */

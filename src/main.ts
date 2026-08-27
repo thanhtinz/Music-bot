@@ -27,6 +27,7 @@ import {
 } from './config/sharding';
 import { dedupeNodes, parseNodes } from './config/nodes';
 import { attachHandlers, createClient } from './infrastructure/discord/bot';
+import { noticeEmbed } from './infrastructure/discord/context';
 import {
   buildHelpCategories,
   buildHelpPagination,
@@ -47,7 +48,7 @@ import {
   ResolverRegistry,
   YouTubeResolver,
 } from './resolvers';
-import { cardFile, configureCardEncoding, renderSakuraNoticeCard } from './ui/canvas';
+import { configureCardEncoding } from './ui/canvas';
 import { createBotMetrics } from './telemetry/bot-metrics';
 import { createHealthServer } from './infrastructure/http/health-server';
 import type { DashboardStatus } from './infrastructure/http/dashboard';
@@ -137,16 +138,14 @@ async function main(): Promise<void> {
       const channel = client.channels.cache.get(channelId ?? '');
       if (!channel?.isSendable()) return;
 
-      const card = await renderSakuraNoticeCard({
+      const embed = noticeEmbed({
         title: 'Good night',
         message: 'The sleep timer ran out, so I stopped the music and stepped out.',
         icon: 'clock',
         tone: 'info',
       });
 
-      await channel
-        .send({ files: [{ attachment: card, name: cardFile('notice') }] })
-        .catch(() => undefined);
+      await channel.send({ embeds: [embed] }).catch(() => undefined);
     },
   });
 
@@ -182,7 +181,7 @@ async function main(): Promise<void> {
       const channel = client.channels.cache.get(player.textChannelId ?? '');
       if (!channel?.isSendable()) return;
 
-      const card = await renderSakuraNoticeCard({
+      const embed = noticeEmbed({
         title: 'Left the channel',
         message:
           reason === 'alone'
@@ -192,9 +191,7 @@ async function main(): Promise<void> {
         tone: 'info',
       });
 
-      await channel
-        .send({ files: [{ attachment: card, name: cardFile('notice') }] })
-        .catch(() => undefined);
+      await channel.send({ embeds: [embed] }).catch(() => undefined);
     },
   });
 
@@ -400,9 +397,6 @@ async function main(): Promise<void> {
       metrics.commands.increment({ command: name, status: result.status });
       metrics.commandDuration.observe(seconds, { command: name });
     },
-    // Every text reply comes back as a panel in the same style as the Now
-    // Playing and queue cards, rather than as a bare line of chat.
-    ...(env.CARD_VARIANT === 'sakura' ? { notices: renderSakuraNoticeCard } : {}),
     permissions: {
       botOwnerIds: env.BOT_OWNER_IDS,
       everyoneIsDj: env.EVERYONE_IS_DJ,

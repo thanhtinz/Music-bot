@@ -3,10 +3,8 @@ import { describeResolverError, ResolverError } from '../../resolvers';
 import { createLogger } from '../../telemetry/logger';
 import {
   activeLyricLine,
-  cardFile,
   paginateLyrics,
   paginateSyncedLyrics,
-  renderSakuraLyricsCard,
   type LyricsPageLine,
 } from '../../ui/canvas';
 import type { CommandContext } from '../commands';
@@ -14,6 +12,9 @@ import type { CommandContext } from '../commands';
 import type { MusicService } from './music.service';
 
 const logger = createLogger('lyrics-service');
+
+/** Lines shown on one page. */
+const LYRICS_LINES_PER_PAGE = 18;
 
 /** A lookup, and the track it was made for when it was made for one. */
 interface Lookup {
@@ -28,9 +29,9 @@ interface Lookup {
  * handed — the timings only ever change which line lights up.
  */
 function pagesOf(lyrics: Lyrics): { pages: LyricsPageLine[][]; totalPages: number } {
-  if (lyrics.timings?.length) return paginateSyncedLyrics(lyrics.timings);
+  if (lyrics.timings?.length) return paginateSyncedLyrics(lyrics.timings, LYRICS_LINES_PER_PAGE);
 
-  const plain = paginateLyrics(lyrics.text);
+  const plain = paginateLyrics(lyrics.text, LYRICS_LINES_PER_PAGE);
   return {
     pages: plain.pages.map((page) => page.map((text) => ({ text }))),
     totalPages: plain.totalPages,
@@ -151,22 +152,25 @@ export class LyricsService {
 
     // Only when the reader is looking at the page the music is on: paging away
     // is a deliberate act, and lighting up a line two pages back would be the
-    // card arguing with the person turning it.
+    // reply arguing with the person turning it.
     const followed = this.followedLine(ctx, lookup);
-    const activeLine = followed?.page === current ? { activeLine: followed.line } : {};
+    const activeLine = followed?.page === current ? followed.line : undefined;
 
-    const card = await renderSakuraLyricsCard({
-      title: lyrics.title,
-      artist: lyrics.artist,
-      lines: (pages[current - 1] ?? []).map((line) => line.text),
-      page: current,
-      totalPages,
-      provider: lyrics.provider,
-      ...activeLine,
-    });
+    const lines = pages[current - 1] ?? [];
+    const body = lines.length
+      ? lines
+          .map((line, index) => {
+            const text = line.text.trim() || '\u200b';
+            return index === activeLine ? `**▶ ${text}**` : text;
+          })
+          .join('\n')
+      : '_Instrumental_';
 
     await ctx.reply({
-      attachments: [{ name: cardFile('lyrics'), data: card }],
+      title: lyrics.artist ? `${lyrics.title} — ${lyrics.artist}` : lyrics.title,
+      icon: 'note',
+      content: body,
+      footer: `Page ${current}/${totalPages}${lyrics.provider ? ` · Lyrics from ${lyrics.provider}` : ''}`,
       components: this.options.pageComponents?.(current, totalPages),
     });
   }

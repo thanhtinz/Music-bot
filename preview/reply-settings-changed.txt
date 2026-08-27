@@ -1,0 +1,2 @@
+# Settings
+**Default volume** is now **85%**.

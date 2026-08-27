@@ -20,11 +20,7 @@ import {
   type CommandRegistry,
   type ReplyPayload,
 } from '../../application/commands';
-import {
-  withNoticeCards,
-  type NoticeRenderer,
-  type RouterOptions,
-} from '../../application/commands';
+import type { RouterOptions } from '../../application/commands';
 import type { PlaylistService } from '../../application/playlist';
 import type { SearchService } from '../../application/search';
 import type { SettingsService } from '../../application/settings';
@@ -65,13 +61,6 @@ export interface BotOptions {
   search?: SearchService;
   /** Told the outcome of every dispatch, for metrics. */
   onDispatched?: RouterOptions['onDispatched'];
-  /**
-   * Draws text replies as notice panels.
-   *
-   * Left out, commands answer in plain text — which is what the tests want,
-   * and what a deployment gets if rendering is ever turned off.
-   */
-  notices?: NoticeRenderer;
 }
 
 /**
@@ -205,15 +194,12 @@ async function handleInteraction(
   const voiceChannelId = voiceChannelOf(member);
 
   const command = registry.get(interaction.commandName);
-  const context = decorate(
-    createInteractionContext(interaction, {
-      tier: member
-        ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
-        : 'everyone',
-      voiceChannelId,
-    }),
-    options,
-  );
+  const context = createInteractionContext(interaction, {
+    tier: member
+      ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
+      : 'everyone',
+    voiceChannelId,
+  });
 
   if (command?.requiresVoice && voiceChannelId) {
     const denied = await refuseWithoutVoicePermissions(interaction.guild, voiceChannelId, context);
@@ -246,13 +232,10 @@ async function handleMessage(
   const voiceChannelId = voiceChannelOf(member);
   const command = registry.get(parsed.name);
 
-  const context = decorate(
-    createMessageContext(message, parsed, command, {
-      tier: member ? resolveTier(member, permissions) : 'everyone',
-      voiceChannelId,
-    }),
-    options,
-  );
+  const context = createMessageContext(message, parsed, command, {
+    tier: member ? resolveTier(member, permissions) : 'everyone',
+    voiceChannelId,
+  });
 
   if (command?.requiresVoice && voiceChannelId) {
     const denied = await refuseWithoutVoicePermissions(message.guild, voiceChannelId, context);
@@ -282,15 +265,12 @@ async function handleButton(
   await interaction.deferUpdate().catch(() => undefined);
 
   const member = interaction.member as GuildMember | null;
-  const context = decorate(
-    createButtonContext(interaction, {
-      tier: member
-        ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
-        : 'everyone',
-      voiceChannelId: voiceChannelOf(member),
-    }),
-    options,
-  );
+  const context = createButtonContext(interaction, {
+    tier: member
+      ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
+      : 'everyone',
+    voiceChannelId: voiceChannelOf(member),
+  });
 
   switch (id.action) {
     case 'playpause':
@@ -385,22 +365,14 @@ async function handleSelect(
   await interaction.deferUpdate().catch(() => undefined);
 
   const member = interaction.member as GuildMember | null;
-  const context = decorate(
-    createButtonContext(interaction, {
-      tier: member
-        ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
-        : 'everyone',
-      voiceChannelId: voiceChannelOf(member),
-    }),
-    options,
-  );
+  const context = createButtonContext(interaction, {
+    tier: member
+      ? resolveTier(member, (await guildDefaults(options, interaction.guildId)).permissions)
+      : 'everyone',
+    voiceChannelId: voiceChannelOf(member),
+  });
 
   await service.pickVolume(context, chosen);
-}
-
-/** Applies the notice-card wrapper, when one is configured. */
-function decorate(context: CommandContext, options: BotOptions): CommandContext {
-  return options.notices ? withNoticeCards(context, { render: options.notices }) : context;
 }
 
 /**

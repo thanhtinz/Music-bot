@@ -1,5 +1,6 @@
 import {
   AttachmentBuilder,
+  EmbedBuilder,
   MessageFlags,
   type ChatInputCommandInteraction,
   type GuildMember,
@@ -24,15 +25,102 @@ export interface ContextDependencies {
   voiceChannelId?: string;
 }
 
+/** Accent colour per tone, matching what the notice cards used to paint. */
+const TONE_COLOR: Record<NonNullable<ReplyPayload['tone']>, number> = {
+  success: 0x57f287,
+  info: 0x5865f2,
+  warning: 0xfee75c,
+  error: 0xed4245,
+};
+
+/** A small emoji for each glyph key a command reaches for. */
+const ICON_EMOJI: Record<string, string> = {
+  play: '▶️',
+  pause: '⏸️',
+  resume: '▶️',
+  skip: '⏭️',
+  previous: '⏮️',
+  stop: '⏹️',
+  shuffle: '🔀',
+  loop: '🔁',
+  volume: '🔊',
+  sliders: '🎚️',
+  queue: '📜',
+  search: '🔍',
+  playlist: '📂',
+  plus: '➕',
+  info: 'ℹ️',
+  warning: '⚠️',
+  trash: '🗑️',
+  broom: '🧹',
+  clock: '⏰',
+  note: '🎵',
+  gear: '⚙️',
+  history: '🕘',
+  list: '📋',
+  exit: '🚪',
+  chart: '📈',
+};
+
+/** Builds the embed a plain-text reply becomes, or nothing if there is nothing to show. */
+function buildEmbed(payload: ReplyPayload): EmbedBuilder | undefined {
+  if (!payload.title && !payload.content && !payload.fields?.length) return undefined;
+
+  const tone = payload.tone ?? (payload.ephemeral ? 'warning' : 'success');
+  const embed = new EmbedBuilder().setColor(TONE_COLOR[tone]);
+
+  if (payload.title) {
+    const icon = payload.icon ? `${ICON_EMOJI[payload.icon] ?? ''} ` : '';
+    embed.setTitle(`${icon}${payload.title}`.trim());
+  }
+
+  if (payload.content) embed.setDescription(payload.content);
+
+  if (payload.fields?.length) {
+    embed.addFields(
+      payload.fields.map((field) => ({
+        name: field.name,
+        value: field.value,
+        ...(field.inline === undefined ? {} : { inline: field.inline }),
+      })),
+    );
+  }
+
+  if (payload.footer) embed.setFooter({ text: payload.footer });
+
+  return embed;
+}
+
+/**
+ * Builds a one-off notice embed for a message the bot sends on its own —
+ * the sleep timer running out, or stepping out because the channel went
+ * quiet — where there is no {@link CommandContext} to reply through.
+ */
+export function noticeEmbed(notice: {
+  title?: string;
+  message: string;
+  icon?: string;
+  tone?: ReplyPayload['tone'];
+}): EmbedBuilder {
+  // Never undefined: a title-or-content check gates buildEmbed, and this
+  // notice always has a message.
+  return buildEmbed({ content: notice.message, ...notice }) as EmbedBuilder;
+}
+
 /**
  * Turns a framework-neutral reply into the fields discord.js accepts.
  *
  * Kept as a bare object rather than a typed option bag: the same fields go to
  * `interaction.reply`, `interaction.editReply` and `message.reply`, and each of
  * those wants a different option type around them.
+ *
+ * An attachment (only the Now Playing panel carries one) is sent as-is, plain
+ * text above the image; everything else — every notice, queue, list and
+ * lookup — becomes a real Discord embed instead of a drawn card.
  */
 export function toMessageOptions(payload: ReplyPayload): {
   content?: string;
+  embeds?: EmbedBuilder[];
   files?: AttachmentBuilder[];
   components?: never[];
 } {
@@ -40,11 +128,21 @@ export function toMessageOptions(payload: ReplyPayload): {
     (attachment) => new AttachmentBuilder(attachment.data, { name: attachment.name }),
   );
 
+  const components = payload.components ? { components: payload.components as never[] } : {};
+
+  if (files.length > 0) {
+    return {
+      ...(payload.content ? { content: payload.content } : {}),
+      files,
+      ...components,
+    };
+  }
+
+  const embed = buildEmbed(payload);
+
   return {
-    ...(payload.content ? { content: payload.content } : {}),
-    ...(files.length > 0 ? { files } : {}),
-    // The application layer builds these; only this adapter knows their type.
-    ...(payload.components ? { components: payload.components as never[] } : {}),
+    ...(embed ? { embeds: [embed] } : {}),
+    ...components,
   };
 }
 

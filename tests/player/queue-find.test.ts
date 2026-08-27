@@ -6,7 +6,6 @@ import { MusicService } from '../../src/application/services/music.service';
 import { buildCommands } from '../../src/commands/handlers';
 import { createTrack, findInQueue, foldForSearch, type Track } from '../../src/domain/music';
 import { ResolverRegistry } from '../../src/resolvers';
-import { cardFile } from '../../src/ui/canvas';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
 
 function song(title: string, author = 'Artist'): Track {
@@ -117,7 +116,7 @@ describe('the queue search command', () => {
 
     await service.findInQueue(ctx, 'mono');
 
-    expect(replies.at(-1)?.attachments?.[0]?.name).toBe(cardFile('queue'));
+    expect(replies.at(-1)?.title).toBe('Queue matches');
     expect(replies.at(-1)?.content).toContain('**2** of **3**');
   });
 
@@ -150,9 +149,9 @@ describe('the queue search command', () => {
 
     const paged = harness({ rest: '1' });
     await queue.execute(paged.ctx);
-    // A page of the queue answers with the card alone, no line above it.
+    // A page of the queue answers with an embed alone, no line above it.
     expect(paged.replies.at(-1)?.content).toBeUndefined();
-    expect(paged.replies.at(-1)?.attachments?.[0]?.name).toBe(cardFile('queue'));
+    expect(paged.replies.at(-1)?.title).toBe('Queue');
   });
 
   it('leaves the track playing out of the results', async () => {

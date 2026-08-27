@@ -1,0 +1,27 @@
+# Settings — Melody Test Server
+
+**Prefix**
+!
+_What message commands start with_
+
+**Default volume**
+70%
+_Volume a new player starts at_
+
+**DJ role**
+not set
+_Role allowed to run DJ commands_
+
+**Idle timeout**
+5m
+_How long to wait alone before leaving_
+
+**Announce tracks**
+on
+_Post a panel when each track starts_
+
+**24/7**
+off
+_Stay in voice when the queue runs out_
+
+_Change one with /settings <key> <value>_

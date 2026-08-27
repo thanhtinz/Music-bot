@@ -5,8 +5,6 @@ import { InMemoryPlaylistRepository, PlaylistService } from '../../src/applicati
 import type { MusicService } from '../../src/application/services/music.service';
 import { createTrack, type Track } from '../../src/domain/music';
 import { FAVORITES_NAME, MAX_PLAYLISTS_PER_OWNER } from '../../src/domain/playlist';
-import { cardFile } from '../../src/ui/canvas';
-import { expectCardImage } from '../helpers/card-image';
 
 interface Harness {
   ctx: CommandContext;
@@ -248,7 +246,7 @@ describe('PlaylistService', () => {
   });
 
   describe('list', () => {
-    it('renders a card and attaches page buttons', async () => {
+    it('renders a list and attaches page buttons', async () => {
       const service = new PlaylistService(repository, music(), {
         libraryComponents: (page, totalPages) => [{ page, totalPages }],
       });
@@ -257,8 +255,8 @@ describe('PlaylistService', () => {
       const { ctx, replies } = harness();
       await service.list(ctx);
 
-      expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('playlists'));
-      expectCardImage(replies[0]?.attachments?.[0]?.data);
+      expect(replies[0]?.title).toContain('playlists');
+      expect(replies[0]?.fields?.[0]?.value).toContain('Chill');
       expect(replies[0]?.components).toEqual([{ page: 1, totalPages: 1 }]);
     });
 
@@ -268,7 +266,7 @@ describe('PlaylistService', () => {
 
       await service.list(ctx);
 
-      expect(replies[0]?.attachments).toHaveLength(1);
+      expect(replies[0]?.content).toContain('no playlists yet');
     });
 
     it('clamps a page past the end', async () => {

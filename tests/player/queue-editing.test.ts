@@ -6,7 +6,6 @@ import { MusicService } from '../../src/application/services/music.service';
 import { createTrack, type Track } from '../../src/domain/music';
 import { ResolverRegistry } from '../../src/resolvers';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
-import { cardFile } from '../../src/ui/canvas';
 
 function song(title: string, requesterId = 'user'): Track {
   return createTrack({
@@ -355,7 +354,9 @@ describe('history', () => {
 
     await service.history(ctx);
 
-    expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('history'));
+    expect(replies[0]?.title).toBe('History');
+    expect(replies[0]?.content).toContain('First');
+    expect(replies[0]?.content).toContain('Second');
   });
 
   it('renders an empty history rather than refusing', async () => {
@@ -363,8 +364,9 @@ describe('history', () => {
 
     await service.history(ctx);
 
-    // A guild with no player at all still gets the card, saying so.
-    expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('history'));
+    // A guild with no player at all still gets an answer, saying so.
+    expect(replies[0]?.title).toBe('History');
+    expect(replies[0]?.content).toContain('Nothing has played');
   });
 
   it('puts what just finished first', async () => {
@@ -374,10 +376,12 @@ describe('history', () => {
     await service.history(newestFirst.ctx);
 
     // Somebody asking "what was that song" means the one that just ended, so
-    // the card cannot simply mirror the domain's oldest-first list.
+    // the reply cannot simply mirror the domain's oldest-first list.
     const player = players.get('guild');
     expect(player?.queue.history.map((track) => track.title)).toEqual(['First', 'Second']);
-    expect(newestFirst.replies[0]?.attachments?.[0]?.data).toBeDefined();
+    expect(newestFirst.replies[0]?.content?.indexOf('Second')).toBeLessThan(
+      newestFirst.replies[0]?.content?.indexOf('First') ?? -1,
+    );
   });
 
   it('does not count the track still playing', async () => {

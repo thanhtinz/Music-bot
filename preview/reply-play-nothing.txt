@@ -1,0 +1,2 @@
+# Play what?
+Give me something to play: `/play <song>`, a link, or an audio file.

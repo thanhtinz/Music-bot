@@ -11,7 +11,6 @@ import {
   type TrackCandidate,
 } from '../../src/resolvers';
 import { FakeAudioBackend } from '../helpers/fake-audio-backend';
-import { cardFile } from '../../src/ui/canvas';
 
 function candidate(title: string, index: number): TrackCandidate {
   return {
@@ -105,12 +104,13 @@ describe('SearchService', () => {
   });
 
   describe('search', () => {
-    it('answers with a card of results', async () => {
+    it('answers with a list of results', async () => {
       const { ctx, replies } = harness();
 
       await service.search(ctx, 'chăm hoa');
 
-      expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('search'));
+      expect(replies[0]?.title).toContain('chăm hoa');
+      expect(replies[0]?.fields?.[0]?.value).toContain('One');
       expect(queries).toEqual(['chăm hoa']);
     });
 

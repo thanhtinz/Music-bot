@@ -9,7 +9,6 @@ import {
   activeLyricLine,
   LYRICS_SAKURA_PAGE_SIZE,
   paginateSyncedLyrics,
-  renderSakuraLyricsCard,
 } from '../../src/ui/canvas';
 
 function harness(overrides: Partial<CommandContext> = {}): {
@@ -170,16 +169,16 @@ describe('a lyrics card that follows the music', () => {
     const { ctx, replies } = harness();
 
     await service.show(ctx, '');
-    const followed = replies[0]?.attachments?.[0]?.data;
+    const followed = replies[0]?.content;
 
     const still = new LyricsService(provider(SYNCED), music(undefined));
     const { ctx: idleCtx, replies: idleReplies } = harness();
     await still.show(idleCtx, 'Chăm Hoa');
-    const plain = idleReplies[0]?.attachments?.[0]?.data;
+    const plain = idleReplies[0]?.content;
 
-    expect(followed).toBeInstanceOf(Buffer);
-    expect(plain).toBeInstanceOf(Buffer);
-    expect(followed!.equals(plain!)).toBe(false);
+    // 17s in, five seconds a line, lands on the fourth line.
+    expect(followed).toContain('**▶ Line 4**');
+    expect(plain).not.toContain('▶');
   });
 
   it('does not follow a song somebody searched for', async () => {
@@ -210,14 +209,14 @@ describe('a lyrics card that follows the music', () => {
     const { ctx, replies } = harness();
     await service.page(ctx, 2);
 
-    const followed = replies[0]?.attachments?.[0]?.data;
+    const followed = replies[0]?.content;
 
     const same = new LyricsService(provider(SYNCED), music(undefined));
     const { ctx: plainCtx, replies: plainReplies } = harness();
     await same.show(plainCtx, 'Chăm Hoa');
     await same.page(plainCtx, 2);
 
-    expect(followed!.equals(plainReplies[1]!.attachments![0]!.data)).toBe(true);
+    expect(followed).toBe(plainReplies[1]?.content);
   });
 
   it('leaves the highlight behind when the reader pages away from it', async () => {
@@ -227,15 +226,8 @@ describe('a lyrics card that follows the music', () => {
     await service.show(ctx, '');
     await service.page(ctx, 3);
 
-    const unlit = await renderSakuraLyricsCard({
-      title: SYNCED.title,
-      artist: SYNCED.artist,
-      lines: paginateSyncedLyrics(TIMINGS).pages[2]!.map((line) => line.text),
-      page: 3,
-      totalPages: 3,
-      provider: SYNCED.provider,
-    });
-
-    expect(replies[1]?.attachments?.[0]?.data.equals(unlit)).toBe(true);
+    expect(replies[1]?.content).not.toContain('▶');
+    expect(replies[1]?.content).toContain('Line 37');
+    expect(replies[1]?.content).toContain('Line 40');
   });
 });

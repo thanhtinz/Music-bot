@@ -9,8 +9,6 @@ import {
 } from '../../src/application/stats';
 import { createTrack, type Track } from '../../src/domain/music';
 import { createGuildStats, recordPlay, type GuildStats } from '../../src/domain/stats';
-import { expectCardImage } from '../helpers/card-image';
-import { cardFile } from '../../src/ui/canvas';
 
 /** Snowflake-shaped, because that is what a real mention resolves to. */
 const IDS = {
@@ -62,6 +60,11 @@ function harness(overrides: Partial<CommandContext> = {}): {
   return { ctx, replies };
 }
 
+/** A stable stand-in for "the reply's content", so two invocations can be compared. */
+function fingerprint(reply: ReplyPayload | undefined): string {
+  return JSON.stringify({ title: reply?.title, content: reply?.content, fields: reply?.fields });
+}
+
 /** A guild with a little history behind it. */
 function seeded(): GuildStats {
   let stats = createGuildStats('guild', 1_000);
@@ -98,15 +101,14 @@ describe('StatsService, for the server', () => {
     });
   });
 
-  it('sends a card once there is something to show', async () => {
+  it('sends a reply once there is something to show', async () => {
     await repository.save(seeded());
     const { ctx, replies } = harness({ args: ['server'] });
 
     await service.show(ctx);
 
-    const attachment = replies[0]?.attachments?.[0];
-    expect(attachment?.name).toBe(cardFile('stats'));
-    expectCardImage(attachment?.data);
+    expect(replies[0]?.title).toContain('Stats');
+    expect(replies[0]?.fields?.length).toBeGreaterThan(0);
   });
 
   it('says so plainly when nothing has been played', async () => {
@@ -115,7 +117,7 @@ describe('StatsService, for the server', () => {
     await service.show(ctx);
 
     // An empty chart looks broken; a sentence does not.
-    expect(replies[0]?.attachments).toBeUndefined();
+    expect(replies[0]?.fields).toBeUndefined();
     expect(replies[0]?.title).toBe('No stats yet');
     expect(replies[0]?.ephemeral).toBe(true);
   });
@@ -128,7 +130,7 @@ describe('StatsService, for the server', () => {
     expect(replies[0]?.title).toBe('No stats yet');
   });
 
-  it('renders a different card for a caller with their own numbers', async () => {
+  it('renders a different reply for a caller with their own numbers', async () => {
     await repository.save(seeded());
 
     const mine = harness({ userId: IDS.me, args: ['server'] });
@@ -136,10 +138,8 @@ describe('StatsService, for the server', () => {
     await service.show(mine.ctx);
     await service.show(theirs.ctx);
 
-    // The "queued by you" panel is per caller, so the pictures cannot match.
-    const first = mine.replies[0]?.attachments?.[0]?.data;
-    const second = theirs.replies[0]?.attachments?.[0]?.data;
-    expect(first?.equals(second!)).toBe(false);
+    // The "queued by you" summary is per caller, so the replies cannot match.
+    expect(fingerprint(mine.replies[0])).not.toBe(fingerprint(theirs.replies[0]));
   });
 
   it('renders without a display-name resolver', async () => {
@@ -150,15 +150,13 @@ describe('StatsService, for the server', () => {
     await service.show(ctx);
     await anonymous.show(ctx);
 
-    // A raw snowflake is unreadable and is somebody's account id, so the card
-    // falls back to a stand-in rather than printing it.
-    expectCardImage(replies[1]?.attachments?.[0]?.data);
-    expect(replies[0]?.attachments?.[0]?.data.equals(replies[1]!.attachments![0]!.data)).toBe(
-      false,
-    );
+    // A raw snowflake is unreadable and is somebody's account id, so the
+    // reply falls back to a stand-in rather than printing it.
+    expect(replies[1]?.fields?.length).toBeGreaterThan(0);
+    expect(fingerprint(replies[0])).not.toBe(fingerprint(replies[1]));
   });
 
-  it('reads only — showing the card records nothing', async () => {
+  it('reads only — showing the stats records nothing', async () => {
     const before = seeded();
     await repository.save(before);
 
@@ -186,7 +184,7 @@ describe('StatsService, for one person', () => {
 
     await service.show(ctx);
 
-    expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('stats'));
+    expect(replies[0]?.title).toContain('stats');
   });
 
   it('reads the slash option and the message argument the same way', async () => {
@@ -198,9 +196,7 @@ describe('StatsService, for one person', () => {
     await service.show(slash.ctx);
     await service.show(prefix.ctx);
 
-    expect(
-      slash.replies[0]?.attachments?.[0]?.data.equals(prefix.replies[0]!.attachments![0]!.data),
-    ).toBe(true);
+    expect(fingerprint(slash.replies[0])).toBe(fingerprint(prefix.replies[0]));
   });
 
   it('shows that person, not the server', async () => {
@@ -210,9 +206,7 @@ describe('StatsService, for one person', () => {
     await service.show(member.ctx);
     await service.show(guild.ctx);
 
-    expect(
-      member.replies[0]?.attachments?.[0]?.data.equals(guild.replies[0]!.attachments![0]!.data),
-    ).toBe(false);
+    expect(fingerprint(member.replies[0])).not.toBe(fingerprint(guild.replies[0]));
   });
 
   it('says so plainly for somebody who has never queued anything', async () => {
@@ -220,8 +214,8 @@ describe('StatsService, for one person', () => {
 
     await service.show(ctx);
 
-    // A card of empty columns says less than the sentence does.
-    expect(replies[0]?.attachments).toBeUndefined();
+    // A reply of empty columns says less than the sentence does.
+    expect(replies[0]?.fields).toBeUndefined();
     expect(replies[0]?.title).toBe('Nothing to show');
   });
 
@@ -275,50 +269,52 @@ describe('StatsService, choosing who to report on', () => {
     await repository.save(seeded());
   });
 
-  /** The card a given invocation produces. */
-  async function card(overrides: Parameters<typeof harness>[0]): Promise<Buffer> {
+  /** The reply a given invocation produces. */
+  async function reply(overrides: Parameters<typeof harness>[0]): Promise<ReplyPayload> {
     const { ctx, replies } = harness(overrides);
     await service.show(ctx);
 
-    const data = replies[0]?.attachments?.[0]?.data;
-    if (!data) throw new Error(`no card: ${JSON.stringify(replies[0]?.title)}`);
-    return data;
+    const found = replies[0];
+    if (!found) throw new Error('no reply');
+    return found;
   }
 
   it('answers with your own listening when asked for nobody in particular', async () => {
     const [bare, mine] = await Promise.all([
-      card({ userId: IDS.me }),
-      card({ userId: IDS.me, args: [IDS.me] }),
+      reply({ userId: IDS.me }),
+      reply({ userId: IDS.me, args: [IDS.me] }),
     ]);
 
     // `stats` and `stats @yourself` are the same question.
-    expect(bare.equals(mine)).toBe(true);
+    expect(fingerprint(bare)).toBe(fingerprint(mine));
   });
 
   it('answers for the server only when asked for it by name', async () => {
     const [bare, server] = await Promise.all([
-      card({ userId: IDS.me }),
-      card({ userId: IDS.me, args: ['server'] }),
+      reply({ userId: IDS.me }),
+      reply({ userId: IDS.me, args: ['server'] }),
     ]);
 
-    expect(bare.equals(server)).toBe(false);
+    expect(fingerprint(bare)).not.toBe(fingerprint(server));
   });
 
   it('takes the server by any of the words people reach for', async () => {
-    const server = await card({ userId: IDS.me, args: ['server'] });
+    const server = await reply({ userId: IDS.me, args: ['server'] });
 
     for (const word of ['guild', 'all', 'everyone', 'SERVER', ' Server ']) {
-      expect((await card({ userId: IDS.me, args: [word] })).equals(server)).toBe(true);
+      expect(fingerprint(await reply({ userId: IDS.me, args: [word] }))).toBe(fingerprint(server));
     }
   });
 
   it('reads the server word from the slash option too', async () => {
-    const option = await card({
+    const option = await reply({
       userId: IDS.me,
       option: (name) => (name === 'target' ? 'server' : undefined),
     });
 
-    expect(option.equals(await card({ userId: IDS.me, args: ['server'] }))).toBe(true);
+    expect(fingerprint(option)).toBe(
+      fingerprint(await reply({ userId: IDS.me, args: ['server'] })),
+    );
   });
 
   it('tells you it is you who has queued nothing, not "Someone"', async () => {

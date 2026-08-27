@@ -1,0 +1,28 @@
+# Commands — Player
+**▸ Player** (18) · Queue (12) · Playlist (3) · Filters (1) · Settings (2) · General (2)
+
+**?seek <position>**
+Jump to a position in the current track
+
+**?forward [seconds]**
+Jump ahead, 10 seconds by default
+
+**?rewind [seconds]**
+Jump back, 10 seconds by default
+
+**?replay**
+Start the current track again
+
+**?sleep [duration]**
+Stop the music later, or at the end of this track
+
+**?volume [level]**
+Show or set the playback volume
+
+**?grab**
+Send what is playing to your messages
+
+**?nowplaying**
+Show the Now Playing panel
+
+_Page 2/3 · Use ?help [command] for more_

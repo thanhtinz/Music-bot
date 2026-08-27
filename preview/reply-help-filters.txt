@@ -1,0 +1,7 @@
+# Commands — Filters
+Player (18) · Queue (12) · Playlist (3) · **▸ Filters** (1) · Settings (2) · General (2)
+
+**?filter [preset]**
+Apply an audio filter preset
+
+_Page 1/1 · Use ?help [command] for more_

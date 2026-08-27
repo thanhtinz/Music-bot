@@ -1,0 +1,2 @@
+# Playlist
+You have no playlist called **Nope**. See them with `/playlist list`.

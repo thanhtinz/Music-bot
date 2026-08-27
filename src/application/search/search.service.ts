@@ -1,14 +1,17 @@
 import type { ResolverRegistry, TrackCandidate } from '../../resolvers';
 import { describeResolverError } from '../../resolvers';
 import { createLogger } from '../../telemetry/logger';
-import { cardFile, renderSakuraSearchCard, SEARCH_SAKURA_ROWS } from '../../ui/canvas';
+import { formatDuration } from '../../ui/canvas';
 import type { CommandContext } from '../commands';
 import type { MusicService } from '../services/music.service';
 
 const logger = createLogger('search-service');
 
-/** Long enough to read the card and decide, short enough to be forgotten. */
+/** Long enough to read the results and decide, short enough to be forgotten. */
 export const SEARCH_TTL_MS = 120_000;
+
+/** Results shown per search. */
+const SEARCH_RESULT_ROWS = 5;
 
 export interface SearchServiceOptions {
   /** Injectable so a test does not have to wait two minutes. */
@@ -78,7 +81,7 @@ export class SearchService {
       return;
     }
 
-    const results = candidates.slice(0, SEARCH_SAKURA_ROWS);
+    const results = candidates.slice(0, SEARCH_RESULT_ROWS);
 
     if (results.length === 0) {
       await ctx.reply({
@@ -92,19 +95,17 @@ export class SearchService {
 
     this.remember(ctx, { query: trimmed, candidates: results, expiresAt: this.now() + this.ttlMs });
 
-    const card = await renderSakuraSearchCard({
-      query: trimmed,
-      results: results.map((candidate) => ({
-        title: candidate.title,
-        author: candidate.author,
-        durationMs: candidate.durationMs,
-        source: candidate.source,
-        ...(candidate.isStream === undefined ? {} : { isStream: candidate.isStream }),
-      })),
-    });
+    const list = results
+      .map((candidate, index) => {
+        const length = candidate.isStream ? 'LIVE' : formatDuration(candidate.durationMs);
+        return `**${index + 1}.** ${candidate.title} — ${candidate.author} \`${length}\` · ${candidate.source}`;
+      })
+      .join('\n');
 
     await ctx.reply({
-      attachments: [{ name: cardFile('search'), data: card }],
+      title: `Search results for "${trimmed}"`,
+      icon: 'search',
+      fields: [{ name: 'Pick a number to queue it', value: list }],
       ...(this.options.searchComponents
         ? { components: this.options.searchComponents(results.length) }
         : {}),

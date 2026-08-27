@@ -1,0 +1,28 @@
+# Commands — Queue
+Player (18) · **▸ Queue** (12) · Playlist (3) · Filters (1) · Settings (2) · General (2)
+
+**?queue [page]**
+Show the queue, or find a track in it
+
+**?remove <position>**
+Take one track out of the queue
+
+**?move <from>**
+Move a queued track to another position
+
+**?jump <position>**
+Play a queued track now, skipping past the rest
+
+**?shuffle**
+Shuffle the upcoming tracks
+
+**?loop [mode]**
+Cycle loop mode: off, track, queue
+
+**?autoplay**
+Keep playing related tracks when the queue runs out
+
+**?history**
+Show what has already played
+
+_Page 1/2 · Use ?help [command] for more_

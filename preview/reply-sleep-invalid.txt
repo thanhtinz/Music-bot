@@ -1,0 +1,2 @@
+# Sleep timer
+Try `sleep 30`, `sleep 1h30m`, `sleep track` or `sleep off`.

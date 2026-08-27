@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { CommandContext, ReplyPayload } from '../../src/application/commands';
 import { InMemorySettingsRepository, SettingsService } from '../../src/application/settings';
-import { cardFile } from '../../src/ui/canvas';
-import { expectCardImage } from '../helpers/card-image';
 
 const DEFAULTS = { prefix: '!', defaultVolume: 70, idleTimeoutMs: 300_000 };
 
@@ -70,13 +68,13 @@ describe('SettingsService', () => {
   });
 
   describe('show', () => {
-    it('renders the sheet as a card', async () => {
+    it('renders the sheet', async () => {
       const { ctx, replies } = harness();
 
       await service.show(ctx);
 
-      expect(replies[0]?.attachments?.[0]?.name).toBe(cardFile('settings'));
-      expectCardImage(replies[0]?.attachments?.[0]?.data);
+      expect(replies[0]?.title).toContain('Settings');
+      expect(replies[0]?.fields?.length).toBeGreaterThan(0);
     });
 
     it('works for a guild with nothing saved', async () => {
@@ -84,7 +82,7 @@ describe('SettingsService', () => {
 
       await service.show(ctx);
 
-      expect(replies[0]?.attachments).toHaveLength(1);
+      expect(replies[0]?.fields?.length).toBeGreaterThan(0);
     });
   });
 

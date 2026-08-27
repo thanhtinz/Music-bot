@@ -1,0 +1,2 @@
+# Settings
+Volume is a whole number from 0 to 200.

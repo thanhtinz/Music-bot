@@ -15,19 +15,29 @@ export interface ReplyAttachment {
  * intent flags, and the Discord adapter turns that into an interaction reply or
  * a channel message.
  */
+export interface ReplyEmbedField {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+
 export interface ReplyPayload {
   content?: string;
   /**
-   * Headline for the card a text reply is drawn onto.
+   * Headline for the embed a text reply is turned into.
    *
-   * Only read when the reply is rendered as a notice panel; a command that
-   * says nothing here still gets a sensible heading from its tone.
+   * A command that says nothing here still gets a sensible heading from its
+   * tone.
    */
   title?: string;
-  /** Glyph key for that card, e.g. `volume`. */
+  /** Glyph key, shown as a small emoji next to the title, e.g. `volume`. */
   icon?: string;
-  /** How the notice should read; defaults by whether the reply is ephemeral. */
+  /** How the reply should read; defaults by whether the reply is ephemeral. */
   tone?: 'success' | 'info' | 'warning' | 'error';
+  /** Extra columns on the embed — a queue, a settings sheet, search results. */
+  fields?: ReplyEmbedField[];
+  /** Small print under the embed, e.g. a page marker or a source name. */
+  footer?: string;
   attachments?: ReplyAttachment[];
   /** Only the invoking user should see this (settings, private errors). */
   ephemeral?: boolean;

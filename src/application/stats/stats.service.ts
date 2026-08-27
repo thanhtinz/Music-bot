@@ -11,14 +11,7 @@ import {
   type GuildStats,
   type TrackStat,
 } from '../../domain/stats';
-import {
-  cardFile,
-  formatHours,
-  renderSakuraStatsCard,
-  STATS_SAKURA_ROWS,
-  type StatsCardData,
-  type StatsCardEntry,
-} from '../../ui/canvas';
+import { formatHours } from '../../ui/canvas';
 import type { CommandContext } from '../commands';
 
 import type { StatsRepository } from './stats-repository';
@@ -44,6 +37,9 @@ export function parseUserId(value: string | undefined): string | undefined {
 
   return id && /^\d{5,}$/.test(id) ? id : undefined;
 }
+
+/** Rows shown in each top-N field. */
+const STATS_ROWS = 5;
 
 /**
  * What a server — or one person in it — listens to (spec §22).
@@ -95,26 +91,31 @@ export class StatsService {
 
   private async showGuild(ctx: CommandContext, stats: GuildStats): Promise<void> {
     const mine = statsFor(stats, ctx.userId);
+    const guildName = this.options.guildName?.(ctx.guildId);
+    const since = `<t:${Math.floor(stats.since / 1000)}:D>`;
 
-    await this.send(ctx, {
-      totalPlays: stats.totalPlays,
-      totalListenedMs: stats.totalListenedMs,
-      since: stats.since,
-      topTracks: topTracks(stats, STATS_SAKURA_ROWS).map(trackEntry),
-      topArtists: topArtists(stats, STATS_SAKURA_ROWS).map(artistEntry),
-      topListeners: this.listenerEntries(stats),
-      ...(mine === undefined ? {} : { you: { plays: mine.plays, listenedMs: mine.listenedMs } }),
+    await ctx.reply({
+      title: `Stats${guildName ? ` — ${guildName}` : ''}`,
+      icon: 'chart',
+      content: `**${stats.totalPlays}** ${plural(stats.totalPlays, 'play')} · **${formatHours(stats.totalListenedMs)}** listened since ${since}${
+        mine ? ` · You: **${mine.plays}** ${plural(mine.plays, 'play')}, **${formatHours(mine.listenedMs)}**` : ''
+      }`,
+      fields: [
+        { name: 'Top tracks', value: this.trackLines(topTracks(stats, STATS_ROWS)) },
+        { name: 'Top artists', value: this.artistLines(topArtists(stats, STATS_ROWS)) },
+        { name: 'Top listeners', value: this.listenerLines(topListeners(stats, STATS_ROWS)) },
+      ],
     });
   }
 
   private async showMember(ctx: CommandContext, stats: GuildStats, userId: string): Promise<void> {
     const theirs = statsFor(stats, userId);
     // "Someone" is a fair stand-in for a stranger, but not for the person
-    // reading their own card.
+    // reading their own stats.
     const name = this.options.displayName?.(userId) ?? (userId === ctx.userId ? 'You' : 'Someone');
 
     if (!theirs) {
-      // A card of empty columns says less than the sentence does.
+      // A reply of empty columns says less than the sentence does.
       const mine = userId === ctx.userId;
       await ctx.reply({
         content: mine
@@ -130,63 +131,59 @@ export class StatsService {
 
     const rank = rankOf(stats, userId);
 
-    await this.send(ctx, {
-      totalPlays: stats.totalPlays,
-      totalListenedMs: stats.totalListenedMs,
-      since: stats.since,
-      topTracks: topTracksFor(stats, userId, STATS_SAKURA_ROWS).map(trackEntry),
-      topArtists: topArtistsFor(stats, userId, STATS_SAKURA_ROWS).map(artistEntry),
-      topListeners: this.listenerEntries(stats, userId),
-      subject: {
-        name,
-        plays: theirs.plays,
-        listenedMs: theirs.listenedMs,
-        listenerCount: stats.users.length,
-        ...(rank === undefined ? {} : { rank }),
-      },
+    await ctx.reply({
+      title: `${name}'s stats`,
+      icon: 'chart',
+      content: `**${theirs.plays}** ${plural(theirs.plays, 'play')} · **${formatHours(theirs.listenedMs)}** listened${
+        rank === undefined ? '' : ` · Rank **#${rank}** of ${stats.users.length}`
+      }`,
+      fields: [
+        { name: 'Top tracks', value: this.trackLines(topTracksFor(stats, userId, STATS_ROWS)) },
+        { name: 'Top artists', value: this.artistLines(topArtistsFor(stats, userId, STATS_ROWS)) },
+      ],
     });
   }
 
-  /** The guild's listeners, with one row optionally picked out. */
-  private listenerEntries(stats: GuildStats, highlight?: string): StatsCardEntry[] {
-    return topListeners(stats, STATS_SAKURA_ROWS).map((user) => ({
-      label: this.nameFor(user.userId),
-      detail: `${formatHours(user.listenedMs)} listened`,
-      plays: user.plays,
-      ...(user.userId === highlight ? { highlight: true } : {}),
-    }));
+  private trackLines(tracks: readonly TrackStat[]): string {
+    if (tracks.length === 0) return 'Nothing yet.';
+    return tracks
+      .map((track, index) => `**${index + 1}.** ${track.title} — ${track.author} (${track.plays}×)`)
+      .join('\n');
   }
 
-  private async send(ctx: CommandContext, data: Omit<StatsCardData, 'guildName'>): Promise<void> {
-    const guildName = this.options.guildName?.(ctx.guildId);
+  private artistLines(artists: readonly ArtistStat[]): string {
+    if (artists.length === 0) return 'Nothing yet.';
+    return artists
+      .map(
+        (artist, index) =>
+          `**${index + 1}.** ${artist.author} — ${formatHours(artist.listenedMs)} (${artist.plays}×)`,
+      )
+      .join('\n');
+  }
 
-    const card = await renderSakuraStatsCard({
-      ...(guildName === undefined ? {} : { guildName }),
-      ...data,
-    });
-
-    await ctx.reply({ attachments: [{ name: cardFile('stats'), data: card }] });
+  /** The guild's top listeners, by total time. */
+  private listenerLines(users: readonly { userId: string; listenedMs: number; plays: number }[]): string {
+    if (users.length === 0) return 'Nothing yet.';
+    return users
+      .map(
+        (user, index) =>
+          `**${index + 1}.** ${this.nameFor(user.userId)} — ${formatHours(user.listenedMs)} (${user.plays}×)`,
+      )
+      .join('\n');
   }
 
   /**
    * A display name, or a readable stand-in.
    *
-   * A raw snowflake on a card is unreadable, and it is somebody's account id —
-   * neither belongs in a picture posted to a channel.
+   * A raw snowflake in a reply is unreadable, and it is somebody's account id —
+   * neither belongs in something posted to a channel.
    */
   private nameFor(userId: string): string {
     return this.options.displayName?.(userId) ?? 'Someone';
   }
 }
 
-function trackEntry(track: TrackStat): StatsCardEntry {
-  return { label: track.title, detail: track.author, plays: track.plays };
-}
-
-function artistEntry(artist: ArtistStat): StatsCardEntry {
-  return {
-    label: artist.author,
-    detail: `${formatHours(artist.listenedMs)} listened`,
-    plays: artist.plays,
-  };
+/** `1 play` / `2 plays`, so a reply does not have to say "play(s)". */
+function plural(count: number, noun: string): string {
+  return count === 1 ? noun : `${noun}s`;
 }

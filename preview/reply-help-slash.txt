@@ -1,0 +1,28 @@
+# Commands — Player
+**▸ Player** (18) · Queue (12) · Playlist (3) · Filters (1) · Settings (2) · General (2)
+
+**/play [query]**
+Play a track, a link or an upload
+
+**/playnext [query]**
+Queue something at the front, to play next
+
+**/search <query>**
+Search, then pick what to play
+
+**/pause**
+Pause playback
+
+**/resume**
+Resume playback
+
+**/skip**
+Skip the current track, or vote to
+
+**/previous**
+Go back to the previous track
+
+**/stop**
+Stop playback and clear the queue
+
+_Page 1/3 · Use /help [command] for more_

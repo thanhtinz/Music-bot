@@ -18,12 +18,7 @@ import {
   type PlaylistVisibility,
 } from '../../domain/playlist';
 import { createLogger } from '../../telemetry/logger';
-import {
-  cardFile,
-  PLAYLIST_SAKURA_PAGE_SIZE,
-  type PlaylistCardEntry,
-  renderSakuraPlaylistCard,
-} from '../../ui/canvas';
+import { formatDuration } from '../../ui/canvas';
 import { invocationPrefix, type CommandContext } from '../commands';
 import type { MusicService } from '../services/music.service';
 
@@ -81,6 +76,9 @@ export interface PlaylistServiceOptions {
   libraryComponents?: (page: number, totalPages: number) => unknown[];
 }
 
+/** Playlists per embed page. */
+const PLAYLIST_PAGE_SIZE = 10;
+
 /**
  * Saved playlists (spec §11).
  *
@@ -98,30 +96,34 @@ export class PlaylistService {
   /** Renders one page of the caller's library. */
   async list(ctx: CommandContext, page = 1): Promise<void> {
     const playlists = await this.repository.listByOwner(ctx.guildId, ctx.userId);
-    const totalPages = Math.max(1, Math.ceil(playlists.length / PLAYLIST_SAKURA_PAGE_SIZE));
+
+    if (playlists.length === 0) {
+      const prefix = await this.prefixFor(ctx);
+      await ctx.reply({
+        title: 'Playlists',
+        icon: 'playlist',
+        content: `You have no playlists yet. Create one with \`${prefix}playlist create <name>\`.`,
+      });
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(playlists.length / PLAYLIST_PAGE_SIZE));
     const current = Math.min(Math.max(1, Math.trunc(page)), totalPages);
-    const start = (current - 1) * PLAYLIST_SAKURA_PAGE_SIZE;
+    const start = (current - 1) * PLAYLIST_PAGE_SIZE;
 
-    const entries: PlaylistCardEntry[] = playlists
-      .slice(start, start + PLAYLIST_SAKURA_PAGE_SIZE)
-      .map((playlist) => ({
-        name: playlist.name,
-        trackCount: playlist.tracks.length,
-        totalDurationMs: playlistDurationMs(playlist),
-        visibility: playlist.visibility,
-      }));
-
-    const card = await renderSakuraPlaylistCard({
-      entries,
-      ownerName: this.nameFor(ctx.userId),
-      page: current,
-      totalPages,
-      totalCount: playlists.length,
-      prefix: await this.prefixFor(ctx),
+    const lines = playlists.slice(start, start + PLAYLIST_PAGE_SIZE).map((playlist, index) => {
+      const visibility = playlist.visibility === 'public' ? '🌐' : '🔒';
+      const tracks = playlist.tracks.length;
+      return `**${start + index + 1}.** ${visibility} ${playlist.name} — ${tracks} ${
+        tracks === 1 ? 'track' : 'tracks'
+      } · \`${formatDuration(playlistDurationMs(playlist))}\``;
     });
 
     await ctx.reply({
-      attachments: [{ name: cardFile('playlists'), data: card }],
+      title: `${this.nameFor(ctx.userId)}'s playlists`,
+      icon: 'playlist',
+      fields: [{ name: `${playlists.length} total`, value: lines.join('\n') }],
+      footer: `Page ${current}/${totalPages}`,
       components: this.options.libraryComponents?.(current, totalPages),
     });
   }

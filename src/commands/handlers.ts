@@ -8,7 +8,7 @@ import type { MusicService } from '../application/services/music.service';
 import type { LoopMode } from '../domain/music';
 import { isFilterPreset } from '../infrastructure/lavalink/filters';
 import { parseTimeToSeconds } from '../resolvers';
-import { cardFile, paginateHelp, renderSakuraHelpCard } from '../ui/canvas';
+import { paginateHelp } from '../ui/canvas';
 
 import { catalogByCategory, COMMAND_CATALOG, type CommandMeta } from './catalog';
 
@@ -373,26 +373,29 @@ export function buildCommands(service: MusicService, options: HandlerOptions): C
       const active = categoryIndex(grouped, asked.category);
       const slice = paginateHelp(grouped[active]?.[1] ?? [], asked.page);
 
-      const card = await renderSakuraHelpCard({
-        // Written the way this person reached the bot, with the guild's own
-        // prefix rather than the environment's.
-        prefix: prefixFor(ctx, {
-          prefix: (await options.settings?.forGuild(ctx.guildId))?.prefix ?? options.prefix,
-          botName: options.botName,
-        }),
-        activeCategory: active,
-        categories: grouped.map(([category, commands]) => ({
-          title: CATEGORY_TITLES[category] ?? category,
-          count: commands.length,
-          icon: category,
-        })),
-        commands: slice.items.map(toHelpRow),
-        page: slice.page,
-        totalPages: slice.totalPages,
+      // Written the way this person reached the bot, with the guild's own
+      // prefix rather than the environment's.
+      const prefix = prefixFor(ctx, {
+        prefix: (await options.settings?.forGuild(ctx.guildId))?.prefix ?? options.prefix,
+        botName: options.botName,
       });
 
+      const categoryLine = grouped
+        .map(([category, commands], index) => {
+          const title = CATEGORY_TITLES[category] ?? category;
+          return index === active ? `**▸ ${title}** (${commands.length})` : `${title} (${commands.length})`;
+        })
+        .join(' · ');
+
       await ctx.reply({
-        attachments: [{ name: cardFile('help'), data: card }],
+        title: `Commands — ${CATEGORY_TITLES[grouped[active]?.[0] ?? ''] ?? 'Player'}`,
+        icon: 'info',
+        content: categoryLine,
+        fields: slice.items.map(toHelpRow).map((row) => ({
+          name: `${prefix}${row.name}${row.args ? ` ${row.args}` : ''}`,
+          value: row.description,
+        })),
+        footer: `Page ${slice.page}/${slice.totalPages} · Use ${prefix}help [command] for more`,
         ...(options.helpComponents
           ? {
               components: options.helpComponents(

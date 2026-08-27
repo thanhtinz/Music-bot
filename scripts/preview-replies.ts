@@ -1,11 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import {
-  withNoticeCards,
-  type CommandContext,
-  type ReplyPayload,
-} from '../src/application/commands';
+import type { CommandContext, ReplyPayload } from '../src/application/commands';
 import { PlayerManager, SleepTimer } from '../src/application/player';
 import { InMemoryPlaylistRepository, PlaylistService } from '../src/application/playlist';
 import { InMemorySettingsRepository, SettingsService } from '../src/application/settings';
@@ -23,7 +19,7 @@ import {
   type SourceResolver,
   type TrackCandidate,
 } from '../src/resolvers';
-import { configureCardEncoding, renderSakuraNoticeCard } from '../src/ui/canvas';
+import { configureCardEncoding } from '../src/ui/canvas';
 import {
   buildHelpCategories,
   buildHelpPagination,
@@ -74,7 +70,7 @@ function context(overrides: Partial<CommandContext> = {}): Capture {
     ...overrides,
   } as CommandContext;
 
-  return { ctx: withNoticeCards(base, { render: renderSakuraNoticeCard }), saved };
+  return { ctx: base, saved };
 }
 
 function song(title: string, author: string) {
@@ -89,29 +85,40 @@ function song(title: string, author: string) {
 }
 
 /**
- * Writes the first card a capture collected.
+ * Writes the first reply a capture collected.
  *
- * The buttons are logged rather than drawn: they are Discord components sitting
- * under the image, not part of it, and a picture of them would be a picture of
- * something that does not exist.
+ * The Now Playing panel is still a picture, so that one is written as-is; the
+ * buttons are logged rather than drawn, since they are Discord components
+ * sitting under the panel, not part of it. Everything else is a Discord embed
+ * now, so its title, text and fields are written out instead of an image.
  */
 function save(capture: Capture, file: string): void {
   const reply = capture.saved.at(-1);
-  const card = reply?.attachments?.[0];
-
-  if (!card) {
-    throw new Error(`${file}: the command replied with no card`);
+  if (!reply) {
+    throw new Error(`${file}: the command sent no reply`);
   }
 
-  writeFileSync(resolve(OUT_DIR, file), card.data);
+  const buttons = describeComponents(reply.components);
+  const card = reply.attachments?.[0];
 
-  const buttons = describeComponents(reply?.components);
-  const size = `${(card.data.byteLength / 1024).toFixed(1)} KB`;
-  console.log(`rendered ${file} (${size})${buttons ? ` + buttons: ${buttons}` : ''}`);
+  if (card) {
+    writeFileSync(resolve(OUT_DIR, file), card.data);
+    const size = `${(card.data.byteLength / 1024).toFixed(1)} KB`;
+    console.log(`rendered ${file} (${size})${buttons ? ` + buttons: ${buttons}` : ''}`);
+    if (reply.content) console.log(`   line: ${reply.content}`);
+    return;
+  }
 
-  // The line above the card is text, not part of the image, so it is printed
-  // for review the same way the buttons are.
-  if (reply?.content) console.log(`   line: ${reply.content}`);
+  const textFile = file.replace(/\.png$/, '.txt');
+  const lines = [
+    reply.title ? `# ${reply.title}` : undefined,
+    reply.content,
+    ...(reply.fields ?? []).map((field) => `\n**${field.name}**\n${field.value}`),
+    reply.footer ? `\n_${reply.footer}_` : undefined,
+  ].filter((line): line is string => Boolean(line));
+
+  writeFileSync(resolve(OUT_DIR, textFile), lines.join('\n'));
+  console.log(`rendered ${textFile}${buttons ? ` + buttons: ${buttons}` : ''}`);
 }
 
 /** The actions behind a reply's components, as the ids encode them. */
@@ -831,22 +838,16 @@ async function main(): Promise<void> {
   // Not a command reply: the bot posts this by itself when it gives up waiting.
   for (const [file, message] of [
     [
-      'reply-idle-left-alone.png',
+      'reply-idle-left-alone.txt',
       'Everyone left, so I stepped out too. Call me back with **join**.',
     ],
     [
-      'reply-idle-left-empty.png',
+      'reply-idle-left-empty.txt',
       'The queue ran out, so I stepped out. Call me back with **join**.',
     ],
   ] as const) {
-    const card = await renderSakuraNoticeCard({
-      title: 'Left the channel',
-      message,
-      icon: 'stop',
-      tone: 'info',
-    });
-    writeFileSync(resolve(OUT_DIR, file), card);
-    console.log(`rendered ${file} (${(card.byteLength / 1024).toFixed(1)} KB)`);
+    writeFileSync(resolve(OUT_DIR, file), `# Left the channel\n${message}`);
+    console.log(`rendered ${file}`);
   }
 
   const left = context({ commandName: 'leave' });

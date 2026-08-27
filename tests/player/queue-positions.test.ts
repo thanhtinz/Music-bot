@@ -72,37 +72,14 @@ describe('queue positions', () => {
     await service.queue(ctx, 1);
 
     const player = players.get('guild')!;
-    const current = player.queue.current!;
-    const slice = paginateSakuraQueue(player.queue.tracks, 1);
+    // Counted from 1 over the upcoming list — the same numbers `remove`,
+    // `move` and `jump` are range-checked against.
+    const upNext = replies.at(-1)?.fields?.find((field) => field.name.startsWith('Up next'));
 
-    const expected = await renderQueueCard({
-      current: {
-        title: current.title,
-        author: current.author,
-        durationMs: current.durationMs,
-        positionMs: player.positionMs,
-        isStream: current.isStream,
-        paused: player.status === 'paused',
-      },
-      // Counted from 1 over the upcoming list — the same numbers `remove`,
-      // `move` and `jump` are range-checked against.
-      tracks: slice.items.map((track, index) => ({
-        position: slice.firstPosition + index,
-        title: track.title,
-        author: track.author,
-        durationMs: track.durationMs,
-        isStream: track.isStream,
-        requesterName: 'user',
-      })),
-      page: slice.page,
-      totalPages: slice.totalPages,
-      totalTracks: player.queue.size,
-      totalDurationMs: player.queue.totalDurationMs,
-      loop: player.loop,
-      variant: 'sakura',
-    });
-
-    expect(replies.at(-1)?.attachments?.[0]?.data.equals(expected)).toBe(true);
+    expect(upNext?.value).toContain('**1.** Second');
+    expect(upNext?.value).toContain('**2.** Third');
+    expect(upNext?.value).toContain('**3.** Fourth');
+    expect(player.queue.size).toBe(3);
   });
 
   it('removes the track the card numbers 1', async () => {

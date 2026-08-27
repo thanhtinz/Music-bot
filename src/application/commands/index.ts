@@ -7,13 +7,12 @@ export type {
   ReplyHandle,
   ReplyPayload,
   ReplyAttachment,
+  ReplyEmbedField,
 } from './context';
 export { usage, mapPositionalOptions, missingOptions } from './command';
 export type { Command, CommandOption, CommandCategory } from './command';
 export { CommandRegistry } from './registry';
 export { CooldownTracker } from './cooldown';
-export { withNoticeCards } from './notice-context';
-export type { NoticeRenderer, NoticeContextOptions } from './notice-context';
 export { invocationPrefix, prefixFor } from './invocation';
 export type { InvocationOptions } from './invocation';
 export { CommandRouter } from './router';

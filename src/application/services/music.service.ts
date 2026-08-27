@@ -2,6 +2,7 @@ import {
   AUTOPLAY_REQUESTER_ID,
   createTrack,
   findInQueue,
+  isAutoplayed,
   type LoopMode,
   type Track,
   type TrackInput,
@@ -16,14 +17,17 @@ import {
 import { createLogger } from '../../telemetry/logger';
 import {
   cardFile,
-  HISTORY_SAKURA_ROWS,
-  type NowPlayingCardData,
+  formatDuration,
   paginateSakuraQueue,
   renderNowPlayingCard,
-  renderQueueCard,
-  renderSakuraHistoryCard,
+  type NowPlayingCardData,
 } from '../../ui/canvas';
-import { satisfiesTier, type CommandContext, type ReplyHandle } from '../commands';
+import {
+  satisfiesTier,
+  type CommandContext,
+  type ReplyEmbedField,
+  type ReplyHandle,
+} from '../commands';
 import { formatSleepRemaining, lineFor, MAX_SLEEP_MS, parseSleepRequest } from '../player';
 import type { Player, PlayerManager, ProgressTicker, SleepPlan, SleepTimer } from '../player';
 
@@ -39,6 +43,12 @@ function describeSleepPlan(plan: SleepPlan): string {
 /** `1 track` / `2 tracks`, so a reply does not have to say "track(s)". */
 function plural(count: number, noun: string): string {
   return count === 1 ? noun : `${noun}s`;
+}
+
+/** One line of a queue listing: position, title, author, length and who asked for it. */
+function queueLine(position: number, track: Track, requesterName: string): string {
+  const length = track.isStream ? 'LIVE' : formatDuration(track.durationMs);
+  return `**${position}.** ${track.title} — ${track.author} \`${length}\` · ${requesterName}`;
 }
 
 export interface MusicServiceOptions {
@@ -140,6 +150,34 @@ export class MusicService {
   /** In-flight skip votes, one per guild. */
   private readonly skipVotes = new Map<string, SkipVote>();
 
+  /**
+   * Guilds where a command is mid-change and will answer with a panel itself.
+   *
+   * Starting a track emits trackStart, which is what announces it to the room
+   * -- but a track a command started is about to be drawn as that command's
+   * reply, so announcing it as well posts the same panel twice. Reported from
+   * a real run: the bot repeating itself.
+   */
+  private readonly answering = new Set<string>();
+
+  /**
+   * Runs a command's change to a player under the guild's lock.
+   *
+   * Every mutation goes through here rather than through the lock directly, so
+   * that "a command is doing this" is knowable from inside the events the
+   * change emits. Missing one call site would bring the duplicate panel back,
+   * which is why this replaced the lock everywhere rather than being added at
+   * the few sites that happen to send a panel today.
+   */
+  private async mutate<T>(guildId: string, work: () => Promise<T> | T): Promise<T> {
+    this.answering.add(guildId);
+    try {
+      return await this.players.withLock(guildId, work);
+    } finally {
+      this.answering.delete(guildId);
+    }
+  }
+
   constructor(
     private readonly players: PlayerManager,
     private readonly resolvers: ResolverRegistry,
@@ -192,7 +230,7 @@ export class MusicService {
         const tracks = result.playlist.tracks.map((candidate) =>
           this.toTrack(candidate, ctx.userId),
         );
-        const { started, added } = await this.players.withLock(ctx.guildId, () =>
+        const { started, added } = await this.mutate(ctx.guildId, () =>
           position === 'next' ? player.enqueueNext(tracks) : player.enqueue(tracks),
         );
 
@@ -241,7 +279,7 @@ export class MusicService {
     position: 'end' | 'next' = 'end',
   ): Promise<void> {
     const track = this.toTrack(candidate, ctx.userId);
-    const { started } = await this.players.withLock(ctx.guildId, () =>
+    const { started } = await this.mutate(ctx.guildId, () =>
       position === 'next' ? player.enqueueNext(track) : player.enqueue(track),
     );
 
@@ -282,7 +320,7 @@ export class MusicService {
     try {
       if (existing && existing.voiceChannelId !== ctx.voiceChannelId) {
         const from = existing.voiceChannelId;
-        await this.players.withLock(ctx.guildId, () => existing.move(ctx.voiceChannelId!));
+        await this.mutate(ctx.guildId, () => existing.move(ctx.voiceChannelId!));
         existing.textChannelId = ctx.channelId;
 
         await ctx.reply({
@@ -313,7 +351,12 @@ export class MusicService {
         icon: 'play',
       });
     } catch (error) {
-      await this.replyWithError(ctx, error, 'join');
+      await this.replyWithError(
+        ctx,
+        error,
+        'join',
+        'Could not join that voice channel. Please try again.',
+      );
     }
   }
 
@@ -347,7 +390,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    await this.players.withLock(ctx.guildId, () => player.pause());
+    await this.mutate(ctx.guildId, () => player.pause());
     await this.sendNowPlaying(ctx, player);
   }
 
@@ -355,7 +398,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    await this.players.withLock(ctx.guildId, () => player.resume());
+    await this.mutate(ctx.guildId, () => player.resume());
     await this.sendNowPlaying(ctx, player);
   }
 
@@ -364,7 +407,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    await this.players.withLock(ctx.guildId, () =>
+    await this.mutate(ctx.guildId, () =>
       player.status === 'paused' ? player.resume() : player.pause(),
     );
     await this.sendNowPlaying(ctx, player);
@@ -402,7 +445,7 @@ export class MusicService {
     }
 
     this.skipVotes.delete(ctx.guildId);
-    const next = await this.players.withLock(ctx.guildId, () => player.skip());
+    const next = await this.mutate(ctx.guildId, () => player.skip());
 
     if (!next) {
       await ctx.reply({
@@ -432,7 +475,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    const previous = await this.players.withLock(ctx.guildId, () => player.previous());
+    const previous = await this.mutate(ctx.guildId, () => player.previous());
 
     if (!previous) {
       await ctx.reply({
@@ -581,7 +624,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player || !(await this.refuseUnseekable(ctx, player))) return;
 
-    await this.players.withLock(ctx.guildId, () => player.seek(positionMs));
+    await this.mutate(ctx.guildId, () => player.seek(positionMs));
     await this.sendNowPlaying(ctx, player);
   }
 
@@ -598,7 +641,7 @@ export class MusicService {
 
     // Clamped by the player against the track's own length, so jumping ten
     // seconds past the end lands on the end rather than off it.
-    await this.players.withLock(ctx.guildId, () => player.seek(player.positionMs + deltaMs));
+    await this.mutate(ctx.guildId, () => player.seek(player.positionMs + deltaMs));
     await this.sendNowPlaying(ctx, player);
   }
 
@@ -607,7 +650,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player || !(await this.refuseUnseekable(ctx, player))) return;
 
-    await this.players.withLock(ctx.guildId, () => player.seek(0));
+    await this.mutate(ctx.guildId, () => player.seek(0));
     await this.sendNowPlaying(ctx, player);
   }
 
@@ -643,7 +686,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    const applied = await this.players.withLock(ctx.guildId, () => player.setVolume(volume));
+    const applied = await this.mutate(ctx.guildId, () => player.setVolume(volume));
     await ctx.reply({
       content: `Volume set to **${applied}%**.`,
       title: 'Volume',
@@ -663,7 +706,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    await this.players.withLock(ctx.guildId, () => player.setVolume(volume));
+    await this.mutate(ctx.guildId, () => player.setVolume(volume));
     await this.sendNowPlaying(ctx, player);
   }
 
@@ -672,14 +715,19 @@ export class MusicService {
     if (!player) return;
 
     try {
-      await this.players.withLock(ctx.guildId, () => player.setFilter(preset));
+      await this.mutate(ctx.guildId, () => player.setFilter(preset));
       await ctx.reply({
         content: preset ? `Filter set to **${preset}**.` : 'Filters cleared.',
         title: 'Filters',
         icon: 'sliders',
       });
     } catch (error) {
-      await this.replyWithError(ctx, error, 'filter');
+      await this.replyWithError(
+        ctx,
+        error,
+        'filter',
+        'Could not apply that filter. Please try again.',
+      );
     }
   }
 
@@ -687,7 +735,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    await this.players.withLock(ctx.guildId, () => player.queue.shuffle());
+    await this.mutate(ctx.guildId, () => player.queue.shuffle());
     await ctx.reply({
       content: `Shuffled **${player.queue.size}** tracks.`,
       title: 'Shuffled',
@@ -722,7 +770,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    const removed = await this.players.withLock(ctx.guildId, () => player.queue.clear());
+    const removed = await this.mutate(ctx.guildId, () => player.queue.clear());
     await ctx.reply({
       content: `Removed **${removed}** tracks from the queue.`,
       title: 'Queue cleared',
@@ -755,7 +803,7 @@ export class MusicService {
       return;
     }
 
-    await this.players.withLock(ctx.guildId, () => player.queue.remove(position));
+    await this.mutate(ctx.guildId, () => player.queue.remove(position));
     await ctx.reply({
       content: `Removed **${track.title}** from the queue.`,
       title: 'Removed',
@@ -782,7 +830,7 @@ export class MusicService {
       return;
     }
 
-    await this.players.withLock(ctx.guildId, () => player.queue.move(from, to));
+    await this.mutate(ctx.guildId, () => player.queue.move(from, to));
     await ctx.reply({
       content: `Moved **${track.title}** to **${to}**.`,
       title: 'Moved',
@@ -802,7 +850,7 @@ export class MusicService {
 
     if (!(await this.trackAt(ctx, player, position))) return;
 
-    const track = await this.players.withLock(ctx.guildId, () => player.jumpTo(position));
+    const track = await this.mutate(ctx.guildId, () => player.jumpTo(position));
     logger.info({ guildId: ctx.guildId, position, track: track.title }, 'jumped in the queue');
 
     await this.sendNowPlaying(ctx, player);
@@ -819,7 +867,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    const removed = await this.players.withLock(ctx.guildId, () =>
+    const removed = await this.mutate(ctx.guildId, () =>
       player.queue.removeByRequester(ctx.userId),
     );
 
@@ -851,7 +899,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    const removed = await this.players.withLock(ctx.guildId, () => player.queue.removeDuplicates());
+    const removed = await this.mutate(ctx.guildId, () => player.queue.removeDuplicates());
 
     if (removed.length === 0) {
       await ctx.reply({
@@ -896,9 +944,7 @@ export class MusicService {
       return;
     }
 
-    const removed = await this.players.withLock(ctx.guildId, () =>
-      player.queue.removeAbsent(present),
-    );
+    const removed = await this.mutate(ctx.guildId, () => player.queue.removeAbsent(present));
 
     if (removed.length === 0) {
       await ctx.reply({
@@ -1039,7 +1085,7 @@ export class MusicService {
     const player = this.require(ctx);
     if (!player) return;
 
-    await this.players.withLock(ctx.guildId, () => player.toggleMute());
+    await this.mutate(ctx.guildId, () => player.toggleMute());
 
     // The panel is where a mute is visible — the speaker button and the
     // picker's placeholder both change — so it is redrawn rather than answered
@@ -1058,21 +1104,27 @@ export class MusicService {
     const player = this.players.get(ctx.guildId);
     const played = player ? [...player.queue.history].reverse() : [];
 
-    const card = await renderSakuraHistoryCard({
-      entries: played.slice(0, HISTORY_SAKURA_ROWS).map((track) => ({
-        title: track.title,
-        author: track.author,
-        durationMs: track.durationMs,
-        requesterName: this.nameFor(track.requesterId),
-        ...(track.isStream ? { isStream: true } : {}),
-      })),
-      totalCount: played.length,
-      ...(this.options.guildName?.(ctx.guildId) === undefined
-        ? {}
-        : { guildName: this.options.guildName(ctx.guildId) }),
-    });
+    const HISTORY_ROWS = 10;
+    const shown = played.slice(0, HISTORY_ROWS);
 
-    await ctx.reply({ attachments: [{ name: cardFile('history'), data: card }] });
+    await ctx.reply({
+      title: 'History',
+      icon: 'history',
+      content:
+        shown.length === 0
+          ? 'Nothing has played here yet.'
+          : shown
+              .map(
+                (track, index) =>
+                  `**${index + 1}.** ${track.title} — ${track.author}${
+                    track.isStream ? ' `LIVE`' : ` \`${formatDuration(track.durationMs)}\``
+                  } · ${this.nameFor(track.requesterId)}`,
+              )
+              .join('\n'),
+      ...(played.length > shown.length
+        ? { footer: `Showing the last ${shown.length} of ${played.length} played` }
+        : {}),
+    });
   }
 
   /** Renders the Now Playing panel on demand. */
@@ -1082,6 +1134,9 @@ export class MusicService {
 
     await this.sendNowPlaying(ctx, player);
   }
+
+  /** How many upcoming tracks an embed page shows — no artwork to fit around now, so more fit than the card's four. */
+  private static readonly QUEUE_PAGE_SIZE = 10;
 
   /** Renders one page of the queue. */
   async queue(ctx: CommandContext, page = 1): Promise<void> {
@@ -1096,43 +1151,40 @@ export class MusicService {
       return;
     }
 
-    const slice = paginateSakuraQueue(player.queue.tracks, page);
+    const slice = paginateSakuraQueue(player.queue.tracks, page, MusicService.QUEUE_PAGE_SIZE);
     const current = player.queue.current;
+    const fields: ReplyEmbedField[] = [];
 
-    const card = await renderQueueCard({
-      current: current && {
-        title: current.title,
-        author: current.author,
-        artworkUrl: current.artworkUrl,
-        durationMs: current.durationMs,
-        positionMs: player.positionMs,
-        isStream: current.isStream,
-        paused: player.status === 'paused',
-      },
-      tracks: slice.items.map((track, index) => ({
+    if (current) {
+      const status = player.status === 'paused' ? 'Paused' : 'Now playing';
+      const length = current.isStream
+        ? 'LIVE'
+        : `${formatDuration(player.positionMs)} / ${formatDuration(current.durationMs)}`;
+      fields.push({
+        name: status,
+        value: `**${current.title}** — ${current.author} \`${length}\``,
+      });
+    }
+
+    if (slice.items.length > 0) {
+      fields.push({
+        name: `Up next (${player.queue.size} ${plural(player.queue.size, 'track')})`,
         // The number a row shows is the number `remove`, `move` and `jump`
         // take, which counts the upcoming list from 1 and never the track
-        // playing — that one has the highlighted row above, not a position.
-        // Adding one for it drew "2" beside the track `remove 1` deletes.
-        position: slice.firstPosition + index,
-        title: track.title,
-        author: track.author,
-        durationMs: track.durationMs,
-        isStream: track.isStream,
-        requesterName: this.nameFor(track.requesterId),
-        ...(track.requesterId === AUTOPLAY_REQUESTER_ID ? { autoplay: true } : {}),
-      })),
-      page: slice.page,
-      totalPages: slice.totalPages,
-      totalTracks: player.queue.size,
-      totalDurationMs: player.queue.totalDurationMs,
-      loop: player.loop,
-      theme: this.options.theme,
-      variant: this.options.variant,
-    });
+        // playing — that one is the field above, not a position.
+        value: slice.items
+          .map((track, index) =>
+            queueLine(slice.firstPosition + index, track, this.nameFor(track.requesterId)),
+          )
+          .join('\n'),
+      });
+    }
 
     await ctx.reply({
-      attachments: [{ name: cardFile('queue'), data: card }],
+      title: 'Queue',
+      icon: 'queue',
+      fields,
+      footer: `Page ${slice.page}/${slice.totalPages} · ${formatDuration(player.queue.totalDurationMs)} total · Loop: ${LOOP_LABELS[player.loop]}`,
       components: this.options.queueComponents?.(slice.page, slice.totalPages),
       edit: true,
     });
@@ -1170,37 +1222,22 @@ export class MusicService {
       return;
     }
 
-    const slice = paginateSakuraQueue(matches, page);
-
-    const card = await renderQueueCard({
-      // No current track on this card: every row is a match, and a highlighted
-      // row for something that is not one would read as the first result.
-      tracks: slice.items.map((match) => ({
-        position: match.position,
-        title: match.track.title,
-        author: match.track.author,
-        durationMs: match.track.durationMs,
-        isStream: match.track.isStream,
-        requesterName: this.nameFor(match.track.requesterId),
-        ...(match.track.requesterId === AUTOPLAY_REQUESTER_ID ? { autoplay: true } : {}),
-      })),
-      page: slice.page,
-      totalPages: slice.totalPages,
-      // The result set, not the queue: the count on the card has to describe
-      // what the card is showing.
-      totalTracks: matches.length,
-      totalDurationMs: matches.reduce(
-        (sum, match) => sum + (match.track.isStream ? 0 : match.track.durationMs),
-        0,
-      ),
-      loop: player.loop,
-      theme: this.options.theme,
-      variant: this.options.variant,
-    });
+    const slice = paginateSakuraQueue(matches, page, MusicService.QUEUE_PAGE_SIZE);
 
     await ctx.reply({
+      title: 'Queue matches',
+      icon: 'search',
       content: `**${matches.length}** of **${player.queue.size}** queued ${plural(player.queue.size, 'track')} match **${term.trim()}**.`,
-      attachments: [{ name: cardFile('queue'), data: card }],
+      fields: [
+        {
+          name: `Results ${slice.page}/${slice.totalPages}`,
+          value: slice.items
+            .map((match) =>
+              queueLine(match.position, match.track, this.nameFor(match.track.requesterId)),
+            )
+            .join('\n'),
+        },
+      ],
     });
   }
 
@@ -1238,6 +1275,16 @@ export class MusicService {
    */
   async announceTrack(player: Player): Promise<void> {
     const current = player.queue.current;
+
+    // Checked before anything asynchronous happens: the event that brings us
+    // here is emitted from inside the command that started the track, so this
+    // is the only moment the flag is reliably still set.
+    //
+    // An autoplay pick is exempt. It can start inside a command too -- skipping
+    // the last track ends the queue, which is what makes autoplay choose the
+    // next one -- but that track is not what the command is answering about,
+    // and suppressing it would leave the room with no idea what began playing.
+    if (current && !isAutoplayed(current) && this.answering.has(player.guildId)) return;
     const channelId = player.textChannelId;
     if (!current || !channelId || !this.options.announce) return;
 
@@ -1295,9 +1342,7 @@ export class MusicService {
 
     try {
       const tracks = inputs.map((input) => createTrack(input));
-      const { started, added } = await this.players.withLock(ctx.guildId, () =>
-        player.enqueue(tracks),
-      );
+      const { started, added } = await this.mutate(ctx.guildId, () => player.enqueue(tracks));
 
       const suffix = added < tracks.length ? ` (the queue took ${added} of ${tracks.length})` : '';
       await ctx.reply({
@@ -1390,8 +1435,19 @@ export class MusicService {
     return this.options.displayName?.(userId) ?? userId;
   }
 
-  /** Maps a failure onto a short, actionable message (spec §24, §35). */
-  private async replyWithError(ctx: CommandContext, error: unknown, action: string): Promise<void> {
+  /**
+   * Maps a failure onto a short, actionable message (spec §24, §35).
+   *
+   * `describeResolverError`'s fallback talks about a track failing to load,
+   * which is nonsense for a command like `join` that never resolves one —
+   * `fallbackMessage` lets a caller say what actually went wrong instead.
+   */
+  private async replyWithError(
+    ctx: CommandContext,
+    error: unknown,
+    action: string,
+    fallbackMessage?: string,
+  ): Promise<void> {
     if (!(error instanceof ResolverError)) {
       logger.error(
         { err: error, guildId: ctx.guildId, action, correlationId: ctx.correlationId },
@@ -1399,8 +1455,13 @@ export class MusicService {
       );
     }
 
+    const content =
+      error instanceof ResolverError || !fallbackMessage
+        ? describeResolverError(error)
+        : fallbackMessage;
+
     await ctx.reply({
-      content: describeResolverError(error),
+      content,
       title: 'That did not work',
       tone: 'error',
       ephemeral: true,

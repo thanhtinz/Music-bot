@@ -1,10 +1,12 @@
 # Music Bot
 
-A production-grade Discord music bot — TypeScript + discord.js + Lavalink 4 — with a **Canvas UI** that renders the Now Playing / Queue panels as images instead of plain text embeds.
+A production-grade Discord music bot — TypeScript + discord.js + Lavalink 4 — with a **Canvas UI** that renders the Now Playing panel as an image; every other reply (queue, history, help, lyrics, playlists, search, stats, settings, and every notice) answers with a real Discord embed instead of plain text.
 
 > Status: built phase by phase. See the [Roadmap](#roadmap).
 
 ## Two card styles
+
+> The renderers below (queue, help, playlist, search, stats, settings) still exist and are still tested, but the live bot only ever attaches one of them to a reply — the Now Playing panel. Every other command that used to draw one of these now answers with a [Discord embed](#every-reply-is-an-embed) built from the same data instead.
 
 The `sakura` variant composites live player state onto an illustrated pastel template — only the cover, title, artist, source badge, progress, timestamps and the transport glyph are repainted, so the artwork keeps its hand-made look:
 
@@ -560,9 +562,7 @@ Counts live in `STATS_STORE_PATH`, on the same `JsonStore` as playlists, setting
 npm run preview:replies
 ```
 
-Runs the real services through the real reply decorator with a fake audio backend, in the same card variant the bot defaults to, and writes each answer to `preview/reply-*.png`. Because the cards come from the command path rather than from hand-written sample data, a preview cannot drift from what a user would see — and mistakes show up as pictures.
-
-It has already earned its place. Rendering the `stats` replies turned up a notice card that dropped everything past two lines with no sign it had — a sentence that stops mid-word reads as a broken bot, so an overlong message now ends in an ellipsis. Two more bugs were invisible in the source and obvious the moment the cards were rendered: `<#id>` and `` `play` `` are Discord chat markup, so on an image they were drawn literally as `<#voice-a>` and `` `play` ``. Channels are now named (`#general-voice`, falling back to _the voice channel_ when the name is not cached) and inline code is drawn in the accent colour like bold.
+Runs the real services through the real reply pipeline with a fake audio backend and writes each answer to `preview/`. The Now Playing panel is still written as a `.png`; everything else is now an embed, so its title, text and fields are written to a `.txt` file instead — because the reply comes from the command path rather than from hand-written sample data, a preview cannot drift from what a user would see.
 
 ## Joining and leaving
 
@@ -575,19 +575,13 @@ It has already earned its place. Rendering the `stats` replies turned up a notic
 
 A move is a real reconnect, not a field change: Lavalink destroys its player when the bot leaves a channel, so the current track is started again from the position it had reached, and stays paused if it was paused.
 
-## Every reply is a card
+## Every reply is an embed
 
-Commands that used to answer with a line of chat answer with a panel in the same pastel style, so a reply looks like it came from the same place as the Now Playing and queue cards:
+Only the Now Playing panel is still a drawn image — everything else (`join`/`leave`, `volume`, `queue`, `history`, `help`, `lyrics`, `playlist`, `search`, `stats`, `settings`, and every other one-line notice) answers with a real Discord embed instead:
 
-![](preview/notice-volume.png)
+Four tones — success, info, warning, error — change the accent colour, never the layout: a warning that redesigned the reply would stop looking like the same bot.
 
-Four tones — success, info, warning, error — change the accent and the icon, never the layout: a warning that redesigned the card would stop looking like the same bot.
-
-![](preview/notice-nothing-playing.png)
-
-The conversion happens once, in `withNoticeCards`, which wraps the command context rather than sitting at each call site. A command still writes its reply as a sentence and adds a `title`/`icon`/`tone` if it has an opinion; anything already carrying a panel is left alone, and if a card fails to render the original text goes out instead — losing the picture is survivable, losing what the bot was saying is not.
-
-`**bold**` runs in a message are drawn in the accent colour, so the messages keep working as chat text too.
+The conversion happens once, in `toMessageOptions` (`src/infrastructure/discord/context.ts`), which builds the embed from whatever a command already writes: a sentence in `content`, an optional `title`/`icon`/`tone`, and `fields`/`footer` for anything with a list to show. A command that also attaches a file — only the Now Playing panel does — is sent as plain text plus that image instead, no embed wrapped around it.
 
 ## Saved playlists
 
